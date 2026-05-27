@@ -140,7 +140,7 @@ langmine/
 |---|-----------|-------|--------|
 | M0 | Project Scaffold | 18 | ✅ Complete |
 | M1 | Mine One Sentence | 20 | ✅ Complete |
-| M2 | Classify All Sentences | — | Next |
+| M2 | Classify All Sentences | 22 | ✅ Complete |
 | M3 | Curate in Browser | — | |
 | M4 | Translate & Understand | — | |
 | M5 | Export to Anki | — | |
