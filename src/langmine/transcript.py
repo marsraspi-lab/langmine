@@ -1,27 +1,9 @@
 """Transcript fetching and sentence merging for YouTube videos."""
 
-from dataclasses import dataclass
-
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
 
-
-@dataclass
-class TranscriptChunk:
-    """A single subtitle chunk with timing."""
-
-    text: str
-    start_ms: float
-    duration_ms: float
-
-
-@dataclass
-class MergedSentence:
-    """A merged sentence with timing boundaries."""
-
-    text: str
-    start_ms: float
-    end_ms: float
+from langmine.domain.ports import TranscriptChunk, MergedSentence
 
 
 def fetch_transcript(video_id_or_url: str) -> list[TranscriptChunk]:

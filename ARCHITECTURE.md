@@ -85,3 +85,4 @@ Forbidden:
 |-----------|------|--------|-------|
 | Post-refactor | ✅ Pass | Domain ports + models created. Pipeline uses `mine_one_sentence(ports)`. Convenience wrapper at edge. |
 | Post-refactor review | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: 21 abstract methods. Check 4: 8 port references in pipeline. Check 6: 36/36 domain tests pass without ffmpeg. |
+| Chinese service split | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: ChineseLanguageService has zero I/O imports (jieba/pypinyin are pure in-memory algorithms). Check 3: LanguageProcessor in domain/ports.py. Check 4: 7 port references in ChineseLanguageService (self._dict/_translator/_frequency). Check 5: 48/48 domain tests pass. |

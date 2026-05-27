@@ -3,6 +3,9 @@
 import argparse
 import sys
 
+from langmine.config import load_config
+from langmine.transcript import _extract_video_id
+
 
 def main():
     """Main entry point for the langmine CLI."""
@@ -29,15 +32,82 @@ def main():
             print("Error: A YouTube URL is required for the 'mine' command.", file=sys.stderr)
             mine_parser.print_usage()
             sys.exit(1)
-        print(f"Mining: {args.url}")
-        if args.dry_run:
-            print("(dry run — no data saved)")
+        _cmd_mine(args)
 
     elif args.command == "serve":
         print(f"Starting LangMine server at http://{args.host}:{args.port}")
 
     else:
         parser.print_help()
+
+
+def _cmd_mine(args):
+    """Run the mining pipeline with real adapters."""
+    config = load_config()
+    video_id = _extract_video_id(args.url)
+    output_dir = config.data_dir if hasattr(config, 'data_dir') else "/tmp/langmine"
+
+    # Wire up real adapters
+    from langmine.adapters import (
+        YouTubeTranscriptAdapter,
+        YtdlpAudioAdapter,
+        SQLitePersistence,
+    )
+    from langmine.pipeline import process_video
+    from langmine.domain.services.chinese import ChineseLanguageService
+
+    # TODO: Wire real Dictionary, Translator, Frequency adapters (M4)
+    # For now, use stub implementations
+    from langmine.domain.ports import Dictionary, Translator, FrequencySource
+
+    class StubDictionary(Dictionary):
+        def lookup(self, word): return None
+
+    class StubTranslator(Translator):
+        def translate(self, text, src, tgt): return ""
+
+    class StubFrequency(FrequencySource):
+        def get_frequency(self, word): return None
+
+    transcript = YouTubeTranscriptAdapter()
+    audio = YtdlpAudioAdapter()
+    persistence = SQLitePersistence()
+    processor = ChineseLanguageService(
+        StubDictionary(), StubTranslator(), StubFrequency()
+    )
+
+    print(f"⛏️  Mining: {args.url}")
+    print(f"   Output: {output_dir}")
+    print()
+
+    try:
+        result = process_video(
+            transcript_source=transcript,
+            audio_processor=audio,
+            persistence=persistence,
+            language_processor=processor,
+            video_id=video_id,
+            output_dir=output_dir,
+        )
+
+        # Print results
+        print(f"📊 Results for: {video_id}")
+        print(f"   Total sentences: {result['total_sentences']}")
+        print(f"   🔥 i+1 candidates: {len(result['i1_candidates'])}")
+        print(f"   ✅ i+0 (all known): {result['i0_count']}")
+        print(f"   📥 Stashed (i+2+): {result['stash_count']}")
+        print()
+
+        if result["i1_candidates"]:
+            print("i+1 Sentences (learn these):")
+            for i, s in enumerate(result["i1_candidates"][:10], 1):
+                rank_str = f"#{s.unknown_word_rank}" if s.unknown_word_rank else "?"
+                print(f"   {i}. {s.text}")
+                print(f"      🆕 {s.unknown_word} ({rank_str})")
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

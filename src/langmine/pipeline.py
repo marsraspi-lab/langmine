@@ -9,7 +9,10 @@ from langmine.domain.ports import (
     TranscriptSource,
     AudioProcessor,
     Persistence,
+    LanguageProcessor,
 )
+from langmine.domain.models import Video, Sentence
+from langmine.domain.classifier import SentenceClassifier
 from langmine.transcript import merge_sentences
 from langmine.config import load_config
 
@@ -99,3 +102,70 @@ def extract_one_sentence(
         pad_before_ms=pad_before_ms,
         pad_after_ms=pad_after_ms,
     )
+
+
+def process_video(
+    transcript_source: TranscriptSource,
+    audio_processor: AudioProcessor,
+    persistence: Persistence,
+    language_processor: LanguageProcessor,
+    video_id: str,
+    output_dir: str,
+    max_cards: int | None = None,
+    gap_ms: int | None = None,
+    pad_before_ms: int | None = None,
+    pad_after_ms: int | None = None,
+) -> dict:
+    """Mine and classify all sentences from a video.
+
+    Full pipeline: transcript → merge → classify → persist.
+    Uses injected ports — no direct YouTube/ffmpeg/SQLite dependencies.
+
+    Returns:
+        Dict with: i1_candidates (list[Sentence]), i0_count, stash_count,
+        total_sentences, video_id.
+    """
+    config = load_config()
+
+    if max_cards is None:
+        max_cards = config.max_cards_per_video
+    if gap_ms is None:
+        gap_ms = config.sentence_gap_ms
+
+    # 1. Fetch and merge transcript
+    chunks = transcript_source.fetch(video_id)
+    merged = merge_sentences(chunks, gap_ms=gap_ms)
+
+    if not merged:
+        raise ValueError("No sentences could be extracted from the video.")
+
+    # 2. Save video metadata
+    video = Video(
+        youtube_id=video_id,
+        title=video_id,  # Title fetched later (M3/M7)
+    )
+    persistence.save_video(video)
+
+    # 3. Classify sentences
+    classifier = SentenceClassifier(language_processor, persistence)
+    sentences = classifier.classify(
+        video_id=video.id,
+        sentences=merged,
+        max_cards=max_cards,
+    )
+
+    # 4. Persist classified sentences
+    persistence.save_sentences(sentences)
+
+    # 5. Build summary
+    i1_candidates = [s for s in sentences if s.status == "i1"]
+    i0_count = sum(1 for s in sentences if s.status == "i0")
+    stash_count = sum(1 for s in sentences if s.status == "stashed")
+
+    return {
+        "i1_candidates": i1_candidates,
+        "i0_count": i0_count,
+        "stash_count": stash_count,
+        "total_sentences": len(sentences),
+        "video_id": video_id,
+    }
