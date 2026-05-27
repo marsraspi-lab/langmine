@@ -1,0 +1,129 @@
+"""Chinese language service — domain logic for Chinese NLP.
+
+Implements the LanguageProcessor port using injected ports:
+  Dictionary → CC-CEDICT (adapter) or fake (tests)
+  Translator → Google Translate (adapter) or fake (tests)
+  FrequencySource → SUBTLEX-CH (adapter) or fake (tests)
+
+Pure methods (segment, get_reading, is_non_word) use in-memory
+algorithms and require no ports.
+"""
+
+import re
+
+import jieba
+import pypinyin
+
+from langmine.domain.ports import (
+    LanguageProcessor,
+    Dictionary,
+    Translator,
+    FrequencySource,
+)
+
+
+# Particles and function words that should NOT count as words for i+1
+CHINESE_PARTICLES = {
+    "的", "了", "吗", "吧", "呢", "啊", "哦", "嗯", "嘛",
+    "啦", "呀", "呗", "咯", "哈", "哇", "哎", "唉", "哟",
+    "着", "过", "地", "得",
+}
+
+
+class ChineseLanguageService(LanguageProcessor):
+    """Chinese NLP — depends on ports, never on concrete adapters."""
+
+    def __init__(
+        self,
+        dictionary: Dictionary,
+        translator: Translator,
+        frequency: FrequencySource,
+    ):
+        self._dict = dictionary
+        self._translator = translator
+        self._frequency = frequency
+
+    # === Pure domain logic (no ports needed) ===
+
+    def segment(self, text: str) -> list[str]:
+        """Segment Chinese text using jieba (pure in-memory)."""
+        return list(jieba.cut(text))
+
+    def get_reading(self, text: str) -> str:
+        """Generate pinyin using pypinyin (pure in-memory)."""
+        return " ".join(pypinyin.lazy_pinyin(text))
+
+    def is_non_word(self, token: str) -> bool:
+        """True if token should be excluded from i+1 counting.
+
+        Filters out: particles, numbers, dates, proper names.
+        """
+        # Particles
+        if token in CHINESE_PARTICLES:
+            return True
+
+        # Pure numbers
+        if re.match(r"^\d+$", token):
+            return True
+
+        # Chinese numeral (standalone digit-words are not content words)
+        if token in {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
+                      "百", "千", "万", "亿", "两"}:
+            return True
+
+        # Dates and number patterns: 2024年, 三月, 七点, 第X
+        if re.match(r"^\d+年$", token):
+            return True
+        if re.match(r"^[零一二三四五六七八九十百千万亿]+[月日点分秒]$", token):
+            return True
+        if re.match(r"^第[零一二三四五六七八九十百千万亿\d]+$", token):
+            return True
+
+        return False
+
+    # === Port-delegated methods (depend on injected ports) ===
+
+    def lookup_word(self, word: str) -> dict | None:
+        """Look up word through the Dictionary port."""
+        return self._dict.lookup(word)
+
+    def translate_sentence(self, text: str) -> str:
+        """Translate sentence through the Translator port."""
+        return self._translator.translate(text, source_lang="zh", target_lang="de")
+
+    def get_frequency(self, word: str) -> int | None:
+        """Get frequency rank through the FrequencySource port."""
+        return self._frequency.get_frequency(word)
+
+    def find_known_synonyms(
+        self, word: str, known_words: set[str]
+    ) -> list[str]:
+        """Detect known synonyms via Dictionary port.
+
+        Checks the word's CC-CEDICT definition for 'same as X' / 'see also X'
+        patterns and returns any that are in the known_words set.
+        """
+        entry = self._dict.lookup(word)
+        if entry is None:
+            return []
+
+        # Search for synonym patterns in the English definition
+        definition = entry.get("definition_en", "")
+        synonyms = set()
+
+        # Pattern: "same as X" / "see also X" / "also written X" / "variant of X"
+        # X can be English (\w+) or Chinese (CJK characters)
+        patterns = [
+            r"same as ([\w\u4e00-\u9fff]+)",
+            r"see also ([\w\u4e00-\u9fff]+)",
+            r"also written ([\w\u4e00-\u9fff]+)",
+            r"variant of ([\w\u4e00-\u9fff]+)",
+        ]
+
+        for pattern in patterns:
+            for match in re.findall(pattern, definition, re.IGNORECASE):
+                # Check if the matched word (English or Chinese) is in known_words
+                if match in known_words:
+                    synonyms.add(match)
+
+        return list(synonyms)

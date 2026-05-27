@@ -1,12 +1,13 @@
-"""Tests for the LanguageProcessor plugin interface."""
+"""Tests for the LanguageProcessor port (in ports.py) and compat shim."""
 
 import pytest
 
-from langmine.processors import LanguageProcessor, ChineseProcessor, get_processor
+from langmine.domain.ports import LanguageProcessor
+from langmine.processors import get_processor
 
 
 class DummyProcessor(LanguageProcessor):
-    """Minimal implementation for testing the interface."""
+    """Minimal implementation for testing the port interface."""
 
     def segment(self, text: str) -> list[str]:
         return text.split()
@@ -47,27 +48,20 @@ def test_concrete_implementation_works():
     assert proc.is_non_word("cat") is False
 
 
-def test_get_processor_returns_chinese_for_zh():
-    """get_processor('zh') should return a ChineseProcessor instance."""
-    proc = get_processor("zh")
-    assert isinstance(proc, ChineseProcessor)
-    assert isinstance(proc, LanguageProcessor)
+def test_language_processor_is_in_domain_ports():
+    """LanguageProcessor should live in domain.ports, not processors.py."""
+    from langmine.domain import ports as ports_module
+    assert hasattr(ports_module, "LanguageProcessor")
+    assert ports_module.LanguageProcessor is LanguageProcessor
 
 
 def test_get_processor_raises_for_unknown_language():
     """get_processor with an unregistered language should raise ValueError."""
-    with pytest.raises(ValueError, match="No processor registered"):
+    with pytest.raises(ValueError, match="No processor"):
         get_processor("zz")
 
 
-def test_chinese_processor_has_all_methods():
-    """ChineseProcessor should implement all abstract methods."""
-    proc = ChineseProcessor()
-    # Methods should exist and be callable with basic inputs
-    assert callable(proc.segment)
-    assert callable(proc.get_reading)
-    assert callable(proc.lookup_word)
-    assert callable(proc.translate_sentence)
-    assert callable(proc.get_frequency)
-    assert callable(proc.is_non_word)
-    assert callable(proc.find_known_synonyms)
+def test_get_processor_zh_raises_not_implemented():
+    """Chinese adapter wiring is not yet implemented — M2/M4."""
+    with pytest.raises(NotImplementedError):
+        get_processor("zh")

@@ -34,6 +34,50 @@ class MergedSentence:
 # === Ports ===
 
 
+class LanguageProcessor(ABC):
+    """Abstract base for language-specific NLP processing.
+
+    This is a DOMAIN PORT — domain code talks to this interface.
+    Each language (Chinese, Spanish, Korean, Russian, etc.) provides
+    a domain service that implements this port.
+
+    The implementation injects lower-level ports (Dictionary, Translator,
+    FrequencySource) — it never calls external systems directly.
+    """
+
+    @abstractmethod
+    def segment(self, text: str) -> list[str]:
+        """Segment text into words/tokens."""
+
+    @abstractmethod
+    def get_reading(self, text: str) -> str:
+        """Phonetic reading: pinyin for zh, IPA for es, etc."""
+
+    @abstractmethod
+    def lookup_word(self, word: str) -> dict | None:
+        """Dictionary lookup. Returns definition dict with keys
+        'definition_de' and 'definition_en'. None if not found."""
+
+    @abstractmethod
+    def translate_sentence(self, text: str) -> str:
+        """Sentence-level MT. Returns German translation."""
+
+    @abstractmethod
+    def get_frequency(self, word: str) -> int | None:
+        """Frequency rank (lower = more common). None if unknown."""
+
+    @abstractmethod
+    def is_non_word(self, token: str) -> bool:
+        """True if this token should be excluded from i+1 counting
+        (particles, numbers, names, etc.)."""
+
+    @abstractmethod
+    def find_known_synonyms(
+        self, word: str, known_words: set[str]
+    ) -> list[str]:
+        """Return any known synonyms of `word`."""
+
+
 class TranscriptSource(ABC):
     """Port for fetching video subtitles.
 
@@ -147,4 +191,17 @@ class Dictionary(ABC):
     def lookup(self, word: str) -> dict | None:
         """Look up a word. Returns dict with definition_de, definition_en, pinyin.
         Returns None if word not found.
+        """
+
+
+class FrequencySource(ABC):
+    """Port for word frequency data.
+
+    Adapters: SUBTLEX-CH (Chinese), SUBTLEX-UK (English), custom frequency lists.
+    """
+
+    @abstractmethod
+    def get_frequency(self, word: str) -> int | None:
+        """Return frequency rank for a word (lower = more common).
+        Returns None if unknown.
         """
