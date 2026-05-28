@@ -33,6 +33,47 @@ LangMine uses the project binaries automatically if present, falling back to sys
 
 ---
 
+## Docker Quick Start (recommended)
+
+No Python, Node, or ffmpeg install needed — just Docker.
+
+### With Docker Compose
+
+```bash
+git clone https://github.com/marsraspi-lab/langmine.git
+cd langmine
+docker compose up
+# → http://localhost:8080
+```
+
+This mounts `~/.langmine` for persistence and configures
+`host.docker.internal` so AnkiConnect on the host works automatically.
+
+### With docker run
+
+```bash
+docker run -p 8080:8080 \
+  -v ~/.langmine:/root/.langmine \
+  --add-host=host.docker.internal:host-gateway \
+  marsraspi-lab/langmine:latest
+```
+
+The `--add-host` flag is required for AnkiConnect on Linux (Docker Desktop
+for Mac/Windows provides `host.docker.internal` automatically).
+
+### Build from source
+
+```bash
+git clone https://github.com/marsraspi-lab/langmine.git
+cd langmine
+docker build -t langmine .
+docker run -p 8080:8080 -v ~/.langmine:/root/.langmine \
+  --add-host=host.docker.internal:host-gateway \
+  langmine
+```
+
+---
+
 ## Installation
 
 ```bash
@@ -228,6 +269,7 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M5 | Export to Anki | ✅ — AnkiConnect, config-driven templates, force-update |
 | M6 | Stash & Screenshots | ✅ — stash tab, video frame capture, screenshot in Anki cards |
 | M7 | Polish & Edit | ✅ — inline editing, settings page, theme toggle, error handling |
+| M8 | Docker Deployment | ✅ — multi-stage image, docker-compose, one-command startup |
 
 ---
 
