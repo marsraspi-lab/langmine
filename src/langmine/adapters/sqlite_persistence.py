@@ -196,6 +196,57 @@ class SQLitePersistence(Persistence):
         ).fetchone()[0]
         return {"known": known, "learning": learning, "total": total}
 
+    def list_vocab(
+        self,
+        page: int = 1,
+        per_page: int = 200,
+        status: str | None = None,
+        search: str | None = None,
+        sort: str = "frequency",
+    ) -> tuple[list[VocabWord], int]:
+        where = []
+        params: list = []
+
+        if status:
+            where.append("status = ?")
+            params.append(status)
+        if search:
+            where.append("(word_simplified LIKE ? OR pinyin LIKE ?)")
+            params.extend([f"%{search}%", f"%{search}%"])
+
+        where_clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+        # Total count
+        count_row = self.conn.execute(
+            f"SELECT COUNT(*) FROM vocab {where_clause}", params
+        ).fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Sort
+        sort_map = {
+            "frequency": "frequency_rank ASC NULLS LAST",
+            "hsk": "hsk_level ASC NULLS LAST",
+            "recent": "id DESC",
+        }
+        order = sort_map.get(sort, sort_map["frequency"])
+
+        offset = (page - 1) * per_page
+        rows = self.conn.execute(
+            f"SELECT * FROM vocab {where_clause} ORDER BY {order} LIMIT ? OFFSET ?",
+            params + [per_page, offset],
+        ).fetchall()
+
+        return [self._row_to_vocab(r) for r in rows], total
+
+    def get_sentences_by_word(self, word: str) -> list[Sentence]:
+        rows = self.conn.execute(
+            """SELECT * FROM sentences
+               WHERE unknown_word = ? OR text LIKE ?
+               ORDER BY start_ms""",
+            (word, f"%{word}%"),
+        ).fetchall()
+        return [self._row_to_sentence(r) for r in rows]
+
     # === Row mappers ===
 
     def _row_to_video(self, row) -> Video:

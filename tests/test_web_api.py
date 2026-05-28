@@ -146,6 +146,26 @@ class FakePersistence(Persistence):
         total = len(self._vocab)
         return {"known": known, "learning": learning, "total": total}
 
+    def list_vocab(
+        self, page=1, per_page=200, status=None, search=None, sort="frequency"
+    ):
+        words = list(self._vocab)
+        if status:
+            words = [w for w in words if w.status == status]
+        if search:
+            words = [w for w in words
+                     if search.lower() in w.word_simplified.lower()
+                     or search.lower() in (w.pinyin or "").lower()]
+        # Sort by frequency_rank (None last)
+        words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
+        total = len(words)
+        start = (page - 1) * per_page
+        return words[start:start + per_page], total
+
+    def get_sentences_by_word(self, word: str) -> list[Sentence]:
+        return [s for s in self._sentences
+                if s.unknown_word == word or word in s.text]
+
 
 class FakeTranscriptSource(TranscriptSource):
     """Fake transcript source — returns hardcoded Chinese sentences."""

@@ -179,6 +179,37 @@ class Persistence(ABC):
     @abstractmethod
     def get_vocab_stats(self) -> dict: ...
 
+    @abstractmethod
+    def list_vocab(
+        self,
+        page: int = 1,
+        per_page: int = 200,
+        status: str | None = None,
+        search: str | None = None,
+        sort: str = "frequency",
+    ) -> tuple[list[VocabWord], int]:
+        """Paginated vocabulary list.
+
+        Args:
+            page: 1-indexed page number.
+            per_page: Items per page (default 200).
+            status: Filter by status ('known', 'learning', or None for all).
+            search: Filter by word or pinyin substring.
+            sort: Sort order — 'frequency' (asc), 'hsk' (asc), or 'recent' (desc).
+
+        Returns:
+            (list of VocabWord, total_count).
+        """
+        ...
+
+    @abstractmethod
+    def get_sentences_by_word(self, word: str) -> list[Sentence]:
+        """Return all sentences containing a given word.
+
+        Matches against unknown_word field and text field.
+        """
+        ...
+
 
 class Translator(ABC):
     """Port for sentence-level machine translation.

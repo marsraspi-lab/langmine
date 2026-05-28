@@ -81,6 +81,11 @@ class FakePersistence(Persistence):
     def get_sentences_by_status(self, status):
         return [s for s in self._sentences if s.status == status]
     def reclassify_stashed(self, vid): return 0
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+        return [], 0
+    def get_sentences_by_word(self, word):
+        return [s for s in self._sentences
+                if s.unknown_word == word or word in s.text]
 
 
 class FakeTranscriptSource(TranscriptSource):

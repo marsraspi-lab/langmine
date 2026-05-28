@@ -71,6 +71,11 @@ class FakePersistence(Persistence):
     def mark_word_known(self, w): pass
     def mark_word_learning(self, w): pass
     def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+        return [], 0
+    def get_sentences_by_word(self, word):
+        return [s for s in self.sentences_list
+                if s.unknown_word == word or word in s.text]
 
 
 # === Tests ===
