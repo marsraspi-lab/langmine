@@ -144,7 +144,7 @@ On first run, LangMine creates `~/.langmine/config.yaml`. All values can also be
 
 ```yaml
 anki:
-  anki_connect_url: "http://localhost:8765"
+  anki_connect_url: "http://host.docker.internal:8765"
   deck_name: "Chinese::Sentence Mining"
   note_type: "LangMine Sentence"
 

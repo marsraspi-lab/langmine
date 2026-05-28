@@ -12,7 +12,7 @@ class Config:
     """LangMine configuration with sensible defaults."""
 
     # Anki
-    anki_connect_url: str = "http://localhost:8765"
+    anki_connect_url: str = "http://host.docker.internal:8765"
     deck_name: str = "Chinese::Sentence Mining"
     note_type: str = "LangMine Sentence"
     card_css: str = (

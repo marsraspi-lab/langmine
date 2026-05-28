@@ -12,7 +12,7 @@ def test_default_config_values():
     with tempfile.TemporaryDirectory() as tmpdir:
         config = load_config(config_dir=tmpdir)
 
-        assert config.anki_connect_url == "http://localhost:8765"
+        assert config.anki_connect_url == "http://host.docker.internal:8765"
         assert config.deck_name == "Chinese::Sentence Mining"
         assert config.note_type == "LangMine Sentence"
         assert config.source_language == "zh"
