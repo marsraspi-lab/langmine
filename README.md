@@ -1,8 +1,8 @@
 # LangMine
 
-YouTube sentence mining for language learning. Extract sentences with audio clips from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and export to Anki flashcards.
+YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and export to Anki flashcards.
 
-**Status:** In development (M1 complete — first vertical slice working)
+**Status:** M3 complete — Flask API + Svelte curation UI working.
 
 ---
 
@@ -10,7 +10,7 @@ YouTube sentence mining for language learning. Extract sentences with audio clip
 
 - **Python 3.11+**
 - **ffmpeg** — for audio processing and clipping
-- **yt-dlp** — for YouTube audio download (installed automatically)
+- **Node.js 20+** — for building the Svelte frontend
 
 ### Installing ffmpeg
 
@@ -30,7 +30,7 @@ cd langmine
 pip install -e ".[dev]"
 ```
 
-This installs LangMine in editable mode along with all dependencies:
+This installs LangMine in editable mode with all Python dependencies:
 `yt-dlp`, `youtube-transcript-api`, `jieba`, `pypinyin`, `flask`, `pyyaml`, `pytest`, `pytest-cov`
 
 After installation, the `langmine` command is available in your terminal.
@@ -39,20 +39,20 @@ After installation, the `langmine` command is available in your terminal.
 
 ## Usage
 
-### Mine a video
+### Mine a video (CLI)
 
 ```bash
-# Mine the first sentence from a YouTube video (demonstration)
 langmine mine "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-
-# With dry-run (no audio download, just show what would be processed)
-langmine mine <url> --dry-run
 ```
 
-### Start the web UI (coming in M3)
+### Start the web UI
 
 ```bash
-langmine serve                  # defaults to http://127.0.0.1:8080
+# Build the Svelte frontend (one-time, or after UI changes)
+cd src/langmine/web/frontend && npm install && npm run build && cd -
+
+# Start the server
+langmine serve                  # → http://127.0.0.1:8080
 langmine serve --port 9000      # custom port
 ```
 
@@ -68,7 +68,7 @@ langmine serve --help
 
 ## Configuration
 
-On first run, LangMine creates `~/.langmine/config.yaml` with sensible defaults:
+On first run, LangMine creates `~/.langmine/config.yaml`:
 
 ```yaml
 anki:
@@ -94,8 +94,6 @@ vocab:
   hsk_bootstrap: 3            # HSK levels 1-3 treated as known
 ```
 
-Edit this file to change defaults, or use the Settings page in the web UI (M7).
-
 ---
 
 ## How It Works
@@ -111,54 +109,49 @@ YouTube URL → transcript → merge subtitle chunks into sentences
 
 ---
 
-## Development
+## Architecture
 
-- **Plan:** [PLAN.md](PLAN.md) — architecture, decisions, milestones
-- **Methodology:** Strict TDD (Red → Green → Refactor). No production code without a failing test first.
-
-### Project Structure
+Hexagonal (ports & adapters). Domain logic depends on abstract ports — never on YouTube, ffmpeg, or SQLite directly. Swap adapters without touching domain code.
 
 ```
-langmine/
-├── PLAN.md                # Full architecture and milestone plan
-├── pyproject.toml         # Dependencies and build config
-├── src/langmine/
-│   ├── cli.py             # CLI entry point (mine, serve)
-│   ├── config.py          # YAML config with defaults
-│   ├── db.py              # SQLite schema and migrations
-│   ├── processors.py      # LanguageProcessor ABC + ChineseProcessor stub
-│   ├── transcript.py      # YouTube transcript fetching + sentence merging
-│   ├── audio.py           # yt-dlp download + ffmpeg audio clipping
-│   └── pipeline.py        # End-to-end mining pipeline
-├── tests/                 # Test suite (38 tests, all passing)
-└── data/                  # Bundled data (HSK, SUBTLEX-CH, CC-CEDICT)
+src/langmine/
+├── domain/
+│   ├── ports.py          # Abstract interfaces (Persistence, Translator, etc.)
+│   ├── models.py         # Pure dataclasses (Video, Sentence, VocabWord)
+│   ├── classifier.py     # i+1 classification engine
+│   └── services/
+│       └── chinese.py    # Chinese NLP (segment, pinyin, frequency)
+├── adapters/
+│   ├── sqlite_persistence.py   # SQLite behind Persistence port
+│   ├── youtube_transcript.py   # YouTube behind TranscriptSource port
+│   └── ytdlp_audio.py          # yt-dlp+ffmpeg behind AudioProcessor port
+├── web/
+│   ├── app.py            # Flask app factory (port injection)
+│   ├── routes.py         # REST API endpoints
+│   ├── static/           # Built Svelte output (served by Flask)
+│   └── frontend/         # Svelte 5 + Vite source
+│       └── src/lib/      # Components: Sidebar, CardList, SentenceCard
+├── pipeline.py           # End-to-end mining (accepts ports)
+├── cli.py                # CLI entry point (mine, serve)
+└── config.py             # YAML config with defaults
 ```
 
-### Milestones
+The cardinal rule: `domain/` never imports from `adapters/` or `web/`.
 
-| # | Milestone | Tests | Status |
-|---|-----------|-------|--------|
-| M0 | Project Scaffold | 18 | ✅ Complete |
-| M1 | Mine One Sentence | 20 | ✅ Complete |
-| M2 | Classify All Sentences | 22 | ✅ Complete |
-| M3 | Curate in Browser | — | |
-| M4 | Translate & Understand | — | |
-| M5 | Export to Anki | — | |
-| M6 | Stash & Screenshots | — | |
-| M7 | Polish & Edit | — | |
+---
 
-### Running Tests
+## Milestones
 
-```bash
-# All tests
-pytest tests/ -v
-
-# Specific module
-pytest tests/test_transcript.py -v
-
-# With coverage
-pytest tests/ --cov=langmine --cov-report=term-missing
-```
+| # | Milestone | Status |
+|---|-----------|--------|
+| M0 | Project Scaffold | ✅ |
+| M1 | Mine One Sentence | ✅ |
+| M2 | Classify All Sentences | ✅ |
+| M3 | Curate in Browser | ✅ — Flask API + Svelte SPA + Playwright E2E |
+| M4 | Translate & Understand | ⬜ |
+| M5 | Export to Anki | ⬜ |
+| M6 | Stash & Screenshots | ⬜ |
+| M7 | Polish & Edit | ⬜ |
 
 ---
 
