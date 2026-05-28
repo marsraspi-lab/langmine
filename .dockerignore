@@ -1,0 +1,10 @@
+.git/
+__pycache__/
+*.pyc
+.eggs/
+*.egg-info/
+node_modules/
+bin/
+.pytest_cache/
+.hermes/
+src/langmine/web/frontend/node_modules/

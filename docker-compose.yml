@@ -1,0 +1,11 @@
+services:
+  langmine:
+    image: marsraspi-lab/langmine:latest
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ~/.langmine:/root/.langmine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
