@@ -6,6 +6,9 @@
 git clone https://github.com/marsraspi-lab/langmine.git
 cd langmine
 
+# ffmpeg (one-time, survives if using system install)
+./scripts/setup-ffmpeg.sh
+
 # Python backend
 pip install -e ".[dev]"
 
@@ -19,8 +22,8 @@ cd -
 Verify everything works:
 
 ```bash
-# Python tests (no network/ffmpeg needed for domain + API tests)
-pytest tests/ --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py -v
+# Full Python test suite
+pytest tests/ -v
 
 # Playwright E2E tests (starts test server + headless browser)
 cd src/langmine/web/frontend && npx playwright test
@@ -128,10 +131,10 @@ Forbidden:
 | `Persistence` | `SQLitePersistence` | Database — store videos, sentences, vocab |
 | `LanguageProcessor` | `ChineseLanguageService` | NLP — segment, pinyin, dictionary, frequency |
 | `TranscriptSource` | `YouTubeTranscriptAdapter` | Subtitles — fetch from YouTube |
-| `AudioProcessor` | `YtdlpAudioAdapter` | Audio — download MP3, clip sentences |
+| `AudioProcessor` | `YtdlpAudioAdapter` | Audio — download MP3, clip sentences, capture frames |
 | `Translator` | `GoogleTranslateAdapter` | Sentence translation (zh→de via deep-translator) |
 | `Dictionary` | `CcCedictAdapter` | Word lookup (CC-CEDICT, 125K entries) |
-| `FrequencySource` | `SubtlexChAdapter` | Word frequency (SUBTLEX-CH film corpus, 99K entries) |
+| `FrequencySource` | `SubtlexChAdapter`, `JiebaFrequencyAdapter` | Word frequency (SUBTLEX-CH film corpus, jieba dict) |
 | `AnkiExporter` | `AnkiConnectAdapter` | Flashcard export (AnkiConnect JSON-RPC) |
 
 ### Testing with Fake Ports
@@ -170,9 +173,13 @@ Adapter tests use real dependencies with mocked HTTP (AnkiConnect, Google Transl
 
 ```
 App.svelte
-├── Sidebar.svelte        — video list, mine form, export button
-└── CardList.svelte       — filter tabs + card grid
-    └── SentenceCard.svelte — text, pinyin, translation, audio, actions
+├── Top bar              — brand, curation/settings nav, theme toggle
+├── Sidebar.svelte       — video list, mine form, export button
+├── CardList.svelte      — filter tabs + sentence cards
+│   └── SentenceCard.svelte — text, pinyin, translation, audio, actions
+│                            (click-to-edit on pinyin/translation/segmentation)
+├── SettingsPage.svelte  — config form
+└── Toast overlay        — success/error notifications
 ```
 
 State management via Svelte 5 stores (`src/lib/stores.js`):
@@ -181,8 +188,12 @@ State management via Svelte 5 stores (`src/lib/stores.js`):
 - `selectedVideo` — derived store
 - `mineStatus`, `exportStatus` — writable stores (UI feedback)
 - `mining`, `exporting` — writable stores (loading states)
+- `toasts` — writable store (notification queue)
+- `config` — writable store (settings data)
+- `theme` — writable store (dark/light, persisted to localStorage)
+- `currentView` — writable store (curation | settings)
 
-API calls via `src/lib/api.js` — thin wrappers around `fetch()`.
+API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET`, `POST`, `PATCH`, and `PUT`.
 
 ---
 
@@ -194,4 +205,5 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`.
 - **Svelte:** Svelte 5 with runes (`$props()`, `$state()`). Scoped CSS per component.
 - **No build step for Python.** `pip install -e .` in editable mode.
 - **Frontend build step required.** `npm run build` before `langmine serve`.
-- **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests require ffmpeg on the host machine.
+- **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests use project-bundled ffmpeg binaries or system PATH fallback.
+- **Frequency tiers** are pure domain logic in `domain/models.py` — adapters delegate to `frequency_tier()`/`frequency_badge()` rather than duplicating thresholds.
