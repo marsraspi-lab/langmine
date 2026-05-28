@@ -214,6 +214,30 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET
 
 Run through these before committing or submitting a PR.
 
+### CI Pipeline
+
+GitHub Actions runs automatically on every push and PR:
+
+- **`check`** (every push, ~30s) — architecture grep, domain + adapter tests, frontend build
+- **`e2e`** (PRs only, ~40s) — Playwright E2E tests with fake server
+
+You can run the same checks locally before pushing:
+
+```bash
+# Architecture checks (same as CI "check" step)
+! grep -r "from.*adapters\|import.*adapters" src/langmine/domain/
+! grep -r "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
+
+# Fast test suite (same as CI — skips audio/pipeline)
+pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
+
+# Frontend build
+cd src/langmine/web/frontend && npm ci && npm run build && cd -
+
+# E2E tests
+cd src/langmine/web/frontend && npx playwright test && cd -
+```
+
 ### ✅ Before every commit
 
 ```bash

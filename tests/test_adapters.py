@@ -13,7 +13,11 @@ from langmine.domain.ports import Translator, Dictionary, FrequencySource
 
 
 class TestGoogleTranslateAdapter:
-    """Tests for GoogleTranslateAdapter using deep-translator."""
+    """Tests for GoogleTranslateAdapter using deep-translator.
+
+    Network calls to Google Translate are mocked so the test suite
+    runs reliably in CI without hitting rate limits.
+    """
 
     def test_implements_translator_port(self):
         """Adapter should implement the Translator port."""
@@ -23,16 +27,23 @@ class TestGoogleTranslateAdapter:
 
     def test_translate_zh_to_de(self):
         """Should translate simple Chinese to German."""
+        from unittest.mock import patch, MagicMock
         from langmine.adapters.google_translate import GoogleTranslateAdapter
-        adapter = GoogleTranslateAdapter()
-        result = adapter.translate("你好", source_lang="zh", target_lang="de")
+
+        # Mock deep_translator.GoogleTranslator to avoid real HTTP calls
+        mock_translator = MagicMock()
+        mock_translator.translate.return_value = "Hallo"
+
+        with patch("deep_translator.GoogleTranslator", return_value=mock_translator):
+            adapter = GoogleTranslateAdapter()
+            result = adapter.translate("你好", source_lang="zh", target_lang="de")
+
         assert isinstance(result, str)
         assert len(result) > 0
-        # "你好" → "Hallo" or similar
         assert result != "你好"
 
     def test_translate_returns_string_for_empty_input(self):
-        """Should handle empty input gracefully."""
+        """Should handle empty input gracefully (no network call needed)."""
         from langmine.adapters.google_translate import GoogleTranslateAdapter
         adapter = GoogleTranslateAdapter()
         result = adapter.translate("", source_lang="zh", target_lang="de")

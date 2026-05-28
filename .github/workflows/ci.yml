@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Fast checks on every push ──────────────────────────────────────────
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: pip install -e ".[dev]"
+
+      - name: "Architecture: domain never imports adapters"
+        run: |
+          echo "=== Cardinal rule: domain → adapters must be empty ==="
+          ! grep -r "from.*adapters\|import.*adapters" src/langmine/domain/
+
+      - name: "Architecture: domain never imports external I/O"
+        run: |
+          echo "=== Domain must not import sqlite3, subprocess, requests, urllib ==="
+          ! grep -r "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
+
+      - name: "Architecture: web layer uses ports, not adapters"
+        run: |
+          echo "=== Web layer must not import adapters (except wiring in app.py) ==="
+          WEB_ADAPTER_IMPORTS=$(grep -rl "from langmine.adapters" src/langmine/web/ || true)
+          if [ -n "$WEB_ADAPTER_IMPORTS" ]; then
+            for f in $WEB_ADAPTER_IMPORTS; do
+              case "$f" in */app.py) ;; *) echo "FAIL: $f imports adapters"; exit 1 ;; esac
+            done
+          fi
+
+      - name: Run domain + adapter tests (no ffmpeg)
+        run: python -m pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
+
+      - name: Install frontend deps
+        run: |
+          cd src/langmine/web/frontend
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd src/langmine/web/frontend
+          npm run build
+
+  # ── E2E tests on PRs only ──────────────────────────────────────────────
+  e2e:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Install frontend + Playwright
+        run: |
+          cd src/langmine/web/frontend
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        run: |
+          cd src/langmine/web/frontend
+          npx playwright test
