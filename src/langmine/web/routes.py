@@ -524,7 +524,7 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
 
 def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
     """Build the words[] array for a sentence with status/metadata per token."""
-    from langmine.adapters.hsk import get_hsk_level
+    from langmine.hsk_data import get_hsk_level
 
     tokens = [t.strip() for t in sentence.text_segmented.split(" / ") if t.strip()]
     if not tokens:
@@ -555,7 +555,7 @@ def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
 
 def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
     """Convert a VocabWord to a JSON-safe dict with sentence count."""
-    from langmine.adapters.hsk import get_hsk_level
+    from langmine.hsk_data import get_hsk_level
     from langmine.domain.models import frequency_badge
 
     sentence_count = 0
@@ -581,7 +581,7 @@ def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
 
 def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
     """Build a vocab dict for a word not yet in the vocab table."""
-    from langmine.adapters.hsk import get_hsk_level
+    from langmine.hsk_data import get_hsk_level
     from langmine.domain.models import frequency_badge
 
     sentences = persistence.get_sentences_by_word(word)
