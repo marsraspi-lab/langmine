@@ -45,3 +45,35 @@ def test_langmine_cli_imports_and_runs():
     """The CLI module should be importable and have a main function."""
     from langmine.cli import main
     assert callable(main)
+
+
+def test_serve_creates_app_with_real_adapters():
+    """The serve command creates a Flask app with real adapter wiring."""
+    from langmine.web.app import create_app
+    from langmine.adapters import SQLitePersistence
+    from langmine.domain.services.chinese import ChineseLanguageService
+    from langmine.domain.ports import Dictionary, Translator, FrequencySource
+    from langmine.adapters import YouTubeTranscriptAdapter, YtdlpAudioAdapter
+
+    class StubDictionary(Dictionary):
+        def lookup(self, word): return None
+    class StubTranslator(Translator):
+        def translate(self, text, src, tgt): return ""
+    class StubFrequency(FrequencySource):
+        def get_frequency(self, word): return None
+
+    app = create_app(
+        persistence=SQLitePersistence(),
+        language_processor=ChineseLanguageService(
+            StubDictionary(), StubTranslator(), StubFrequency()
+        ),
+        transcript_source=YouTubeTranscriptAdapter(),
+        audio_processor=YtdlpAudioAdapter(),
+    )
+    app.config["TESTING"] = True
+
+    with app.test_client() as client:
+        resp = client.get("/api/videos")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "videos" in data

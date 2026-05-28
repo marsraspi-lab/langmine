@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangMine — Chinese Sentence Mining</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar: Video Library -->
+        <aside id="sidebar">
+            <div id="sidebar-header">
+                <h1>⛏️ LangMine</h1>
+            </div>
+
+            <!-- Mine new video -->
+            <div id="mine-form">
+                <input type="text" id="url-input" placeholder="YouTube URL..." />
+                <button id="mine-btn" onclick="mineVideo()">Mine</button>
+                <div id="mine-status"></div>
+            </div>
+
+            <!-- Video list -->
+            <nav id="video-list"></nav>
+        </aside>
+
+        <!-- Main: Sentence Cards -->
+        <main id="main">
+            <!-- Status tabs -->
+            <nav id="tabs">
+                <button class="tab active" data-status="all">All</button>
+                <button class="tab" data-status="i1">🔥 i+1</button>
+                <button class="tab" data-status="kept">✅ Kept</button>
+                <button class="tab" data-status="deleted">🗑 Deleted</button>
+            </nav>
+
+            <!-- Sentence cards container -->
+            <div id="cards-container">
+                <div id="empty-state">Select a video from the sidebar to view sentences.</div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

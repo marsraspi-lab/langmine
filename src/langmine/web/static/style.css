@@ -1,0 +1,299 @@
+/* LangMine — Dark theme curation UI */
+
+:root {
+    --bg: #1a1a2e;
+    --bg-card: #16213e;
+    --bg-sidebar: #0f0f23;
+    --text: #e0e0e0;
+    --text-secondary: #a0a0b0;
+    --accent: #e94560;
+    --accent-green: #4ecca3;
+    --border: #2a2a4a;
+    --radius: 8px;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+}
+
+#app {
+    display: flex;
+    height: 100vh;
+}
+
+/* Sidebar */
+#sidebar {
+    width: 320px;
+    min-width: 320px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+#sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+#sidebar-header h1 {
+    font-size: 1.3rem;
+}
+
+#mine-form {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+#url-input {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+#url-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+#mine-btn {
+    width: 100%;
+    padding: 8px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+#mine-btn:hover {
+    opacity: 0.9;
+}
+
+#mine-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#mine-status {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    min-height: 1.2em;
+}
+
+/* Video list */
+#video-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.video-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.video-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.video-item.active {
+    background: rgba(233, 69, 96, 0.15);
+    border-left: 3px solid var(--accent);
+}
+
+.video-item .video-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.video-item .video-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* Main area */
+#main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+#tabs {
+    display: flex;
+    gap: 4px;
+    padding: 16px 24px 0;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+}
+
+.tab {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+    color: var(--text);
+}
+
+.tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* Cards */
+#cards-container {
+    padding: 20px 24px;
+    flex: 1;
+}
+
+#empty-state {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 80px 0;
+    font-size: 1rem;
+}
+
+.sentence-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 12px;
+}
+
+.sentence-card .chinese-text {
+    font-size: 1.3rem;
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.sentence-card .segmented-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.sentence-card .card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.card-actions button {
+    padding: 6px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.card-actions button:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.card-actions .btn-keep {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.card-actions .btn-keep:hover {
+    background: rgba(78, 204, 163, 0.15);
+}
+
+.card-actions .btn-delete {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.card-actions .btn-delete:hover {
+    background: rgba(233, 69, 96, 0.15);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.status-badge.i1 {
+    background: rgba(233, 69, 96, 0.2);
+    color: var(--accent);
+}
+
+.status-badge.kept {
+    background: rgba(78, 204, 163, 0.2);
+    color: var(--accent-green);
+}
+
+.status-badge.i0 {
+    background: rgba(160, 160, 176, 0.2);
+    color: var(--text-secondary);
+}
+
+.status-badge.deleted {
+    background: rgba(160, 160, 176, 0.1);
+    color: var(--text-secondary);
+    text-decoration: line-through;
+}
+
+.status-badge.stashed {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.unknown-word-highlight {
+    color: var(--accent);
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 4px;
+}
+
+/* Audio player */
+.audio-player {
+    margin: 12px 0;
+}
+
+.audio-player audio {
+    width: 100%;
+    height: 32px;
+}

@@ -35,7 +35,7 @@ def main():
         _cmd_mine(args)
 
     elif args.command == "serve":
-        print(f"Starting LangMine server at http://{args.host}:{args.port}")
+        _cmd_serve(args)
 
     else:
         parser.print_help()
@@ -108,6 +108,45 @@ def _cmd_mine(args):
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def _cmd_serve(args):
+    """Start the LangMine Flask web UI with real adapters."""
+    from langmine.web.app import create_app
+    from langmine.adapters import (
+        YouTubeTranscriptAdapter,
+        YtdlpAudioAdapter,
+        SQLitePersistence,
+    )
+    from langmine.domain.services.chinese import ChineseLanguageService
+    from langmine.domain.ports import Dictionary, Translator, FrequencySource
+
+    # Stub adapters for M3 (M4 adds real ones)
+    class StubDictionary(Dictionary):
+        def lookup(self, word): return None
+
+    class StubTranslator(Translator):
+        def translate(self, text, src, tgt): return ""
+
+    class StubFrequency(FrequencySource):
+        def get_frequency(self, word): return None
+
+    persistence = SQLitePersistence()
+    processor = ChineseLanguageService(
+        StubDictionary(), StubTranslator(), StubFrequency()
+    )
+    transcript = YouTubeTranscriptAdapter()
+    audio = YtdlpAudioAdapter()
+
+    app = create_app(
+        persistence=persistence,
+        language_processor=processor,
+        transcript_source=transcript,
+        audio_processor=audio,
+    )
+
+    print(f"⛏️  LangMine server starting at http://{args.host}:{args.port}")
+    app.run(host=args.host, port=args.port, debug=True)
 
 
 if __name__ == "__main__":
