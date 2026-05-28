@@ -110,9 +110,11 @@ def _cmd_serve(args):
         GoogleTranslateAdapter,
         CcCedictAdapter,
         SubtlexChAdapter,
+        AnkiConnectAdapter,
     )
     from langmine.domain.services.chinese import ChineseLanguageService
 
+    config = load_config()
     persistence = SQLitePersistence()
     processor = ChineseLanguageService(
         CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
@@ -125,6 +127,7 @@ def _cmd_serve(args):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        anki_exporter=AnkiConnectAdapter(url=config.anki_connect_url),
     )
 
     print(f"⛏️  LangMine server starting at http://{args.host}:{args.port}")

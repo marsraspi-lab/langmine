@@ -12,6 +12,7 @@ from langmine.domain.ports import (
     LanguageProcessor,
     TranscriptSource,
     AudioProcessor,
+    AnkiExporter,
 )
 
 
@@ -20,6 +21,7 @@ def create_app(
     language_processor: LanguageProcessor | None = None,
     transcript_source: TranscriptSource | None = None,
     audio_processor: AudioProcessor | None = None,
+    anki_exporter: AnkiExporter | None = None,
 ) -> Flask:
     """Create a Flask app with injected domain ports.
 
@@ -28,6 +30,7 @@ def create_app(
         language_processor: NLP port (optional for API-only operations)
         transcript_source: Where to fetch subtitles (YouTube, etc.)
         audio_processor: Where to download/clip audio (yt-dlp, etc.)
+        anki_exporter: Where to export flashcards (AnkiConnect, etc.)
 
     Returns:
         Configured Flask app.
@@ -40,6 +43,7 @@ def create_app(
     app.config["LANGMINE_LANGUAGE_PROCESSOR"] = language_processor
     app.config["LANGMINE_TRANSCRIPT_SOURCE"] = transcript_source
     app.config["LANGMINE_AUDIO_PROCESSOR"] = audio_processor
+    app.config["LANGMINE_ANKI_EXPORTER"] = anki_exporter
 
     # Register routes
     from langmine.web.routes import register_routes

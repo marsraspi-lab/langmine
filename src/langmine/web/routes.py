@@ -188,6 +188,57 @@ def register_routes(app: Flask):
         persistence = _get_persistence()
         return jsonify(persistence.get_vocab_stats())
 
+    @app.route("/api/export/anki", methods=["POST"])
+    def export_anki():
+        """Export kept sentences directly to Anki via AnkiConnect."""
+        persistence = _get_persistence()
+        exporter = current_app.config.get("LANGMINE_ANKI_EXPORTER")
+
+        if exporter is None:
+            return jsonify({
+                "error": "Anki exporter not configured."
+            }), 503
+
+        data = request.get_json(silent=True) or {}
+        video_id = data.get("video_id")
+        all_kept = data.get("all_kept", False)
+
+        if video_id is not None:
+            sentences = persistence.get_sentences_by_video(
+                video_id, status="kept"
+            )
+        elif all_kept:
+            sentences = persistence.get_sentences_by_status("kept")
+        else:
+            return jsonify({
+                "error": "Specify video_id or all_kept=true"
+            }), 400
+
+        if not sentences:
+            return jsonify({
+                "error": "No kept sentences to export"
+            }), 400
+
+        try:
+            from langmine.config import load_config
+            config = load_config()
+            result = exporter.export(
+                sentences=sentences,
+                deck_name=config.deck_name,
+                note_type_name=config.note_type,
+            )
+
+            # Mark exported sentences
+            for s in sentences:
+                s.status = "exported"
+                persistence.update_sentence(s)
+
+            return jsonify(result)
+        except ConnectionError as e:
+            return jsonify({"error": str(e)}), 503
+        except Exception as e:
+            return jsonify({"error": f"Export failed: {e}"}), 500
+
 
 # === Helpers ===
 

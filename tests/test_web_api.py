@@ -255,6 +255,28 @@ def client_with_sentences(client, persistence):
     return client, persistence
 
 
+@pytest.fixture
+def client_with_anki(client, persistence, processor, transcript, audio):
+    """Flask test client with a fake AnkiExporter injected."""
+    from unittest.mock import MagicMock
+
+    mock_exporter = MagicMock()
+    mock_exporter.export.return_value = {
+        "note_ids": [], "added": 0, "duplicates": 0, "errors": [],
+    }
+
+    from langmine.web.app import create_app
+    app = create_app(
+        persistence=persistence,
+        language_processor=processor,
+        transcript_source=transcript,
+        audio_processor=audio,
+        anki_exporter=mock_exporter,
+    )
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
 # === Tests ===
 
 
@@ -492,6 +514,23 @@ class TestStats:
 
         after = json.loads(client.get("/api/stats").data)
         assert after["known"] > initial_known
+
+
+class TestAnkiExport:
+    """POST /api/export/anki"""
+
+    def test_503_when_no_exporter_configured(self, client):
+        """Returns 503 if AnkiExporter not injected."""
+        resp = client.post("/api/export/anki", json={"all_kept": True})
+        assert resp.status_code == 503
+        data = json.loads(resp.data)
+        assert "error" in data
+
+    def test_400_when_no_kept_sentences(self, client_with_anki):
+        """Returns 400 when no kept sentences exist."""
+        client = client_with_anki
+        resp = client.post("/api/export/anki", json={"all_kept": True})
+        assert resp.status_code == 400
 
 
 class TestSPAServing:
