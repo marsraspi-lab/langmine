@@ -149,3 +149,38 @@ class TestJiebaFrequencyAdapter:
         assert frequency_badge(1) == "🔥"
         assert frequency_badge(6001) == "💎"
         assert frequency_badge(None) == ""
+
+
+# === HskAdapter ===
+
+
+class TestHskAdapter:
+    """Tests for HSK level lookup adapter."""
+
+    def test_hsk_level_common_words(self):
+        """Common words should have known HSK levels."""
+        from langmine.adapters.hsk import get_hsk_level
+
+        assert get_hsk_level("爱") == 1       # HSK 1
+        assert get_hsk_level("爸爸") == 1      # HSK 1
+        assert get_hsk_level("帮助") == 2      # HSK 2
+        assert get_hsk_level("历史") == 3      # HSK 3
+        assert get_hsk_level("竞争") == 4      # HSK 4
+        assert get_hsk_level("宝贵") == 5      # HSK 5
+        assert get_hsk_level("癌症") == 6      # HSK 6
+
+    def test_hsk_unknown_word_returns_none(self):
+        """Words not in HSK should return None."""
+        from langmine.adapters.hsk import get_hsk_level
+
+        assert get_hsk_level("xyzzy123") is None
+        assert get_hsk_level("我吃饭了") is None  # phrase, not single word
+
+    def test_hsk_levels_are_ints(self):
+        """All returned levels should be integers in range 1-6."""
+        from langmine.adapters.hsk import get_hsk_level
+
+        for word in ["爱", "帮助", "历史", "竞争", "宝贵", "癌症"]:
+            level = get_hsk_level(word)
+            assert isinstance(level, int)
+            assert 1 <= level <= 6
