@@ -275,4 +275,176 @@ test.describe('LangMine SPA', () => {
     expect(data.source_language).toBeDefined();
     expect(data.max_cards_per_video).toBeDefined();
   });
+
+  // === M9: Word highlighting ===
+
+  test('sentence cards show word highlighting classes', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    // First card (i+1 with vocab seeded)
+    const card = page.locator('.sentence-card').first();
+
+    // Known words should have .word-known class
+    await expect(card.locator('.word-known').first()).toBeVisible();
+
+    // Learning word (一般) should have .word-learning class
+    await expect(card.locator('.word-learning').first()).toBeVisible();
+    await expect(card.locator('.word-learning').first()).toContainText('一般');
+  });
+
+  test('clicking a word opens popover with status toggle', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    const card = page.locator('.sentence-card').first();
+
+    // Click the learning word (一般)
+    await card.locator('.word-learning').first().click();
+
+    // Popover should appear with Mark known button
+    await expect(page.locator('.word-popover')).toBeVisible();
+    await expect(page.locator('.word-popover')).toContainText('Mark known');
+  });
+
+  test('mark word known from popover updates the word status', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    const card = page.locator('.sentence-card').first();
+
+    // Click the learning word (一般)
+    await card.locator('.word-learning').first().click();
+
+    // Click "Mark known" in popover
+    await page.locator('.word-popover .btn-mark-known').click();
+
+    // Word should now have .word-known class
+    await expect(card.locator('.word-known').filter({ hasText: '一般' })).toBeVisible();
+  });
+
+  // === M9: Vocab page ===
+
+  test('navigate to vocab page and see word list', async ({ page }) => {
+    await page.goto('/');
+
+    // Click Vocab nav button
+    await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
+
+    // Should see vocab heading
+    await expect(page.locator('h2')).toContainText('Vocabulary');
+
+    // Should see some vocab words from seeded data
+    await expect(page.locator('.vocab-row').first()).toBeVisible();
+  });
+
+  test('vocab page shows status filter tabs', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
+
+    // Should see filter tabs
+    await expect(page.locator('.vocab-filters .tab', { hasText: 'All' })).toBeVisible();
+    await expect(page.locator('.vocab-filters .tab', { hasText: 'Known' })).toBeVisible();
+    await expect(page.locator('.vocab-filters .tab', { hasText: 'Learning' })).toBeVisible();
+  });
+
+  test('vocab page search filters words', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
+
+    // Type in search
+    await page.locator('.vocab-search input').fill('学习');
+
+    // Should see matching word
+    await expect(page.locator('.vocab-row')).toContainText('学习');
+
+    // Non-matching words should not appear
+    await expect(page.locator('.vocab-row')).not.toContainText('效率');
+  });
+
+  test('clicking vocab word row shows detail panel', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
+
+    // Click a word row
+    await page.locator('.vocab-row').first().click();
+
+    // Detail panel should show definitions and sentences
+    await expect(page.locator('.vocab-detail')).toBeVisible();
+    await expect(page.locator('.vocab-detail')).toContainText('definition');
+  });
+
+  // === M9: Vocab API ===
+
+  test('GET /api/vocab returns paginated words', async ({ page }) => {
+    const response = await page.request.get('/api/vocab?per_page=200');
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data.words).toBeDefined();
+    expect(data.total).toBeGreaterThanOrEqual(3);  // at least 3 seeded
+    expect(data.page).toBe(1);
+    expect(data.per_page).toBe(200);
+
+    // Each word should have expected shape
+    const word = data.words[0];
+    expect(word.word).toBeDefined();
+    expect(word.status).toBeDefined();
+    expect(word.hsk_level).toBeDefined();
+    expect(word.sentence_count).toBeDefined();
+  });
+
+  test('GET /api/vocab filters by status', async ({ page }) => {
+    const response = await page.request.get('/api/vocab?status=learning');
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data.total).toBeGreaterThanOrEqual(3);  // 一般, 效率, 管理
+    for (const w of data.words) {
+      expect(w.status).toBe('learning');
+    }
+  });
+
+  test('GET /api/vocab/<word> returns word detail with sentences', async ({ page }) => {
+    const response = await page.request.get('/api/vocab/%E4%B8%80%E8%88%AC');  // 一般
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data.word.word).toBe('一般');
+    expect(data.word.hsk_level).toBe(3);
+    expect(data.sentences).toBeDefined();
+    expect(data.sentences.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('PATCH /api/vocab/<word> toggles word status', async ({ page }) => {
+    // Mark 一般 as known
+    const response = await page.request.patch('/api/vocab/%E4%B8%80%E8%88%AC', {
+      data: { status: 'known' }
+    });
+    expect(response.status()).toBe(200);
+    const data = await response.json();
+    expect(data.ok).toBe(true);
+    expect(data.status).toBe('known');
+
+    // Verify it's now known
+    const check = await page.request.get('/api/vocab/%E4%B8%80%E8%88%AC');
+    const checkData = await check.json();
+    expect(checkData.word.status).toBe('known');
+  });
+
+  test('sentence response includes words array with status metadata', async ({ page }) => {
+    const response = await page.request.get('/api/videos');
+    const videos = await response.json();
+    const vid = videos.videos[0];
+
+    const sentResp = await page.request.get(`/api/videos/${vid.id}/sentences`);
+    const sentData = await sentResp.json();
+
+    const firstSentence = sentData.sentences[0];
+    expect(firstSentence.words).toBeDefined();
+    expect(firstSentence.words.length).toBeGreaterThan(0);
+
+    // Check word shape
+    const word = firstSentence.words[0];
+    expect(word.token).toBeDefined();
+    expect(word.status).toBeDefined();
+    expect(['known', 'learning', 'unknown']).toContain(word.status);
+  });
 });

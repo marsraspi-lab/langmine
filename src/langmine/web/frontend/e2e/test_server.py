@@ -40,7 +40,7 @@ class FakePersistence(Persistence):
         self._sentences = []
         self._next_vid = 1
         self._next_sid = 1
-        self._vocab = []
+        self._vocab: dict[str, VocabWord] = {}
         self._known_words = {"我们", "早上", "起床", "学习", "我", "爱", "你"}
 
     def save_video(self, video):
@@ -70,19 +70,53 @@ class FakePersistence(Persistence):
         for i, existing in enumerate(self._sentences):
             if existing.id == s.id: self._sentences[i] = s; break
 
-    def get_known_words(self): return self._known_words
-    def get_vocab_stats(self): return {"known": len(self._known_words), "learning": 0, "total": len(self._known_words)}
-    def mark_word_known(self, w): self._known_words.add(w)
-    def mark_word_learning(self, w): pass
-    def save_vocab_word(self, w): pass
-    def get_vocab_word(self, w): return None
+    def get_known_words(self):
+        return self._known_words | {
+            w for w, v in self._vocab.items() if v.status == "known"
+        }
+
+    def get_vocab_stats(self):
+        known = sum(1 for v in self._vocab.values() if v.status == "known")
+        learning = sum(1 for v in self._vocab.values() if v.status == "learning")
+        return {"known": known, "learning": learning, "total": len(self._vocab)}
+
+    def mark_word_known(self, w):
+        if w in self._vocab:
+            self._vocab[w].status = "known"
+        else:
+            self._vocab[w] = VocabWord(word_simplified=w, status="known")
+
+    def mark_word_learning(self, w):
+        if w in self._vocab:
+            self._vocab[w].status = "learning"
+        else:
+            self._vocab[w] = VocabWord(word_simplified=w, status="learning")
+
+    def save_vocab_word(self, w):
+        self._vocab[w.word_simplified] = w
+
+    def get_vocab_word(self, w):
+        return self._vocab.get(w)
+
     def get_stash_candidates(self, limit=20):
         return [s for s in self._sentences if s.status == "stashed"][:limit]
     def get_sentences_by_status(self, status):
         return [s for s in self._sentences if s.status == status]
     def reclassify_stashed(self, vid): return 0
+
     def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
-        return [], 0
+        words = list(self._vocab.values())
+        if status:
+            words = [w for w in words if w.status == status]
+        if search:
+            words = [w for w in words
+                     if search.lower() in w.word_simplified.lower()
+                     or search.lower() in (w.pinyin or "").lower()]
+        words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
+        total = len(words)
+        start = (page - 1) * per_page
+        return words[start:start + per_page], total
+
     def get_sentences_by_word(self, word):
         return [s for s in self._sentences
                 if s.unknown_word == word or word in s.text]
@@ -151,6 +185,24 @@ sentences = [
 ]
 for s in sentences:
     persistence.save_sentences([s])
+
+# Seed vocab words for M9 tests — word highlighting and vocab page
+vocab_words = [
+    VocabWord(word_simplified="一般", pinyin="yībān", definition_de="allgemein",
+              hsk_level=3, frequency_rank=1847, status="learning"),
+    VocabWord(word_simplified="效率", pinyin="xiàolǜ", definition_de="Effizienz",
+              hsk_level=5, frequency_rank=3412, status="learning"),
+    VocabWord(word_simplified="管理", pinyin="guǎnlǐ", definition_de="Verwaltung",
+              hsk_level=4, frequency_rank=2100, status="learning"),
+    VocabWord(word_simplified="学习", pinyin="xuéxí", definition_de="lernen",
+              hsk_level=1, frequency_rank=500, status="known"),
+    VocabWord(word_simplified="我们", pinyin="wǒmen", definition_de="wir",
+              hsk_level=1, frequency_rank=100, status="known"),
+    VocabWord(word_simplified="早上", pinyin="zǎoshang", definition_de="Morgen",
+              hsk_level=1, frequency_rank=800, status="known"),
+]
+for w in vocab_words:
+    persistence.save_vocab_word(w)
 
 app = create_app(
     persistence=persistence,
