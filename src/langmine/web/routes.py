@@ -105,7 +105,7 @@ def register_routes(app: Flask):
         return jsonify({
             "video_id": video_id,
             "filter_status": status,
-            "sentences": [_sentence_to_dict(s) for s in sentences],
+            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
         })
 
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
@@ -151,7 +151,7 @@ def register_routes(app: Flask):
             persistence.update_sentence(sentence)
 
         return jsonify({
-            "sentence": _sentence_to_dict(sentence),
+            "sentence": _sentence_to_dict(sentence, persistence),
         })
 
     @app.route("/api/sentences/<int:sentence_id>/iknowthis", methods=["PATCH"])
@@ -179,7 +179,7 @@ def register_routes(app: Flask):
 
         return jsonify({
             "word_marked": word,
-            "sentence": _sentence_to_dict(sentence),
+            "sentence": _sentence_to_dict(sentence, persistence),
         })
 
     @app.route("/api/sentences/<int:sentence_id>/audio")
@@ -215,6 +215,71 @@ def register_routes(app: Flask):
             mimetype="image/jpeg",
             as_attachment=False,
         )
+
+    # === Vocab API ===
+
+    @app.route("/api/vocab")
+    def list_vocab():
+        """Paginated vocabulary list with filtering and sorting."""
+        persistence = _get_persistence()
+
+        page = request.args.get("page", 1, type=int)
+        per_page = request.args.get("per_page", 200, type=int)
+        status = request.args.get("status")
+        search = request.args.get("search")
+        sort = request.args.get("sort", "frequency")
+
+        words, total = persistence.list_vocab(
+            page=page, per_page=per_page, status=status,
+            search=search, sort=sort,
+        )
+
+        return jsonify({
+            "words": [_vocab_to_dict(w, persistence) for w in words],
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+        })
+
+    @app.route("/api/vocab/<word>")
+    def get_vocab_word(word: str):
+        """Full detail for a single word: definitions, sentences, stats."""
+        persistence = _get_persistence()
+
+        vocab = persistence.get_vocab_word(word)
+        sentences = persistence.get_sentences_by_word(word)
+
+        return jsonify({
+            "word": _vocab_to_dict(vocab, persistence) if vocab else _unknown_word_dict(word, persistence),
+            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
+        })
+
+    @app.route("/api/vocab/<word>", methods=["PATCH"])
+    def update_vocab_word(word: str):
+        """Update a word's status and cascade reclassification."""
+        persistence = _get_persistence()
+        processor = _get_processor()
+
+        data = request.get_json(silent=True)
+        if not data or "status" not in data:
+            return jsonify({"error": "Missing 'status' field"}), 400
+
+        new_status = data["status"]
+        if new_status not in ("known", "learning"):
+            return jsonify({"error": "Status must be 'known' or 'learning'"}), 400
+
+        if new_status == "known":
+            persistence.mark_word_known(word)
+            # Cascade: reclassify sentences where this word was the i+1 target
+            _cascade_word_known(persistence, word)
+        else:
+            persistence.mark_word_learning(word)
+
+        return jsonify({
+            "word": word,
+            "status": new_status,
+            "ok": True,
+        })
 
     @app.route("/api/stats")
     def stats():
@@ -425,8 +490,12 @@ def _video_with_counts(persistence: Persistence, video) -> dict:
     }
 
 
-def _sentence_to_dict(sentence: Sentence) -> dict:
-    """Convert a Sentence domain model to a JSON-safe dict."""
+def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None) -> dict:
+    """Convert a Sentence domain model to a JSON-safe dict.
+
+    When persistence is provided, enriches with per-word status metadata
+    (known/learning/unknown, frequency_rank, hsk_level).
+    """
     from langmine.domain.models import frequency_badge
 
     result = {
@@ -446,4 +515,106 @@ def _sentence_to_dict(sentence: Sentence) -> dict:
     # Compute frequency badge from rank
     result["frequency_badge"] = frequency_badge(sentence.unknown_word_rank)
 
+    # Enrich with per-word metadata for highlighting
+    if persistence is not None:
+        result["words"] = _words_array(sentence, persistence)
+
     return result
+
+
+def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
+    """Build the words[] array for a sentence with status/metadata per token."""
+    from langmine.adapters.hsk import get_hsk_level
+
+    tokens = [t.strip() for t in sentence.text_segmented.split(" / ") if t.strip()]
+    if not tokens:
+        return []
+
+    known_words = persistence.get_known_words()
+    result = []
+    for token in tokens:
+        vocab = persistence.get_vocab_word(token)
+        status = "unknown"
+        frequency_rank = None
+        hsk_level = get_hsk_level(token)
+
+        if vocab:
+            status = vocab.status
+            frequency_rank = vocab.frequency_rank
+        elif token in known_words:
+            status = "known"
+
+        result.append({
+            "token": token,
+            "status": status,
+            "frequency_rank": frequency_rank,
+            "hsk_level": hsk_level,
+        })
+    return result
+
+
+def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
+    """Convert a VocabWord to a JSON-safe dict with sentence count."""
+    from langmine.adapters.hsk import get_hsk_level
+    from langmine.domain.models import frequency_badge
+
+    sentence_count = 0
+    if persistence and word.word_simplified:
+        sentences = persistence.get_sentences_by_word(word.word_simplified)
+        sentence_count = len(sentences)
+
+    hsk = word.hsk_level or get_hsk_level(word.word_simplified)
+    rank = word.frequency_rank
+
+    return {
+        "word": word.word_simplified,
+        "pinyin": word.pinyin,
+        "definition_de": word.definition_de,
+        "definition_en": "",  # VocabWord doesn't store EN; filled if needed
+        "hsk_level": hsk,
+        "frequency_rank": rank,
+        "frequency_badge": frequency_badge(rank),
+        "status": word.status,
+        "sentence_count": sentence_count,
+    }
+
+
+def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
+    """Build a vocab dict for a word not yet in the vocab table."""
+    from langmine.adapters.hsk import get_hsk_level
+    from langmine.domain.models import frequency_badge
+
+    sentences = persistence.get_sentences_by_word(word)
+    hsk = get_hsk_level(word)
+
+    return {
+        "word": word,
+        "pinyin": "",
+        "definition_de": "",
+        "definition_en": "",
+        "hsk_level": hsk,
+        "frequency_rank": None,
+        "frequency_badge": "",
+        "status": "unknown",
+        "sentence_count": len(sentences),
+    }
+
+
+def _cascade_word_known(persistence: Persistence, word: str) -> None:
+    """Reclassify all sentences where `word` is the unknown_word.
+
+    - i+1 sentences → i0 (word is now known)
+    - Stashed sentences get rechecked via reclassify_stashed per affected video
+    """
+    sentences = persistence.get_sentences_by_word(word)
+    affected_videos: set[int] = set()
+
+    for s in sentences:
+        if s.unknown_word == word and s.status == "i1":
+            s.status = "i0"
+            persistence.update_sentence(s)
+            affected_videos.add(s.video_id)
+
+    # Re-run classifier on stashed sentences for affected videos
+    for vid in affected_videos:
+        persistence.reclassify_stashed(vid)
