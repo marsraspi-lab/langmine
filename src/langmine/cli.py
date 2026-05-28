@@ -54,7 +54,7 @@ def _cmd_mine(args):
         SQLitePersistence,
         GoogleTranslateAdapter,
         CcCedictAdapter,
-        JiebaFrequencyAdapter,
+        SubtlexChAdapter,
     )
     from langmine.pipeline import process_video
     from langmine.domain.services.chinese import ChineseLanguageService
@@ -63,7 +63,7 @@ def _cmd_mine(args):
     audio = YtdlpAudioAdapter()
     persistence = SQLitePersistence()
     processor = ChineseLanguageService(
-        CcCedictAdapter(), GoogleTranslateAdapter(), JiebaFrequencyAdapter()
+        CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
     )
 
     print(f"⛏️  Mining: {args.url}")
@@ -109,13 +109,13 @@ def _cmd_serve(args):
         SQLitePersistence,
         GoogleTranslateAdapter,
         CcCedictAdapter,
-        JiebaFrequencyAdapter,
+        SubtlexChAdapter,
     )
     from langmine.domain.services.chinese import ChineseLanguageService
 
     persistence = SQLitePersistence()
     processor = ChineseLanguageService(
-        CcCedictAdapter(), GoogleTranslateAdapter(), JiebaFrequencyAdapter()
+        CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
     )
     transcript = YouTubeTranscriptAdapter()
     audio = YtdlpAudioAdapter()

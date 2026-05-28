@@ -9,6 +9,7 @@ from langmine.adapters.sqlite_persistence import SQLitePersistence
 from langmine.adapters.google_translate import GoogleTranslateAdapter
 from langmine.adapters.cc_cedict import CcCedictAdapter
 from langmine.adapters.jieba_frequency import JiebaFrequencyAdapter
+from langmine.adapters.subtlex_ch import SubtlexChAdapter
 
 __all__ = [
     "YouTubeTranscriptAdapter",
@@ -17,4 +18,5 @@ __all__ = [
     "GoogleTranslateAdapter",
     "CcCedictAdapter",
     "JiebaFrequencyAdapter",
+    "SubtlexChAdapter",
 ]
