@@ -1,9 +1,11 @@
 """Flask app factory for LangMine.
 
 Creates a Flask app with domain ports injected — testable with fake adapters.
+Serves the Svelte frontend built output from ../static/.
 """
 
-from flask import Flask
+import os
+from flask import Flask, send_from_directory
 
 from langmine.domain.ports import (
     Persistence,
@@ -30,11 +32,10 @@ def create_app(
     Returns:
         Configured Flask app.
     """
-    app = Flask(
-        __name__,
-        template_folder="templates",
-        static_folder="static",
-    )
+    # static_folder points to the Svelte build output
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    app = Flask(__name__, static_folder=static_dir, static_url_path="")
+
     app.config["LANGMINE_PERSISTENCE"] = persistence
     app.config["LANGMINE_LANGUAGE_PROCESSOR"] = language_processor
     app.config["LANGMINE_TRANSCRIPT_SOURCE"] = transcript_source

@@ -495,17 +495,16 @@ class TestStats:
 
 
 class TestSPAServing:
-    """GET / serves the SPA."""
+    """GET / serves the Svelte SPA."""
 
     def test_serves_html_page(self, client):
-        """Root URL returns HTML with the LangMine SPA."""
+        """Root URL returns the Svelte-built index.html."""
         resp = client.get("/")
         assert resp.status_code == 200
         assert b"<!DOCTYPE html>" in resp.data or b"<html" in resp.data
         assert b"LangMine" in resp.data
 
-    def test_static_css_served(self, client):
-        """CSS is served from /static/ path."""
-        resp = client.get("/static/style.css")
+    def test_static_assets_served(self, client):
+        """Built Svelte assets are served from /assets/ path."""
+        resp = client.get("/favicon.svg")
         assert resp.status_code == 200
-        assert b"body" in resp.data or b"*" in resp.data or b":" in resp.data

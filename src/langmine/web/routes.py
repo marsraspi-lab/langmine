@@ -2,7 +2,7 @@
 
 import os
 from flask import (
-    Flask, jsonify, request, render_template, send_file, current_app,
+    Flask, jsonify, request, send_file, send_from_directory, current_app,
 )
 
 from langmine.domain.models import Video, Sentence
@@ -21,8 +21,9 @@ def register_routes(app: Flask):
 
     @app.route("/")
     def index():
-        """Serve the SPA."""
-        return render_template("index.html")
+        """Serve the Svelte SPA."""
+        static_dir = os.path.join(os.path.dirname(__file__), "static")
+        return send_from_directory(static_dir, "index.html")
 
     # === API Routes ===
 
