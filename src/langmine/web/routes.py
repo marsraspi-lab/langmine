@@ -64,7 +64,7 @@ def register_routes(app: Flask):
             from langmine.config import load_config
 
             config = load_config()
-            output_dir = getattr(config, "data_dir", "/tmp/langmine")
+            output_dir = config.data_dir
             os.makedirs(output_dir, exist_ok=True)
 
             result = process_video(

@@ -55,7 +55,7 @@ def _cmd_mine(args):
     """Run the mining pipeline with real adapters."""
     config = load_config()
     video_id = _extract_video_id(args.url)
-    output_dir = config.data_dir if hasattr(config, 'data_dir') else "/tmp/langmine"
+    output_dir = config.data_dir
 
     # Wire up real adapters
     from langmine.adapters import (
