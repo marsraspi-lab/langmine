@@ -207,3 +207,53 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET
 - **Frontend build step required.** `npm run build` before `langmine serve`.
 - **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests use project-bundled ffmpeg binaries or system PATH fallback.
 - **Frequency tiers** are pure domain logic in `domain/models.py` — adapters delegate to `frequency_tier()`/`frequency_badge()` rather than duplicating thresholds.
+
+---
+
+## Pre-Commit Checklist
+
+Run through these before committing or submitting a PR.
+
+### ✅ Before every commit
+
+```bash
+# 1. All tests pass (Python + E2E)
+pytest tests/ -q
+cd src/langmine/web/frontend && npx playwright test && cd -
+```
+
+```bash
+# 2. Architecture: domain never imports from adapters or external I/O
+grep -r "from.*adapters\|import.*adapters" src/langmine/domain/    # must be EMPTY
+grep -r "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/  # must be EMPTY
+```
+
+```bash
+# 3. Frontend builds without errors
+cd src/langmine/web/frontend && npm run build && cd -
+```
+
+### ✅ Before merging a milestone
+
+| Check | Command |
+|-------|---------|
+| Full test suite | `pytest tests/ -q` (138+ tests) |
+| E2E tests | `npx playwright test` (19 tests) |
+| Cardinal rule | `grep -r "from.*adapters" src/langmine/domain/` → empty |
+| No adapter→adapter imports | `grep -r "from langmine.adapters" src/langmine/adapters/` → only `__init__.py` |
+| Frequency tiers in domain | `grep "frequency_tier\|frequency_badge" src/langmine/domain/models.py` → found |
+| Web layer uses ports | `grep -r "from langmine.adapters" src/langmine/web/` → none except wiring in `app.py` |
+| Domain models are pure | `grep -r "open\|requests\|subprocess\|sqlite3" src/langmine/domain/models.py` → empty |
+| Milestones in README updated | Check README milestones table |
+| Commit message follows `type: subject` | `feat:`, `fix:`, `refactor:`, `test:`, `docs:` |
+| No stale built assets | `git status` — `src/langmine/web/static/assets/` should have exactly 1 CSS + 1 JS |
+
+### ✅ Architecture self-review
+
+Before marking a milestone complete, verify:
+
+1. **New code in `domain/`** — does it import anything from `adapters/`? If yes, fix it.
+2. **New code in `web/routes.py`** — does it import a specific adapter instead of going through a port? If yes, move the logic to domain or inject the port.
+3. **New adapter** — does it implement exactly one port? Does it contain business logic? If yes, move logic to domain.
+4. **New port** — is it abstract? Do tests provide a fake implementation? If no, add one.
+5. **Test isolation** — do domain tests pass without ffmpeg, YouTube, or SQLite? Run `pytest tests/ --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py --ignore=tests/adapters/` and all must pass.
