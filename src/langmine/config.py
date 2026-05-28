@@ -15,6 +15,28 @@ class Config:
     anki_connect_url: str = "http://localhost:8765"
     deck_name: str = "Chinese::Sentence Mining"
     note_type: str = "LangMine Sentence"
+    card_css: str = (
+        ".card { font-family: Arial, sans-serif; font-size: 20px; "
+        "text-align: center; color: black; background-color: white; }"
+        ".chinese { font-size: 28px; margin: 20px 0; }"
+        ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
+        ".translation { font-size: 22px; margin: 10px 0; }"
+        ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
+    )
+    card_front_template: str = (
+        '<div class="chinese">{{sentence_zh}}</div>'
+        "{{#audio}}{{audio}}{{/audio}}"
+    )
+    card_back_template: str = (
+        '<div class="chinese">{{sentence_zh}}</div>'
+        "{{#audio}}{{audio}}{{/audio}}"
+        '<hr id="answer">'
+        '<div class="pinyin">{{sentence_pinyin}}</div>'
+        '<div class="translation">{{translation_de}}</div>'
+        "{{#unknown_word}}"
+        '<div class="word">🆕 {{unknown_word}}</div>'
+        "{{/unknown_word}}"
+    )
 
     # Language
     source_language: str = "zh"
@@ -65,6 +87,9 @@ def _config_to_dict(config: Config) -> dict:
             "anki_connect_url": config.anki_connect_url,
             "deck_name": config.deck_name,
             "note_type": config.note_type,
+            "card_css": config.card_css,
+            "card_front_template": config.card_front_template,
+            "card_back_template": config.card_back_template,
         },
         "languages": {
             "source": config.source_language,
@@ -104,6 +129,13 @@ def _dict_to_config(data: dict) -> Config:
         anki_connect_url=data["anki"]["anki_connect_url"],
         deck_name=data["anki"]["deck_name"],
         note_type=data["anki"]["note_type"],
+        card_css=data["anki"].get("card_css", Config.card_css),
+        card_front_template=data["anki"].get(
+            "card_front_template", Config.card_front_template
+        ),
+        card_back_template=data["anki"].get(
+            "card_back_template", Config.card_back_template
+        ),
         source_language=data["languages"]["source"],
         target_language=data["languages"]["target"],
         translation_api=data["nlp"]["translation_api"],

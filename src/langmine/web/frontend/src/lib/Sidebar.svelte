@@ -3,6 +3,7 @@
     exportStatus, exporting, exportAnki } from './stores.js';
 
   let urlInput = $state('');
+  let forceUpdateModel = $state(false);
 
   async function handleMine() {
     const url = urlInput.trim();
@@ -69,11 +70,19 @@
     <div class="export-section">
       <button
         class="export-btn"
-        onclick={() => exportAnki(null)}
+        onclick={() => exportAnki(null, forceUpdateModel)}
         disabled={$exporting}
       >
         {$exporting ? '⏳' : '📦'} Export to Anki
       </button>
+      <label class="force-update-label">
+        <input
+          type="checkbox"
+          bind:checked={forceUpdateModel}
+          disabled={$exporting}
+        />
+        ⚡ Update card templates
+      </label>
       {#if $exportStatus}
         <div class="export-status">{$exportStatus}</div>
       {/if}
@@ -218,5 +227,17 @@
     color: var(--text-secondary);
     margin-top: 8px;
     line-height: 1.4;
+  }
+  .force-update-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    cursor: pointer;
+  }
+  .force-update-label input {
+    accent-color: var(--accent);
   }
 </style>

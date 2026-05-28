@@ -4,6 +4,9 @@ AnkiConnect is an Anki addon (ID: 2055492159) that exposes a JSON-RPC API
 on localhost:8765. Install it in Anki: Tools → Add-ons → Get Add-ons.
 
 Protocol: POST http://localhost:8765 with {"action": "...", "version": 6, "params": {...}}
+
+Card templates are configurable via ~/.langmine/config.yaml under the
+`anki` key. See docs/TEMPLATES.md for available fields and Anki template syntax.
 """
 
 import base64
@@ -13,6 +16,33 @@ import requests
 
 from langmine.domain.models import Sentence
 from langmine.domain.ports import AnkiExporter
+
+
+# Default templates (fallback if not in config)
+_DEFAULT_CSS = (
+    ".card { font-family: Arial, sans-serif; font-size: 20px; "
+    "text-align: center; color: black; background-color: white; }"
+    ".chinese { font-size: 28px; margin: 20px 0; }"
+    ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
+    ".translation { font-size: 22px; margin: 10px 0; }"
+    ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
+)
+
+_DEFAULT_FRONT = (
+    '<div class="chinese">{{sentence_zh}}</div>'
+    "{{#audio}}{{audio}}{{/audio}}"
+)
+
+_DEFAULT_BACK = (
+    '<div class="chinese">{{sentence_zh}}</div>'
+    "{{#audio}}{{audio}}{{/audio}}"
+    '<hr id="answer">'
+    '<div class="pinyin">{{sentence_pinyin}}</div>'
+    '<div class="translation">{{translation_de}}</div>'
+    "{{#unknown_word}}"
+    '<div class="word">🆕 {{unknown_word}}</div>'
+    "{{/unknown_word}}"
+)
 
 
 class AnkiConnectAdapter(AnkiExporter):
@@ -26,9 +56,32 @@ class AnkiConnectAdapter(AnkiExporter):
         sentences: list[Sentence],
         deck_name: str = "Chinese::Sentence Mining",
         note_type_name: str = "LangMine Sentence",
+        card_css: str | None = None,
+        card_front: str | None = None,
+        card_back: str | None = None,
+        force_update_model: bool = False,
     ) -> dict:
+        """Export sentences to Anki.
+
+        Args:
+            sentences: Sentences to export.
+            deck_name: Anki deck name.
+            note_type_name: Anki note type name.
+            card_css: CSS for card styling (falls back to default).
+            card_front: Front template HTML (falls back to default).
+            card_back: Back template HTML (falls back to default).
+            force_update_model: If True, update templates even if model
+                already exists. Use after editing templates in config.yaml.
+
+        Returns:
+            Dict with note_ids, added, duplicates, errors.
+        """
         if not sentences:
             raise ValueError("No sentences to export")
+
+        css = card_css or _DEFAULT_CSS
+        front = card_front or _DEFAULT_FRONT
+        back = card_back or _DEFAULT_BACK
 
         errors: list[str] = []
         added = 0
@@ -39,15 +92,23 @@ class AnkiConnectAdapter(AnkiExporter):
             # 1. Ensure deck exists (idempotent)
             self._invoke("createDeck", {"deck": deck_name})
 
-            # 2. Ensure note type exists (idempotent)
-            self._create_model_if_missing(note_type_name)
+            # 2. Ensure note type exists
+            self._create_model_if_missing(
+                note_type_name, css=css, front=front, back=back,
+            )
+
+            # 3. Force-update templates if requested
+            if force_update_model:
+                self._update_model_templates(
+                    note_type_name, css=css, front=front, back=back,
+                )
 
         except Exception as e:
             raise ConnectionError(
                 f"AnkiConnect at {self._url} not reachable: {e}"
             ) from e
 
-        # 3. Store audio media first (before note creation)
+        # 4. Store audio media first
         media_refs: dict[int, str] = {}
         for i, s in enumerate(sentences):
             if s.audio_clip_path and os.path.exists(s.audio_clip_path):
@@ -61,7 +122,7 @@ class AnkiConnectAdapter(AnkiExporter):
                 except Exception as e:
                     errors.append(f"Audio for sentence {s.id}: {e}")
 
-        # 4. Build notes
+        # 5. Build notes
         notes = []
         for i, s in enumerate(sentences):
             audio_field = (
@@ -80,7 +141,7 @@ class AnkiConnectAdapter(AnkiExporter):
                 "tags": ["langmine"],
             })
 
-        # 5. Check for duplicates
+        # 6. Check for duplicates
         new_notes = notes
         try:
             dup_result = self._invoke("canAddNotes", {"notes": notes})
@@ -92,9 +153,9 @@ class AnkiConnectAdapter(AnkiExporter):
                 else:
                     duplicates += 1
         except Exception:
-            pass  # If canAddNotes fails, try adding all
+            pass
 
-        # 6. Add non-duplicate notes
+        # 7. Add non-duplicate notes
         if new_notes:
             try:
                 result = self._invoke("addNotes", {"notes": new_notes})
@@ -124,7 +185,8 @@ class AnkiConnectAdapter(AnkiExporter):
             raise RuntimeError(f"AnkiConnect error: {data['error']}")
         return data
 
-    def _create_model_if_missing(self, model_name: str):
+    def _create_model_if_missing(self, model_name: str, *, css: str,
+                                  front: str, back: str):
         """Create note type if it doesn't exist (idempotent)."""
         self._invoke("createModel", {
             "modelName": model_name,
@@ -135,33 +197,33 @@ class AnkiConnectAdapter(AnkiExporter):
                 "unknown_word",
                 "audio",
             ],
-            "css": (
-                ".card { font-family: Arial, sans-serif; font-size: 20px; "
-                "text-align: center; color: black; background-color: white; }"
-                ".chinese { font-size: 28px; margin: 20px 0; }"
-                ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
-                ".translation { font-size: 22px; margin: 10px 0; }"
-                ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
-            ),
+            "css": css,
             "cardTemplates": [
-                {
-                    "Name": "Card 1",
-                    "Front": (
-                        '<div class="chinese">{{sentence_zh}}</div>'
-                        "{{#audio}}{{audio}}{{/audio}}"
-                    ),
-                    "Back": (
-                        '<div class="chinese">{{sentence_zh}}</div>'
-                        "{{#audio}}{{audio}}{{/audio}}"
-                        '<hr id="answer">'
-                        '<div class="pinyin">{{sentence_pinyin}}</div>'
-                        '<div class="translation">{{translation_de}}</div>'
-                        "{{#unknown_word}}"
-                        '<div class="word">🆕 {{unknown_word}}</div>'
-                        "{{/unknown_word}}"
-                    ),
-                },
+                {"Name": "Card 1", "Front": front, "Back": back},
             ],
+        })
+
+    def _update_model_templates(self, model_name: str, *, css: str,
+                                  front: str, back: str):
+        """Force-update templates and CSS for an existing model.
+
+        AnkiConnect's createModel is idempotent — it won't overwrite
+        existing models. Call this after editing templates in config.yaml
+        to push changes to Anki.
+        """
+        self._invoke("updateModelTemplates", {
+            "model": {
+                "name": model_name,
+                "templates": {
+                    "Card 1": {"Front": front, "Back": back},
+                },
+            },
+        })
+        self._invoke("updateModelStyling", {
+            "model": {
+                "name": model_name,
+                "css": css,
+            },
         })
 
     def _store_media(self, filename: str, filepath: str):

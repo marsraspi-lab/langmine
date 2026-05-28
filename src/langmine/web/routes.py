@@ -202,6 +202,7 @@ def register_routes(app: Flask):
         data = request.get_json(silent=True) or {}
         video_id = data.get("video_id")
         all_kept = data.get("all_kept", False)
+        force_update = data.get("force_update_model", False)
 
         if video_id is not None:
             sentences = persistence.get_sentences_by_video(
@@ -226,6 +227,10 @@ def register_routes(app: Flask):
                 sentences=sentences,
                 deck_name=config.deck_name,
                 note_type_name=config.note_type,
+                card_css=config.card_css,
+                card_front=config.card_front_template,
+                card_back=config.card_back_template,
+                force_update_model=force_update,
             )
 
             # Mark exported sentences

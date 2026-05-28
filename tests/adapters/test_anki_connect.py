@@ -223,3 +223,51 @@ def test_snapshot_note_payload_with_audio(adapter):
 
             assert fields["audio"].startswith("[sound:")
             assert "clip.mp3" in fields["audio"]
+
+
+def test_force_update_model_calls_update_templates(adapter, sample_sentences):
+    """When force_update_model=True, should call updateModelTemplates
+    and updateModelStyling after createModel."""
+    with patch("requests.post") as mock_post:
+        def side_effect(*args, **kwargs):
+            action = kwargs["json"]["action"]
+            if action == "canAddNotes":
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: {"result": [None], "error": None},
+                )
+            return MagicMock(
+                status_code=200,
+                json=lambda: {"result": [42], "error": None},
+            )
+
+        mock_post.side_effect = side_effect
+        adapter.export(sample_sentences, force_update_model=True)
+
+        actions = [c[1]["json"]["action"] for c in mock_post.call_args_list]
+        assert "createModel" in actions
+        assert "updateModelTemplates" in actions
+        assert "updateModelStyling" in actions
+
+
+def test_force_update_model_off_skips_update(adapter, sample_sentences):
+    """When force_update_model=False (default), should NOT call update actions."""
+    with patch("requests.post") as mock_post:
+        def side_effect(*args, **kwargs):
+            action = kwargs["json"]["action"]
+            if action == "canAddNotes":
+                return MagicMock(
+                    status_code=200,
+                    json=lambda: {"result": [None], "error": None},
+                )
+            return MagicMock(
+                status_code=200,
+                json=lambda: {"result": [42], "error": None},
+            )
+
+        mock_post.side_effect = side_effect
+        adapter.export(sample_sentences, force_update_model=False)
+
+        actions = [c[1]["json"]["action"] for c in mock_post.call_args_list]
+        assert "updateModelTemplates" not in actions
+        assert "updateModelStyling" not in actions

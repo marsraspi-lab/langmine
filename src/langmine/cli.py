@@ -29,6 +29,8 @@ def main():
     export_parser = subparsers.add_parser("export", help="Export kept sentences to Anki")
     export_parser.add_argument("--video-id", type=int, help="Export from a specific video")
     export_parser.add_argument("--all-kept", action="store_true", help="Export all kept sentences")
+    export_parser.add_argument("--force-update-model", action="store_true",
+                                help="Force-update card templates in Anki (use after editing config.yaml)")
 
     args = parser.parse_args()
 
@@ -174,6 +176,10 @@ def _cmd_export(args):
             sentences=sentences,
             deck_name=config.deck_name,
             note_type_name=config.note_type,
+            card_css=config.card_css,
+            card_front=config.card_front_template,
+            card_back=config.card_back_template,
+            force_update_model=args.force_update_model,
         )
 
         print(
