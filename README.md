@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.0 — all M0–M7 milestones complete. 138 tests pass.
+**Status:** v1.1 — M0–M8 complete. All tests pass.
 
 ---
 
@@ -186,6 +186,9 @@ mining:
 
 vocab:
   hsk_bootstrap: 3            # HSK levels 1-3 treated as known
+
+storage:
+  data_dir: \"~/.langmine/data\"   # audio clips, screenshots, downloads
 ```
 
 See **[docs/TEMPLATES.md](docs/TEMPLATES.md)** for card template customization — available fields, Mustache conditionals, and Anki-side editing.
@@ -236,6 +239,10 @@ src/langmine/
 │   ├── static/           # Built Svelte output (served by Flask)
 │   └── frontend/         # Svelte 5 + Vite source
 │       └── src/lib/      # Components: Sidebar, CardList, SentenceCard, SettingsPage
+├── data/
+│   ├── cedict/           # CC-CEDICT dictionary (125K entries)
+│   ├── SUBTLEX-CH-*      # Word frequency corpus
+│   └── hsk/              # HSK level data (coming in M9)
 ├── pipeline.py           # End-to-end mining (accepts ports)
 ├── cli.py                # CLI entry point (mine, serve, export)
 ├── config.py             # YAML config with defaults

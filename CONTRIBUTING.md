@@ -261,7 +261,7 @@ cd src/langmine/web/frontend && npm run build && cd -
 
 | Check | Command |
 |-------|---------|
-| Full test suite | `pytest tests/ -q` (138+ tests) |
+| Full test suite | `pytest tests/ -q` (all tests) |
 | E2E tests | `npx playwright test` (19 tests) |
 | Cardinal rule | `grep -r "from.*adapters" src/langmine/domain/` → empty |
 | No adapter→adapter imports | `grep -r "from langmine.adapters" src/langmine/adapters/` → only `__init__.py` |
