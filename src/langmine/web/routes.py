@@ -250,7 +250,7 @@ def _video_with_counts(persistence: Persistence, video) -> dict:
 
 def _sentence_to_dict(sentence: Sentence) -> dict:
     """Convert a Sentence domain model to a JSON-safe dict."""
-    return {
+    result = {
         "id": sentence.id,
         "video_id": sentence.video_id,
         "text": sentence.text,
@@ -262,3 +262,17 @@ def _sentence_to_dict(sentence: Sentence) -> dict:
         "status": sentence.status,
         "has_audio": bool(sentence.audio_clip_path),
     }
+
+    # Compute frequency badge
+    rank = sentence.unknown_word_rank
+    if rank is not None:
+        if rank <= 2000:
+            result["frequency_badge"] = "🔥"
+        elif rank <= 6000:
+            result["frequency_badge"] = "⭐"
+        else:
+            result["frequency_badge"] = "💎"
+    else:
+        result["frequency_badge"] = ""
+
+    return result

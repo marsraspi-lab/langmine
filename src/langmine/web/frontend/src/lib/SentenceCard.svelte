@@ -32,6 +32,14 @@
     <span class="status-badge {sentence.status}">{STATUS_LABELS[sentence.status] || sentence.status}</span>
   </div>
 
+  {#if sentence.pinyin}
+    <div class="pinyin-text">{sentence.pinyin}</div>
+  {/if}
+
+  {#if sentence.translation_de}
+    <div class="translation-text">{sentence.translation_de}</div>
+  {/if}
+
   {#if sentence.text_segmented}
     <div class="segmented-text">{sentence.text_segmented}</div>
   {/if}
@@ -44,7 +52,7 @@
 
   {#if sentence.unknown_word}
     <div class="word-info">
-      🆕 <strong>{sentence.unknown_word}</strong>
+      {sentence.frequency_badge || ''} <strong>{sentence.unknown_word}</strong>
       {#if sentence.unknown_word_rank}
         <span class="rank">(rank #{sentence.unknown_word_rank})</span>
       {/if}
@@ -84,6 +92,17 @@
   .chinese-text {
     font-size: 1.3rem;
     line-height: 1.6;
+  }
+  .pinyin-text {
+    font-size: 0.9rem;
+    color: var(--accent-green);
+    margin-bottom: 4px;
+    font-style: italic;
+  }
+  .translation-text {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
   }
   .segmented-text {
     font-size: 0.85rem;

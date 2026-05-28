@@ -52,28 +52,18 @@ def _cmd_mine(args):
         YouTubeTranscriptAdapter,
         YtdlpAudioAdapter,
         SQLitePersistence,
+        GoogleTranslateAdapter,
+        CcCedictAdapter,
+        JiebaFrequencyAdapter,
     )
     from langmine.pipeline import process_video
     from langmine.domain.services.chinese import ChineseLanguageService
-
-    # TODO: Wire real Dictionary, Translator, Frequency adapters (M4)
-    # For now, use stub implementations
-    from langmine.domain.ports import Dictionary, Translator, FrequencySource
-
-    class StubDictionary(Dictionary):
-        def lookup(self, word): return None
-
-    class StubTranslator(Translator):
-        def translate(self, text, src, tgt): return ""
-
-    class StubFrequency(FrequencySource):
-        def get_frequency(self, word): return None
 
     transcript = YouTubeTranscriptAdapter()
     audio = YtdlpAudioAdapter()
     persistence = SQLitePersistence()
     processor = ChineseLanguageService(
-        StubDictionary(), StubTranslator(), StubFrequency()
+        CcCedictAdapter(), GoogleTranslateAdapter(), JiebaFrequencyAdapter()
     )
 
     print(f"⛏️  Mining: {args.url}")
@@ -117,23 +107,15 @@ def _cmd_serve(args):
         YouTubeTranscriptAdapter,
         YtdlpAudioAdapter,
         SQLitePersistence,
+        GoogleTranslateAdapter,
+        CcCedictAdapter,
+        JiebaFrequencyAdapter,
     )
     from langmine.domain.services.chinese import ChineseLanguageService
-    from langmine.domain.ports import Dictionary, Translator, FrequencySource
-
-    # Stub adapters for M3 (M4 adds real ones)
-    class StubDictionary(Dictionary):
-        def lookup(self, word): return None
-
-    class StubTranslator(Translator):
-        def translate(self, text, src, tgt): return ""
-
-    class StubFrequency(FrequencySource):
-        def get_frequency(self, word): return None
 
     persistence = SQLitePersistence()
     processor = ChineseLanguageService(
-        StubDictionary(), StubTranslator(), StubFrequency()
+        CcCedictAdapter(), GoogleTranslateAdapter(), JiebaFrequencyAdapter()
     )
     transcript = YouTubeTranscriptAdapter()
     audio = YtdlpAudioAdapter()

@@ -154,7 +154,10 @@ def process_video(
         max_cards=max_cards,
     )
 
-    # 4. Persist classified sentences
+    # 4. Enrich with NLP (pinyin, translation, definitions)
+    classifier.enrich(sentences)
+
+    # 5. Persist classified sentences
     persistence.save_sentences(sentences)
 
     # 5. Build summary

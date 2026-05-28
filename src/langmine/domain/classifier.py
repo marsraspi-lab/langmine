@@ -100,3 +100,32 @@ class SentenceClassifier:
         capped_i1 = i1_candidates[:max_cards]
 
         return capped_i1 + results
+
+    def enrich(
+        self,
+        sentences: list[Sentence],
+    ) -> list[Sentence]:
+        """Populate NLP fields: pinyin, translation, word definitions, frequency badges.
+
+        Mutates sentences in place and returns them.
+        Only enriches i+1 and kept sentences (the ones shown to the user).
+        """
+        for sentence in sentences:
+            # Pinyin for all sentences
+            sentence.pinyin = self._processor.get_reading(sentence.text)
+
+            # Translation and word info for i+1 and kept sentences
+            if sentence.status in ("i1", "kept"):
+                sentence.translation_de = self._processor.translate_sentence(sentence.text)
+
+                if sentence.unknown_word:
+                    entry = self._processor.lookup_word(sentence.unknown_word)
+                    if entry:
+                        sentence.known_synonyms_json = str(
+                            self._processor.find_known_synonyms(
+                                sentence.unknown_word,
+                                self._persistence.get_known_words(),
+                            )
+                        )
+
+        return sentences

@@ -50,22 +50,16 @@ def test_langmine_cli_imports_and_runs():
 def test_serve_creates_app_with_real_adapters():
     """The serve command creates a Flask app with real adapter wiring."""
     from langmine.web.app import create_app
-    from langmine.adapters import SQLitePersistence
+    from langmine.adapters import (
+        SQLitePersistence, YouTubeTranscriptAdapter, YtdlpAudioAdapter,
+        GoogleTranslateAdapter, CcCedictAdapter, JiebaFrequencyAdapter,
+    )
     from langmine.domain.services.chinese import ChineseLanguageService
-    from langmine.domain.ports import Dictionary, Translator, FrequencySource
-    from langmine.adapters import YouTubeTranscriptAdapter, YtdlpAudioAdapter
-
-    class StubDictionary(Dictionary):
-        def lookup(self, word): return None
-    class StubTranslator(Translator):
-        def translate(self, text, src, tgt): return ""
-    class StubFrequency(FrequencySource):
-        def get_frequency(self, word): return None
 
     app = create_app(
         persistence=SQLitePersistence(),
         language_processor=ChineseLanguageService(
-            StubDictionary(), StubTranslator(), StubFrequency()
+            CcCedictAdapter(), GoogleTranslateAdapter(), JiebaFrequencyAdapter()
         ),
         transcript_source=YouTubeTranscriptAdapter(),
         audio_processor=YtdlpAudioAdapter(),
