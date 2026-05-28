@@ -552,3 +552,143 @@ class TestSPAServing:
         """Built Svelte assets are served from /assets/ path."""
         resp = client.get("/favicon.svg")
         assert resp.status_code == 200
+
+
+class TestSentenceEdits:
+    """PATCH /api/sentences/<id> with field edits."""
+
+    def test_edit_pinyin(self, client_with_sentences):
+        """Should update pinyin field."""
+        client, _ = client_with_sentences
+        resp = client.patch(
+            "/api/sentences/1",
+            data=json.dumps({"pinyin": "wǒmen yībān zǎoshang qǐchuáng"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentence"]["pinyin"] == "wǒmen yībān zǎoshang qǐchuáng"
+
+    def test_edit_translation(self, client_with_sentences):
+        """Should update translation_de field."""
+        client, _ = client_with_sentences
+        resp = client.patch(
+            "/api/sentences/1",
+            data=json.dumps({"translation_de": "Wir stehen normalerweise morgens auf"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentence"]["translation_de"] == "Wir stehen normalerweise morgens auf"
+
+    def test_edit_multiple_fields(self, client_with_sentences):
+        """Should update pinyin and translation in one request."""
+        client, _ = client_with_sentences
+        resp = client.patch(
+            "/api/sentences/1",
+            data=json.dumps({
+                "pinyin": "new pinyin",
+                "translation_de": "new translation",
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentence"]["pinyin"] == "new pinyin"
+        assert data["sentence"]["translation_de"] == "new translation"
+
+    def test_edit_and_status_together(self, client_with_sentences):
+        """Should handle both field edit and status change."""
+        client, _ = client_with_sentences
+        resp = client.patch(
+            "/api/sentences/1",
+            data=json.dumps({
+                "pinyin": "corrected pinyin",
+                "status": "kept",
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentence"]["pinyin"] == "corrected pinyin"
+        assert data["sentence"]["status"] == "kept"
+
+    def test_reclassify_on_segmentation_change(self, client_with_sentences):
+        """Changing text_segmented should re-classify (i1 → i0 if all known)."""
+        # Sentence 1: "我们 / 一般 / 早上 / 起床" with 一般 as unknown
+        # Change so all words are known: "我们 / 早上 / 起床"
+        client, _ = client_with_sentences
+        resp = client.patch(
+            "/api/sentences/1",
+            data=json.dumps({"text_segmented": "我们 / 早上 / 起床"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentence"]["status"] == "i0"
+        assert data["sentence"]["unknown_word"] is None
+
+    def test_reclassify_to_stashed(self, client_with_sentences):
+        """Adding more unknown words should push to stashed."""
+        # Change to have 2 unknowns: "一般 / 爬山" both unknown
+        client, _ = client_with_sentences
+        resp = client.patch(
+            "/api/sentences/1",
+            data=json.dumps({"text_segmented": "一般 / 爬山 / 起床"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentence"]["status"] == "stashed"
+        assert data["sentence"]["unknown_word"] is None
+
+    def test_unknown_sentence_returns_404(self, client):
+        """Should return 404 for non-existent sentence."""
+        resp = client.patch(
+            "/api/sentences/999",
+            data=json.dumps({"pinyin": "test"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 404
+
+    def test_empty_body_returns_400(self, client):
+        """Should return 400 for empty request body."""
+        resp = client.patch(
+            "/api/sentences/1",
+            data=None,
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+
+class TestConfigAPI:
+    """GET/PUT /api/config."""
+
+    def test_get_config_returns_values(self, client):
+        """Should return all config values (no API keys)."""
+        resp = client.get("/api/config")
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert "deck_name" in data
+        assert "source_language" in data
+        assert "max_cards_per_video" in data
+        # API keys should NOT be in response
+        assert "deepl_api_key" not in data
+
+    def test_put_config_updates_values(self, client):
+        """Should update config values."""
+        resp = client.put(
+            "/api/config",
+            data=json.dumps({
+                "deck_name": "Custom Deck",
+                "max_cards_per_video": 10,
+            }),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        assert json.loads(resp.data)["ok"] is True
+
+    def test_put_config_empty_body_returns_400(self, client):
+        """Should return 400 for empty body."""
+        resp = client.put("/api/config", data=None, content_type="application/json")
+        assert resp.status_code == 400

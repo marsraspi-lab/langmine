@@ -12,9 +12,16 @@
     { key: 'deleted', label: '🗑 Deleted' },
   ];
 
+  let loading = $state(false);
+
   async function setFilter(key) {
     currentFilter.set(key);
-    await loadSentences(videoId, key);
+    loading = true;
+    try {
+      await loadSentences(videoId, key);
+    } finally {
+      loading = false;
+    }
   }
 
   function onKeep(id) {
@@ -26,6 +33,16 @@
   function onIknowthis(id) {
     markWordKnown(id);
   }
+
+  const EMPTY_MESSAGES = {
+    all: 'No sentences for this video yet.',
+    i1: 'No i+1 candidates. All words known or already curated! 🎉',
+    kept: 'No sentences kept yet. Click 🟢 Keep to save sentences for export.',
+    stashed: 'Stash is empty. Stashed sentences appear here when they drop to i+1.',
+    deleted: 'No deleted sentences.',
+  };
+
+  let emptyMessage = $derived(EMPTY_MESSAGES[$currentFilter] || 'Nothing to show.');
 </script>
 
 <nav class="tabs">
@@ -41,8 +58,10 @@
 </nav>
 
 <div class="cards-container">
-  {#if $sentences.length === 0}
-    <div class="empty-state">No sentences to show.</div>
+  {#if loading}
+    <div class="empty-state">⏳ Loading...</div>
+  {:else if $sentences.length === 0}
+    <div class="empty-state">{emptyMessage}</div>
   {:else}
     {#each $sentences as sentence (sentence.id)}
       <SentenceCard {sentence} onkeep={onKeep} ondelete={onDelete} oniknowthis={onIknowthis} />
@@ -86,5 +105,8 @@
     color: var(--text-secondary);
     padding: 80px 0;
     font-size: 1rem;
+    line-height: 1.6;
+    max-width: 400px;
+    margin: 0 auto;
   }
 </style>

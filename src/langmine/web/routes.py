@@ -12,6 +12,7 @@ from langmine.domain.ports import (
 
 
 VALID_SENTENCE_STATUSES = {"kept", "deleted"}
+EDITABLE_FIELDS = {"pinyin", "translation_de", "text_segmented"}
 
 
 def register_routes(app: Flask):
@@ -109,29 +110,45 @@ def register_routes(app: Flask):
 
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
     def update_sentence(sentence_id: int):
-        """Update sentence status (kept/deleted)."""
+        """Update sentence fields: status, pinyin, translation_de, text_segmented.
+
+        text_segmented changes trigger re-classification of unknown words.
+        """
         persistence = _get_persistence()
 
         data = request.get_json(silent=True)
-        if not data or "status" not in data:
-            return jsonify({"error": "Missing 'status' field"}), 400
-
-        status = data["status"]
-        if status not in VALID_SENTENCE_STATUSES:
-            return jsonify({
-                "error": f"Invalid status '{status}'. Must be one of: {sorted(VALID_SENTENCE_STATUSES)}"
-            }), 400
+        if not data:
+            return jsonify({"error": "Missing request body"}), 400
 
         sentence = _find_sentence(persistence, sentence_id)
         if sentence is None:
             return jsonify({"error": "Sentence not found"}), 404
 
-        sentence.status = status
-        persistence.update_sentence(sentence)
+        # --- Status update (existing behavior) ---
+        if "status" in data:
+            status = data["status"]
+            if status not in VALID_SENTENCE_STATUSES:
+                return jsonify({
+                    "error": f"Invalid status '{status}'. Must be one of: {sorted(VALID_SENTENCE_STATUSES)}"
+                }), 400
+            sentence.status = status
+            # If keeping, mark unknown word as "learning"
+            if status == "kept" and sentence.unknown_word:
+                persistence.mark_word_learning(sentence.unknown_word)
 
-        # If keeping, mark unknown word as "learning"
-        if status == "kept" and sentence.unknown_word:
-            persistence.mark_word_learning(sentence.unknown_word)
+        # --- Field edits ---
+        edited = False
+        for field in EDITABLE_FIELDS:
+            if field in data:
+                setattr(sentence, field, data[field])
+                edited = True
+
+        # Re-classify if segmentation changed
+        if "text_segmented" in data and sentence.status not in ("exported", "deleted"):
+            _reclassify_from_segmented(persistence, sentence)
+
+        if edited or "status" in data:
+            persistence.update_sentence(sentence)
 
         return jsonify({
             "sentence": _sentence_to_dict(sentence),
@@ -204,6 +221,52 @@ def register_routes(app: Flask):
         """Return vocabulary stats."""
         persistence = _get_persistence()
         return jsonify(persistence.get_vocab_stats())
+
+    @app.route("/api/config")
+    def get_config():
+        """Return current configuration (sanitized — no API keys)."""
+        from langmine.config import load_config
+        config = load_config()
+        return jsonify({
+            "anki_connect_url": config.anki_connect_url,
+            "deck_name": config.deck_name,
+            "note_type": config.note_type,
+            "source_language": config.source_language,
+            "target_language": config.target_language,
+            "translation_api": config.translation_api,
+            "sentence_gap_ms": config.sentence_gap_ms,
+            "audio_pad_before_ms": config.audio_pad_before_ms,
+            "audio_pad_after_ms": config.audio_pad_after_ms,
+            "max_cards_per_video": config.max_cards_per_video,
+            "max_stash_cards": config.max_stash_cards,
+            "hsk_bootstrap": config.hsk_bootstrap,
+        })
+
+    @app.route("/api/config", methods=["PUT"])
+    def update_config():
+        """Update configuration and save to config.yaml."""
+        from langmine.config import load_config, save_config
+
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Missing request body"}), 400
+
+        # Allowed config keys
+        ALLOWED = {
+            "anki_connect_url", "deck_name", "note_type",
+            "source_language", "target_language", "translation_api",
+            "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
+            "max_cards_per_video", "max_stash_cards", "hsk_bootstrap",
+            "deepl_api_key",
+        }
+
+        config = load_config()
+        for key, value in data.items():
+            if key in ALLOWED:
+                setattr(config, key, value)
+
+        save_config(config)
+        return jsonify({"ok": True})
 
     @app.route("/api/export/anki", methods=["POST"])
     def export_anki():
@@ -283,6 +346,47 @@ def _get_transcript_source() -> TranscriptSource | None:
 def _get_audio_processor() -> AudioProcessor | None:
     """Get the audio processor port from app config."""
     return current_app.config.get("LANGMINE_AUDIO_PROCESSOR")
+
+
+def _reclassify_from_segmented(
+    persistence: Persistence,
+    sentence: Sentence,
+) -> None:
+    """Re-classify a sentence based on its manually-edited text_segmented.
+
+    Parses the "word / word / word" format, filters non-words, and
+    counts unknown words against the known vocabulary. Updates
+    sentence.status, sentence.unknown_word, and sentence.unknown_word_rank.
+    """
+    processor = _get_processor()
+    if processor is None:
+        return
+
+    known_words = persistence.get_known_words()
+
+    # Parse tokens from "word1 / word2 / word3"
+    tokens = [t.strip() for t in sentence.text_segmented.split(" / ") if t.strip()]
+
+    # Filter non-words
+    content_words = [t for t in tokens if not processor.is_non_word(t)]
+
+    # Count unknowns
+    unknown_words = [w for w in content_words if w not in known_words]
+    unknown_count = len(unknown_words)
+
+    if unknown_count == 0:
+        sentence.status = "i0"
+        sentence.unknown_word = None
+        sentence.unknown_word_rank = None
+    elif unknown_count == 1:
+        word = unknown_words[0]
+        sentence.status = "i1"
+        sentence.unknown_word = word
+        sentence.unknown_word_rank = processor.get_frequency(word)
+    else:
+        sentence.status = "stashed"
+        sentence.unknown_word = None
+        sentence.unknown_word_rank = None
 
 
 def _find_sentence(persistence: Persistence, sentence_id: int) -> Sentence | None:

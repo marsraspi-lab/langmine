@@ -152,3 +152,22 @@ def _dict_to_config(data: dict) -> Config:
         max_stash_cards=data["mining"]["max_stash_cards"],
         hsk_bootstrap=data["vocab"]["hsk_bootstrap"],
     )
+
+
+def save_config(config: Config, config_dir: str | None = None) -> None:
+    """Save a Config object back to the YAML file.
+
+    Args:
+        config: The Config object to save.
+        config_dir: Override config directory (defaults to ~/.langmine).
+    """
+    if config_dir is None:
+        config_dir = str(Path.home() / ".langmine")
+
+    config_path = Path(config_dir)
+    config_path.mkdir(parents=True, exist_ok=True)
+
+    yaml_file = config_path / "config.yaml"
+    data = _config_to_dict(config)
+    with open(yaml_file, "w") as f:
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)

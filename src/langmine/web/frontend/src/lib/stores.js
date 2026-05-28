@@ -21,14 +21,49 @@ export const mining = writable(false);
 
 /** @type {import('svelte/store').Writable<string>} */
 export const exportStatus = writable('');
+
 /** @type {import('svelte/store').Writable<boolean>} */
 export const exporting = writable(false);
+
+/** @type {import('svelte/store').Writable<Array>} */
+export const toasts = writable([]);
+
+/** @type {import('svelte/store').Writable<Object>} */
+export const config = writable({});
+
+/** @type {import('svelte/store').Writable<string>} */
+export const theme = writable(localStorage.getItem('langmine-theme') || 'dark');
+
+/** @type {import('svelte/store').Writable<string>} */
+export const currentView = writable('curation'); // 'curation' | 'settings'
+
+let toastId = 0;
+
+export function addToast(message, type = 'info', duration = 4000) {
+  const id = ++toastId;
+  toasts.update(t => [...t, { id, message, type }]);
+  if (duration > 0) {
+    setTimeout(() => removeToast(id), duration);
+  }
+  return id;
+}
+
+export function removeToast(id) {
+  toasts.update(t => t.filter(toast => toast.id !== id));
+}
 
 export const selectedVideo = derived(
   [videos, selectedVideoId],
   ([$videos, $selectedVideoId]) =>
     $videos.find(v => v.id === $selectedVideoId) || null
 );
+
+theme.subscribe(value => {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', value);
+    localStorage.setItem('langmine-theme', value);
+  }
+});
 
 export async function loadVideos() {
   const data = await api.listVideos();
@@ -38,6 +73,7 @@ export async function loadVideos() {
 export async function selectVideo(id) {
   selectedVideoId.set(id);
   currentFilter.set('all');
+  currentView.set('curation');
   await loadSentences(id, 'all');
 }
 
@@ -82,6 +118,40 @@ export async function deleteSentence(id) {
 export async function markWordKnown(id) {
   await api.markWordKnown(id);
   await refreshAfterAction();
+}
+
+export async function updateSentenceField(id, fields) {
+  try {
+    await api.updateSentenceFields(id, fields);
+    await refreshAfterAction();
+    addToast('Saved ✓', 'success', 2000);
+  } catch (err) {
+    addToast(`Failed: ${err.message}`, 'error', 4000);
+    throw err;
+  }
+}
+
+export async function loadConfig() {
+  try {
+    const data = await api.getConfig();
+    config.set(data);
+  } catch (err) {
+    console.error('Failed to load config:', err);
+  }
+}
+
+export async function saveConfig(updates) {
+  try {
+    await api.updateConfig(updates);
+    config.update(c => ({ ...c, ...updates }));
+    addToast('Settings saved ✓', 'success', 2000);
+  } catch (err) {
+    addToast(`Failed to save: ${err.message}`, 'error');
+  }
+}
+
+export function toggleTheme() {
+  theme.update(t => t === 'dark' ? 'light' : 'dark');
 }
 
 async function refreshAfterAction() {
