@@ -38,4 +38,6 @@ export const api = {
   updateSentence: (id, status) => patch(`/sentences/${id}`, { status }),
   markWordKnown: (id) => patch(`/sentences/${id}/iknowthis`),
   getStats: () => get('/stats'),
+  exportAnki: (videoId) =>
+    post('/export/anki', videoId ? { video_id: videoId } : { all_kept: true }),
 };

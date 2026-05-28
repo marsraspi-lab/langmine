@@ -19,6 +19,11 @@ export const mineStatus = writable('');
 /** @type {import('svelte/store').Writable<boolean>} */
 export const mining = writable(false);
 
+/** @type {import('svelte/store').Writable<string>} */
+export const exportStatus = writable('');
+/** @type {import('svelte/store').Writable<boolean>} */
+export const exporting = writable(false);
+
 export const selectedVideo = derived(
   [videos, selectedVideoId],
   ([$videos, $selectedVideoId]) =>
@@ -93,3 +98,17 @@ let $selectedVideoId;
 let $currentFilter;
 selectedVideoId.subscribe(v => $selectedVideoId = v);
 currentFilter.subscribe(v => $currentFilter = v);
+
+export async function exportAnki(videoId) {
+  exporting.set(true);
+  exportStatus.set('⏳ Exporting...');
+  try {
+    const { ok, data } = await api.exportAnki(videoId);
+    if (!ok) throw new Error(data.error || 'Export failed');
+    exportStatus.set(`✅ ${data.added} new, ${data.duplicates} duplicates`);
+  } catch (err) {
+    exportStatus.set(`❌ ${err.message}`);
+  } finally {
+    exporting.set(false);
+  }
+}

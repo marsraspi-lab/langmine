@@ -1,5 +1,6 @@
 <script>
-  import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo } from './stores.js';
+  import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo,
+    exportStatus, exporting, exportAnki } from './stores.js';
 
   let urlInput = $state('');
 
@@ -63,6 +64,21 @@
       {/each}
     {/if}
   </nav>
+
+  {#if $videos.length > 0}
+    <div class="export-section">
+      <button
+        class="export-btn"
+        onclick={() => exportAnki(null)}
+        disabled={$exporting}
+      >
+        {$exporting ? '⏳' : '📦'} Export to Anki
+      </button>
+      {#if $exportStatus}
+        <div class="export-status">{$exportStatus}</div>
+      {/if}
+    </div>
+  {/if}
 </aside>
 
 <style>
@@ -174,5 +190,33 @@
   .count-kept {
     color: var(--accent-green);
     margin-left: 6px;
+  }
+  .export-section {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .export-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--accent-green);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .export-btn:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  .export-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .export-status {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    line-height: 1.4;
   }
 </style>
