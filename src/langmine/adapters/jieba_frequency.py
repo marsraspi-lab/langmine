@@ -13,14 +13,11 @@ import os
 from pathlib import Path
 
 from langmine.domain.ports import FrequencySource
+from langmine.domain.models import frequency_tier, frequency_badge
 
 
 class JiebaFrequencyAdapter(FrequencySource):
     """Word frequency lookup using jieba's dictionary."""
-
-    # Tier thresholds
-    CORE_MAX = 2000
-    USEFUL_MAX = 6000
 
     def __init__(self):
         """Load jieba's frequency dictionary."""
@@ -62,20 +59,8 @@ class JiebaFrequencyAdapter(FrequencySource):
 
     def get_tier(self, rank: int) -> str:
         """Return the tier label for a given rank."""
-        if rank <= self.CORE_MAX:
-            return "core"
-        elif rank <= self.USEFUL_MAX:
-            return "useful"
-        else:
-            return "rare"
+        return frequency_tier(rank)
 
     def get_badge(self, rank: int | None) -> str:
         """Return emoji badge for a frequency rank."""
-        if rank is None:
-            return ""
-        if rank <= self.CORE_MAX:
-            return "🔥"
-        elif rank <= self.USEFUL_MAX:
-            return "⭐"
-        else:
-            return "💎"
+        return frequency_badge(rank)

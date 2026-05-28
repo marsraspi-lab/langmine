@@ -14,13 +14,10 @@ File source: https://doi.org/10.1371/journal.pone.0010729.s002
 from pathlib import Path
 
 from langmine.domain.ports import FrequencySource
+from langmine.domain.models import frequency_tier, frequency_badge
 
 
 _DATA_PATH = Path(__file__).parent.parent.parent.parent / "data" / "SUBTLEX-CH-WF"
-
-# Frequency tier thresholds
-CORE_MAX = 2000
-USEFUL_MAX = 6000
 
 
 class SubtlexChAdapter(FrequencySource):
@@ -84,21 +81,9 @@ class SubtlexChAdapter(FrequencySource):
     @staticmethod
     def get_tier(rank: int) -> str:
         """Return tier label for a given rank."""
-        if rank <= CORE_MAX:
-            return "core"
-        elif rank <= USEFUL_MAX:
-            return "useful"
-        else:
-            return "rare"
+        return frequency_tier(rank)
 
     @staticmethod
     def get_badge(rank: int | None) -> str:
         """Return emoji badge for a frequency rank."""
-        if rank is None:
-            return ""
-        if rank <= CORE_MAX:
-            return "🔥"
-        elif rank <= USEFUL_MAX:
-            return "⭐"
-        else:
-            return "💎"
+        return frequency_badge(rank)

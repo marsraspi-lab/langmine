@@ -130,11 +130,11 @@ class TestJiebaFrequencyAdapter:
             )
 
     def test_frequency_tiers(self):
-        """Adapter should provide tier metadata for 🔥/⭐/💎 badges."""
-        from langmine.adapters.jieba_frequency import JiebaFrequencyAdapter
-        adapter = JiebaFrequencyAdapter()
-        # Check that tier thresholds exist
-        assert hasattr(adapter, 'CORE_MAX')
-        assert hasattr(adapter, 'USEFUL_MAX')
-        assert adapter.CORE_MAX > 0
-        assert adapter.USEFUL_MAX > adapter.CORE_MAX
+        """Tier logic should be accessible from domain models."""
+        from langmine.domain.models import frequency_tier, frequency_badge
+        assert frequency_tier(1) == "core"
+        assert frequency_tier(2000) == "core"
+        assert frequency_tier(2001) == "useful"
+        assert frequency_badge(1) == "🔥"
+        assert frequency_badge(6001) == "💎"
+        assert frequency_badge(None) == ""

@@ -323,7 +323,7 @@ def _video_with_counts(persistence: Persistence, video) -> dict:
 
 def _sentence_to_dict(sentence: Sentence) -> dict:
     """Convert a Sentence domain model to a JSON-safe dict."""
-    from langmine.adapters.subtlex_ch import SubtlexChAdapter
+    from langmine.domain.models import frequency_badge
 
     result = {
         "id": sentence.id,
@@ -340,6 +340,6 @@ def _sentence_to_dict(sentence: Sentence) -> dict:
     }
 
     # Compute frequency badge from rank
-    result["frequency_badge"] = SubtlexChAdapter.get_badge(sentence.unknown_word_rank)
+    result["frequency_badge"] = frequency_badge(sentence.unknown_word_rank)
 
     return result

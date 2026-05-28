@@ -8,6 +8,35 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 
+# === Frequency Rank (domain logic, no I/O) ===
+
+# Tier thresholds — same for any frequency source (SUBTLEX-CH, jieba, etc.)
+_CORE_MAX = 2000
+_USEFUL_MAX = 6000
+
+
+def frequency_tier(rank: int) -> str:
+    """Return tier label for a frequency rank (1 = most common)."""
+    if rank <= _CORE_MAX:
+        return "core"
+    elif rank <= _USEFUL_MAX:
+        return "useful"
+    else:
+        return "rare"
+
+
+def frequency_badge(rank: int | None) -> str:
+    """Return emoji badge for a frequency rank."""
+    if rank is None:
+        return ""
+    if rank <= _CORE_MAX:
+        return "🔥"
+    elif rank <= _USEFUL_MAX:
+        return "⭐"
+    else:
+        return "💎"
+
+
 @dataclass
 class Video:
     """A YouTube video that has been or will be mined."""
