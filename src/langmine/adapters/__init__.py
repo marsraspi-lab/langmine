@@ -10,6 +10,7 @@ from langmine.adapters.google_translate import GoogleTranslateAdapter
 from langmine.adapters.cc_cedict import CcCedictAdapter
 from langmine.adapters.jieba_frequency import JiebaFrequencyAdapter
 from langmine.adapters.subtlex_ch import SubtlexChAdapter
+from langmine.adapters.anki_connect import AnkiConnectAdapter
 
 __all__ = [
     "YouTubeTranscriptAdapter",
@@ -19,4 +20,5 @@ __all__ = [
     "CcCedictAdapter",
     "JiebaFrequencyAdapter",
     "SubtlexChAdapter",
+    "AnkiConnectAdapter",
 ]
