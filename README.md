@@ -1,8 +1,8 @@
 # LangMine
 
-YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and export to Anki flashcards.
+YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** M3 complete — Flask API + Svelte curation UI working.
+**Status:** M5 complete — AnkiConnect export, Svelte curation UI, SUBTLEX-CH frequency data, CC-CEDICT dictionary, Google Translate integration all working. 117 tests pass.
 
 ---
 
@@ -10,6 +10,7 @@ YouTube sentence mining for language learning. Extract sentences with audio from
 
 - **Python 3.11+**
 - **ffmpeg** — for audio processing and clipping
+- **Anki** + **AnkiConnect addon** (ID: 2055492159) — for flashcard export
 - **Node.js 20+** — for building the Svelte frontend
 
 ### Installing ffmpeg
@@ -25,15 +26,16 @@ YouTube sentence mining for language learning. Extract sentences with audio from
 ## Installation
 
 ```bash
-git clone https://github.com/<user>/langmine.git
+git clone https://github.com/marsraspi-lab/langmine.git
 cd langmine
 pip install -e ".[dev]"
+
+# Build the frontend
+cd src/langmine/web/frontend && npm install && npm run build && cd -
 ```
 
 This installs LangMine in editable mode with all Python dependencies:
-`yt-dlp`, `youtube-transcript-api`, `jieba`, `pypinyin`, `flask`, `pyyaml`, `pytest`, `pytest-cov`
-
-After installation, the `langmine` command is available in your terminal.
+`yt-dlp`, `youtube-transcript-api`, `jieba`, `pypinyin`, `deep-translator`, `flask`, `pyyaml`, `requests`, `pytest`, `pytest-cov`
 
 ---
 
@@ -48,13 +50,28 @@ langmine mine "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ### Start the web UI
 
 ```bash
-# Build the Svelte frontend (one-time, or after UI changes)
-cd src/langmine/web/frontend && npm install && npm run build && cd -
-
-# Start the server
 langmine serve                  # → http://127.0.0.1:8080
 langmine serve --port 9000      # custom port
 ```
+
+The web UI lets you browse mined sentences, keep or delete them, and mark words as known.
+
+### Export to Anki
+
+```bash
+# Export all kept sentences
+langmine export --all-kept
+
+# Export from a specific video
+langmine export --video-id 1
+
+# Force-update card templates (after editing config.yaml)
+langmine export --all-kept --force-update-model
+```
+
+Or use the **📦 Export to Anki** button in the sidebar. Check "⚡ Update card templates" to push template changes from `config.yaml`.
+
+Anki must be running with the AnkiConnect addon installed.
 
 ### View help
 
@@ -62,6 +79,7 @@ langmine serve --port 9000      # custom port
 langmine --help
 langmine mine --help
 langmine serve --help
+langmine export --help
 ```
 
 ---
@@ -75,6 +93,26 @@ anki:
   anki_connect_url: "http://localhost:8765"
   deck_name: "Chinese::Sentence Mining"
   note_type: "LangMine Sentence"
+
+  # Card styling and templates (edit these to customize flashcards)
+  card_css: |
+    .card { font-family: Arial, sans-serif; font-size: 20px; }
+    .chinese { font-size: 28px; margin: 20px 0; }
+    .pinyin { color: #2e7d32; font-style: italic; }
+    .translation { font-size: 22px; }
+    .word { color: #e53935; font-size: 18px; }
+
+  card_front_template: |
+    <div class="chinese">{{sentence_zh}}</div>
+    {{#audio}}{{audio}}{{/audio}}
+
+  card_back_template: |
+    <div class="chinese">{{sentence_zh}}</div>
+    {{#audio}}{{audio}}{{/audio}}
+    <hr id="answer">
+    <div class="pinyin">{{sentence_pinyin}}</div>
+    <div class="translation">{{translation_de}}</div>
+    {{#unknown_word}}<div class="word">🆕 {{unknown_word}}</div>{{/unknown_word}}
 
 languages:
   source: "zh"
@@ -94,6 +132,8 @@ vocab:
   hsk_bootstrap: 3            # HSK levels 1-3 treated as known
 ```
 
+See **[docs/TEMPLATES.md](docs/TEMPLATES.md)** for card template customization — available fields, Mustache conditionals, and Anki-side editing.
+
 ---
 
 ## How It Works
@@ -101,10 +141,11 @@ vocab:
 ```
 YouTube URL → transcript → merge subtitle chunks into sentences
              → download full audio → clip per-sentence with padding
-             → Chinese NLP (segmentation, pinyin, dictionary, translation)
+             → Chinese NLP (jieba segmentation, pypinyin, CC-CEDICT dictionary,
+                Google Translate, SUBTLEX-CH frequency ranking)
              → i+1 filter (one unknown word = learnable)
-             → curate in browser (keep/delete/edit)
-             → export to Anki with audio + screenshots
+             → curate in browser (keep/delete/I-know-this)
+             → export to Anki via AnkiConnect (cards appear instantly)
 ```
 
 ---
@@ -124,7 +165,11 @@ src/langmine/
 ├── adapters/
 │   ├── sqlite_persistence.py   # SQLite behind Persistence port
 │   ├── youtube_transcript.py   # YouTube behind TranscriptSource port
-│   └── ytdlp_audio.py          # yt-dlp+ffmpeg behind AudioProcessor port
+│   ├── ytdlp_audio.py          # yt-dlp+ffmpeg behind AudioProcessor port
+│   ├── google_translate.py     # deep-translator behind Translator port
+│   ├── cc_cedict.py            # CC-CEDICT behind Dictionary port
+│   ├── subtlex_ch.py           # SUBTLEX-CH behind FrequencySource port
+│   └── anki_connect.py         # AnkiConnect behind AnkiExporter port
 ├── web/
 │   ├── app.py            # Flask app factory (port injection)
 │   ├── routes.py         # REST API endpoints
@@ -132,7 +177,7 @@ src/langmine/
 │   └── frontend/         # Svelte 5 + Vite source
 │       └── src/lib/      # Components: Sidebar, CardList, SentenceCard
 ├── pipeline.py           # End-to-end mining (accepts ports)
-├── cli.py                # CLI entry point (mine, serve)
+├── cli.py                # CLI entry point (mine, serve, export)
 └── config.py             # YAML config with defaults
 ```
 
@@ -148,8 +193,8 @@ The cardinal rule: `domain/` never imports from `adapters/` or `web/`.
 | M1 | Mine One Sentence | ✅ |
 | M2 | Classify All Sentences | ✅ |
 | M3 | Curate in Browser | ✅ — Flask API + Svelte SPA + Playwright E2E |
-| M4 | Translate & Understand | ⬜ |
-| M5 | Export to Anki | ⬜ |
+| M4 | Translate & Understand | ✅ — CC-CEDICT, Google Translate, SUBTLEX-CH, pinyin |
+| M5 | Export to Anki | ✅ — AnkiConnect, config-driven templates, force-update |
 | M6 | Stash & Screenshots | ⬜ |
 | M7 | Polish & Edit | ⬜ |
 

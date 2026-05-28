@@ -3,7 +3,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/<user>/langmine.git
+git clone https://github.com/marsraspi-lab/langmine.git
 cd langmine
 
 # Python backend
@@ -19,7 +19,7 @@ cd -
 Verify everything works:
 
 ```bash
-# Python tests (no network/ffmpeg needed for domain tests)
+# Python tests (no network/ffmpeg needed for domain + API tests)
 pytest tests/ --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py -v
 
 # Playwright E2E tests (starts test server + headless browser)
@@ -39,11 +39,19 @@ langmine serve
 # → http://127.0.0.1:8080
 ```
 
+Export to Anki (requires Anki running with AnkiConnect addon):
+
+```bash
+langmine export --all-kept
+langmine export --all-kept --force-update-model  # push template changes
+```
+
 Run tests:
 
 ```bash
 pytest tests/test_web_api.py -v     # API tests with fake ports
 pytest tests/test_classifier.py -v  # Domain logic tests
+pytest tests/adapters/ -v           # Adapter tests (db, anki, subtlex)
 pytest tests/ -v                    # Full suite (needs ffmpeg for audio tests)
 ```
 
@@ -115,15 +123,16 @@ Forbidden:
 
 ### Ports (abstract interfaces in `domain/ports.py`)
 
-| Port | What it abstracts |
-|------|------------------|
-| `Persistence` | Database (SQLite adapter, in-memory fake for tests) |
-| `LanguageProcessor` | NLP (Chinese service, future Spanish/Korean plugins) |
-| `TranscriptSource` | Subtitles (YouTube adapter, fake for tests) |
-| `AudioProcessor` | Audio download + clipping (yt-dlp+ffmpeg adapter, fake for tests) |
-| `Translator` | Sentence translation (Google Translate, DeepL) |
-| `Dictionary` | Word lookup (CC-CEDICT) |
-| `FrequencySource` | Word frequency data (SUBTLEX-CH) |
+| Port | Adapters | What it abstracts |
+|------|----------|------------------|
+| `Persistence` | `SQLitePersistence` | Database — store videos, sentences, vocab |
+| `LanguageProcessor` | `ChineseLanguageService` | NLP — segment, pinyin, dictionary, frequency |
+| `TranscriptSource` | `YouTubeTranscriptAdapter` | Subtitles — fetch from YouTube |
+| `AudioProcessor` | `YtdlpAudioAdapter` | Audio — download MP3, clip sentences |
+| `Translator` | `GoogleTranslateAdapter` | Sentence translation (zh→de via deep-translator) |
+| `Dictionary` | `CcCedictAdapter` | Word lookup (CC-CEDICT, 125K entries) |
+| `FrequencySource` | `SubtlexChAdapter` | Word frequency (SUBTLEX-CH film corpus, 99K entries) |
+| `AnkiExporter` | `AnkiConnectAdapter` | Flashcard export (AnkiConnect JSON-RPC) |
 
 ### Testing with Fake Ports
 
@@ -139,6 +148,8 @@ classifier = SentenceClassifier(processor, persistence)
 
 The same fakes power the Playwright E2E test server (`e2e/test_server.py`).
 
+Adapter tests use real dependencies with mocked HTTP (AnkiConnect, Google Translate) or real data files (CC-CEDICT, SUBTLEX-CH).
+
 ---
 
 ## Testing Philosophy
@@ -149,7 +160,8 @@ The same fakes power the Playwright E2E test server (`e2e/test_server.py`).
 |-------|------|--------------|
 | Domain logic | pytest + fake ports | Classifier, pipeline, NLP — no I/O |
 | API routes | pytest + Flask test client + fake ports | REST endpoints, status codes, JSON shapes |
-| Adapters | pytest + real deps | SQLite, yt-dlp, ffmpeg integration |
+| Adapters | pytest + mocked HTTP / real data | AnkiConnect, Translate, Dictionary, Frequency |
+| Adapters (I/O) | pytest + real deps | SQLite, yt-dlp, ffmpeg integration |
 | E2E UI | Playwright + fake server | Svelte components, button clicks, state changes |
 
 ---
@@ -158,15 +170,17 @@ The same fakes power the Playwright E2E test server (`e2e/test_server.py`).
 
 ```
 App.svelte
-├── Sidebar.svelte        — video list + mine form
+├── Sidebar.svelte        — video list, mine form, export button
 └── CardList.svelte       — filter tabs + card grid
-    └── SentenceCard.svelte — text, segmented, audio, actions
+    └── SentenceCard.svelte — text, pinyin, translation, audio, actions
 ```
 
 State management via Svelte 5 stores (`src/lib/stores.js`):
 - `videos`, `sentences` — writable stores
 - `selectedVideoId`, `currentFilter` — writable stores
 - `selectedVideo` — derived store
+- `mineStatus`, `exportStatus` — writable stores (UI feedback)
+- `mining`, `exporting` — writable stores (loading states)
 
 API calls via `src/lib/api.js` — thin wrappers around `fetch()`.
 
@@ -175,8 +189,9 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`.
 ## Project Conventions
 
 - **Commit per milestone.** Each commit is a working vertical slice.
-- **Architecture review after each milestone.** See `ARCHITECTURE.md`.
-- **Python formatting:** follow PEP 8. No formatter enforced yet.
+- **Architecture review after each milestone.**
+- **Python formatting:** follow PEP 8.
 - **Svelte:** Svelte 5 with runes (`$props()`, `$state()`). Scoped CSS per component.
 - **No build step for Python.** `pip install -e .` in editable mode.
 - **Frontend build step required.** `npm run build` before `langmine serve`.
+- **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests require ffmpeg on the host machine.
