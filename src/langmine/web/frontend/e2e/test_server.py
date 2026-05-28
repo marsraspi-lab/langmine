@@ -28,7 +28,7 @@ class FakeLanguageProcessor(LanguageProcessor):
     def lookup_word(self, word): return {"definition_de": f"def:{word}", "definition_en": f"def:{word}"}
     def translate_sentence(self, text): return f"[DE] {text}"
     def get_frequency(self, word):
-        ranks = {"一般": 1847, "效率": 3412, "爬山": 5000}
+        ranks = {"一般": 1847, "效率": 3412, "爬山": 5000, "管理": 2100}
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
     def find_known_synonyms(self, word, known_words): return []
@@ -76,8 +76,10 @@ class FakePersistence(Persistence):
     def mark_word_learning(self, w): pass
     def save_vocab_word(self, w): pass
     def get_vocab_word(self, w): return None
-    def get_stash_candidates(self, limit=20): return []
-    def get_sentences_by_status(self, status): return []
+    def get_stash_candidates(self, limit=20):
+        return [s for s in self._sentences if s.status == "stashed"][:limit]
+    def get_sentences_by_status(self, status):
+        return [s for s in self._sentences if s.status == status]
     def reclassify_stashed(self, vid): return 0
 
 
@@ -95,6 +97,8 @@ class FakeTranscriptSource(TranscriptSource):
 class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir): return f"{output_dir}/{video_id}.mp3"
     def clip(self, *args, **kwargs): return "/tmp/clip.mp3"
+    def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
+        return f"{output_dir}/frame_{sentence_id}.jpg"
 
 
 # === Create app ===
@@ -106,13 +110,39 @@ video = Video(youtube_id="dQw4w9WgXcQ", title="Test Video", channel="Test Channe
 persistence.save_video(video)
 
 sentences = [
-    Sentence(video_id=video.id, start_ms=1000, end_ms=3000,
-             text="我们 一般 早上 起床", text_segmented="我们 / 一般 / 早上 / 起床",
-             unknown_word="一般", unknown_word_rank=1847,
-             audio_clip_path="", status="i1"),
-    Sentence(video_id=video.id, start_ms=4000, end_ms=7000,
-             text="我 爱 学习", text_segmented="我 / 爱 / 学习",
-             audio_clip_path="", status="i0"),
+    # i+1 sentence with all fields filled (for edit + screenshot tests)
+    Sentence(
+        video_id=video.id, start_ms=1000, end_ms=3000,
+        text="我们 一般 早上 起床",
+        text_segmented="我们 / 一般 / 早上 / 起床",
+        pinyin="wǒmen yībān zǎoshang qǐchuáng",
+        translation_de="Wir stehen normalerweise morgens auf",
+        unknown_word="一般", unknown_word_rank=1847,
+        audio_clip_path="/tmp/clip1.mp3",
+        screenshot_path="/api/sentences/1/screenshot",
+        screenshot_enabled=True,
+        status="i1",
+    ),
+    # i+0 sentence
+    Sentence(
+        video_id=video.id, start_ms=4000, end_ms=7000,
+        text="我 爱 学习",
+        text_segmented="我 / 爱 / 学习",
+        pinyin="wǒ ài xuéxí",
+        translation_de="Ich liebe es zu lernen",
+        audio_clip_path="",
+        status="i0",
+    ),
+    # Stashed sentence (i+2: 效率 + 管理 both unknown)
+    Sentence(
+        video_id=video.id, start_ms=8000, end_ms=12000,
+        text="我们 需要 提高 效率 和 管理 水平",
+        text_segmented="我们 / 需要 / 提高 / 效率 / 和 / 管理 / 水平",
+        pinyin="wǒmen xūyào tígāo xiàolǜ hé guǎnlǐ shuǐpíng",
+        translation_de="Wir müssen Effizienz und Management verbessern",
+        audio_clip_path="",
+        status="stashed",
+    ),
 ]
 for s in sentences:
     persistence.save_sentences([s])
