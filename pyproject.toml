@@ -15,6 +15,7 @@ dependencies = [
     "pypinyin",
     "flask",
     "pyyaml",
+    "deep-translator",
 ]
 
 [project.optional-dependencies]
