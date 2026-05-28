@@ -25,6 +25,11 @@ def main():
     serve_parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     serve_parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
 
+    # export
+    export_parser = subparsers.add_parser("export", help="Export kept sentences to Anki")
+    export_parser.add_argument("--video-id", type=int, help="Export from a specific video")
+    export_parser.add_argument("--all-kept", action="store_true", help="Export all kept sentences")
+
     args = parser.parse_args()
 
     if args.command == "mine":
@@ -36,6 +41,9 @@ def main():
 
     elif args.command == "serve":
         _cmd_serve(args)
+
+    elif args.command == "export":
+        _cmd_export(args)
 
     else:
         parser.print_help()
@@ -132,6 +140,61 @@ def _cmd_serve(args):
 
     print(f"⛏️  LangMine server starting at http://{args.host}:{args.port}")
     app.run(host=args.host, port=args.port, debug=True)
+
+
+def _cmd_export(args):
+    """Export kept sentences to Anki via AnkiConnect."""
+    from langmine.adapters import SQLitePersistence, AnkiConnectAdapter
+
+    config = load_config()
+    persistence = SQLitePersistence()
+    exporter = AnkiConnectAdapter(url=config.anki_connect_url)
+
+    if args.video_id is not None:
+        source = f"video {args.video_id}"
+        sentences = persistence.get_sentences_by_video(
+            args.video_id, status="kept"
+        )
+    elif args.all_kept:
+        source = "all kept"
+        sentences = persistence.get_sentences_by_status("kept")
+    else:
+        print(
+            "Error: specify --video-id or --all-kept",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not sentences:
+        print("No kept sentences to export.")
+        return
+
+    try:
+        result = exporter.export(
+            sentences=sentences,
+            deck_name=config.deck_name,
+            note_type_name=config.note_type,
+        )
+
+        print(
+            f"📦 Exported {source}: {result['added']} new, "
+            f"{result['duplicates']} duplicates"
+        )
+        if result["errors"]:
+            for err in result["errors"]:
+                print(f"  ⚠️  {err}")
+
+        # Mark as exported
+        for s in sentences:
+            s.status = "exported"
+            persistence.update_sentence(s)
+
+    except ConnectionError as e:
+        print(
+            f"❌ {e}\n   Is Anki running with AnkiConnect installed?",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 if __name__ == "__main__":

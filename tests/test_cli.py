@@ -41,6 +41,18 @@ def test_langmine_serve_subcommand_exists():
     assert "serve" in result.stdout.lower()
 
 
+def test_langmine_export_subcommand_exists():
+    """`langmine export --help` should be a recognized subcommand."""
+    result = subprocess.run(
+        [sys.executable, "-m", "langmine.cli", "export", "--help"],
+        capture_output=True,
+        text=True,
+        cwd="/root/projects/langmine",
+    )
+    assert result.returncode == 0
+    assert "export" in result.stdout.lower()
+
+
 def test_langmine_cli_imports_and_runs():
     """The CLI module should be importable and have a main function."""
     from langmine.cli import main
