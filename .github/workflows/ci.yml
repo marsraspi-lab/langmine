@@ -10,8 +10,6 @@ jobs:
   # ── Fast checks on every push ──────────────────────────────────────────
   check:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v6
 
@@ -63,8 +61,6 @@ jobs:
   e2e:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v6
 
