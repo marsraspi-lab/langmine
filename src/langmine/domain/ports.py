@@ -205,3 +205,29 @@ class FrequencySource(ABC):
         """Return frequency rank for a word (lower = more common).
         Returns None if unknown.
         """
+
+
+class AnkiExporter(ABC):
+    """Port for exporting sentences as Anki flashcards.
+
+    Adapters: AnkiConnect (HTTP API to running Anki), genanki (.apkg file).
+    """
+
+    @abstractmethod
+    def export(
+        self,
+        sentences: list,
+        deck_name: str = "Chinese::Sentence Mining",
+        note_type_name: str = "LangMine Sentence",
+    ) -> dict:
+        """Export sentences to Anki.
+
+        Args:
+            sentences: List of Sentence domain objects.
+            deck_name: Anki deck name (created if missing).
+            note_type_name: Anki note type (created if missing).
+
+        Returns:
+            Dict with: note_ids (list[int]), added (int),
+            duplicates (int), errors (list[str]).
+        """
