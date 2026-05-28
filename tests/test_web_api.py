@@ -175,6 +175,11 @@ class FakeAudioProcessor(AudioProcessor):
     ) -> str:
         return f"{output_dir}/{sentence_id}.mp3"
 
+    def capture_frame(
+        self, video_id, timestamp_ms, output_dir, sentence_id,
+    ) -> str | None:
+        return f"{output_dir}/frame_{sentence_id}.jpg"
+
 
 # === Fixtures ===
 

@@ -22,6 +22,8 @@ class Config:
         ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
         ".translation { font-size: 22px; margin: 10px 0; }"
         ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
+        ".screenshot { margin-top: 16px; }"
+        ".screenshot img { max-width: 100%; border-radius: 4px; }"
     )
     card_front_template: str = (
         '<div class="chinese">{{sentence_zh}}</div>'
@@ -36,6 +38,9 @@ class Config:
         "{{#unknown_word}}"
         '<div class="word">🆕 {{unknown_word}}</div>'
         "{{/unknown_word}}"
+        "{{#screenshot}}"
+        '<div class="screenshot">{{screenshot}}</div>'
+        "{{/screenshot}}"
     )
 
     # Language

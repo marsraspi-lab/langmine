@@ -19,15 +19,6 @@ from langmine.domain.ports import AnkiExporter
 
 
 # Default templates (fallback if not in config)
-_DEFAULT_CSS = (
-    ".card { font-family: Arial, sans-serif; font-size: 20px; "
-    "text-align: center; color: black; background-color: white; }"
-    ".chinese { font-size: 28px; margin: 20px 0; }"
-    ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
-    ".translation { font-size: 22px; margin: 10px 0; }"
-    ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
-)
-
 _DEFAULT_FRONT = (
     '<div class="chinese">{{sentence_zh}}</div>'
     "{{#audio}}{{audio}}{{/audio}}"
@@ -42,6 +33,20 @@ _DEFAULT_BACK = (
     "{{#unknown_word}}"
     '<div class="word">🆕 {{unknown_word}}</div>'
     "{{/unknown_word}}"
+    "{{#screenshot}}"
+    '<div class="screenshot">{{screenshot}}</div>'
+    "{{/screenshot}}"
+)
+
+_DEFAULT_CSS = (
+    ".card { font-family: Arial, sans-serif; font-size: 20px; "
+    "text-align: center; color: black; background-color: white; }"
+    ".chinese { font-size: 28px; margin: 20px 0; }"
+    ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
+    ".translation { font-size: 22px; margin: 10px 0; }"
+    ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
+    ".screenshot { margin-top: 16px; }"
+    ".screenshot img { max-width: 100%; border-radius: 4px; }"
 )
 
 
@@ -108,8 +113,9 @@ class AnkiConnectAdapter(AnkiExporter):
                 f"AnkiConnect at {self._url} not reachable: {e}"
             ) from e
 
-        # 4. Store audio media first
+        # 4. Store audio + screenshot media first
         media_refs: dict[int, str] = {}
+        screenshot_refs: dict[int, str] = {}
         for i, s in enumerate(sentences):
             if s.audio_clip_path and os.path.exists(s.audio_clip_path):
                 filename = (
@@ -122,11 +128,27 @@ class AnkiConnectAdapter(AnkiExporter):
                 except Exception as e:
                     errors.append(f"Audio for sentence {s.id}: {e}")
 
+            # Upload screenshot if available
+            if s.screenshot_path and os.path.exists(s.screenshot_path):
+                ss_name = (
+                    f"langmine_ss_{s.id or i}_"
+                    f"{os.path.basename(s.screenshot_path)}"
+                )
+                try:
+                    self._store_media(ss_name, s.screenshot_path)
+                    screenshot_refs[i] = ss_name
+                except Exception as e:
+                    pass  # Screenshot is optional
+
         # 5. Build notes
         notes = []
         for i, s in enumerate(sentences):
             audio_field = (
                 f"[sound:{media_refs[i]}]" if i in media_refs else ""
+            )
+            screenshot_field = (
+                f'<img src="{screenshot_refs[i]}">'
+                if i in screenshot_refs else ""
             )
             notes.append({
                 "deckName": deck_name,
@@ -137,6 +159,7 @@ class AnkiConnectAdapter(AnkiExporter):
                     "translation_de": s.translation_de or "",
                     "unknown_word": s.unknown_word or "",
                     "audio": audio_field,
+                    "screenshot": screenshot_field,
                 },
                 "tags": ["langmine"],
             })
@@ -196,6 +219,7 @@ class AnkiConnectAdapter(AnkiExporter):
                 "translation_de",
                 "unknown_word",
                 "audio",
+                "screenshot",
             ],
             "css": css,
             "cardTemplates": [

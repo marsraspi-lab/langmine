@@ -53,6 +53,12 @@ def test_audio_processor_contract():
         ) -> str:
             return "/tmp/clip.mp3"
 
+        def capture_frame(
+            self, video_id: str, timestamp_ms: float,
+            output_dir: str, sentence_id: str,
+        ) -> str | None:
+            return "/tmp/frame.jpg"
+
     adapter = FakeAdapter()
     assert adapter.download("abc", "/tmp") == "/tmp/test.mp3"
     assert adapter.clip("/tmp/a.mp3", 0, 1000, 250, 300, "/tmp", "001") == "/tmp/clip.mp3"

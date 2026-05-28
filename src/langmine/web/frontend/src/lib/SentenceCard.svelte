@@ -50,6 +50,12 @@
     </div>
   {/if}
 
+  {#if sentence.has_screenshot}
+    <div class="screenshot-thumb">
+      <img src="/api/sentences/{sentence.id}/screenshot" alt="Screenshot" />
+    </div>
+  {/if}
+
   {#if sentence.unknown_word}
     <div class="word-info">
       {sentence.frequency_badge || ''} <strong>{sentence.unknown_word}</strong>
@@ -115,6 +121,15 @@
   .audio-player audio {
     width: 100%;
     height: 32px;
+  }
+  .screenshot-thumb {
+    margin: 12px 0;
+  }
+  .screenshot-thumb img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
   }
   .word-info {
     font-size: 0.8rem;

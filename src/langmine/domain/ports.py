@@ -119,6 +119,16 @@ class AudioProcessor(ABC):
     ) -> str:
         """Extract a segment from audio. Returns path to clip."""
 
+    @abstractmethod
+    def capture_frame(
+        self,
+        video_id: str,
+        timestamp_ms: float,
+        output_dir: str,
+        sentence_id: str,
+    ) -> str | None:
+        """Capture a video frame as JPEG. Returns path or None on failure."""
+
 
 class Persistence(ABC):
     """Port for storing and retrieving all application state.

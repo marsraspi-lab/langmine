@@ -8,6 +8,7 @@
     { key: 'all', label: 'All' },
     { key: 'i1', label: '🔥 i+1' },
     { key: 'kept', label: '✅ Kept' },
+    { key: 'stashed', label: '📥 Stashed' },
     { key: 'deleted', label: '🗑 Deleted' },
   ];
 

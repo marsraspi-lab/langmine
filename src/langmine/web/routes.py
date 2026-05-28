@@ -182,6 +182,23 @@ def register_routes(app: Flask):
             as_attachment=False,
         )
 
+    @app.route("/api/sentences/<int:sentence_id>/screenshot")
+    def serve_screenshot(sentence_id: int):
+        """Serve the screenshot for a sentence."""
+        persistence = _get_persistence()
+        sentence = _find_sentence(persistence, sentence_id)
+        if sentence is None:
+            return jsonify({"error": "Sentence not found"}), 404
+
+        if not sentence.screenshot_path or not os.path.exists(sentence.screenshot_path):
+            return jsonify({"error": "Screenshot not found"}), 404
+
+        return send_file(
+            sentence.screenshot_path,
+            mimetype="image/jpeg",
+            as_attachment=False,
+        )
+
     @app.route("/api/stats")
     def stats():
         """Return vocabulary stats."""
@@ -319,6 +336,7 @@ def _sentence_to_dict(sentence: Sentence) -> dict:
         "unknown_word_rank": sentence.unknown_word_rank,
         "status": sentence.status,
         "has_audio": bool(sentence.audio_clip_path),
+        "has_screenshot": bool(sentence.screenshot_path),
     }
 
     # Compute frequency badge from rank

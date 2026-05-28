@@ -119,3 +119,88 @@ def clip_audio(
         )
 
     return str(output_path)
+
+
+def capture_frame(
+    video_id_or_url: str,
+    timestamp_ms: float,
+    output_dir: str,
+    sentence_id: int | str,
+) -> str | None:
+    """Capture a video frame at a specific timestamp as a JPEG screenshot.
+
+    Downloads a short video segment around the timestamp, then extracts
+    one frame. Falls back gracefully — returns None if yt-dlp or ffmpeg
+    fail (e.g. no network, geo-restricted video).
+
+    Args:
+        video_id_or_url: YouTube video ID or full URL.
+        timestamp_ms: Timestamp in milliseconds.
+        output_dir: Directory to save the JPEG.
+        sentence_id: Identifier for the output filename.
+
+    Returns:
+        Absolute path to the JPEG file, or None on failure.
+    """
+    import tempfile
+    from langmine.transcript import _extract_video_id
+
+    video_id = _extract_video_id(video_id_or_url)
+
+    # Check cache first
+    padded_id = str(sentence_id).zfill(4)
+    output_path = Path(output_dir) / f"frame_{padded_id}.jpg"
+    if output_path.exists():
+        return str(output_path)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    timestamp_sec = timestamp_ms / 1000.0
+    segment_start = max(0, timestamp_sec - 1.0)
+    segment_end = timestamp_sec + 1.0
+
+    url = f"https://www.youtube.com/watch?v={video_id}"
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        segment_path = Path(tmpdir) / f"segment_{padded_id}.mp4"
+
+        dl_result = subprocess.run(
+            [
+                "yt-dlp",
+                "--download-sections",
+                f"*{segment_start:.1f}-{segment_end:.1f}",
+                "-f", "best[height<=480]",
+                "--recode-video", "mp4",
+                "--no-playlist",
+                "--no-warnings",
+                "-o", str(segment_path),
+                url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        if dl_result.returncode != 0 or not segment_path.exists():
+            return None
+
+        frame_time = min(1.0, (timestamp_sec - segment_start))
+        ffmpeg_result = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-ss", str(frame_time),
+                "-i", str(segment_path),
+                "-frames:v", "1",
+                "-q:v", "3",
+                str(output_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if ffmpeg_result.returncode != 0 or not output_path.exists():
+            return None
+
+    return str(output_path)

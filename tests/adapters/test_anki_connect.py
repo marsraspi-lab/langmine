@@ -179,7 +179,7 @@ def test_snapshot_note_payload(adapter, sample_sentences):
         # Verify no extra fields (schema drift)
         assert set(fields.keys()) == {
             "sentence_zh", "sentence_pinyin", "translation_de",
-            "unknown_word", "audio",
+            "unknown_word", "audio", "screenshot",
         }
 
 
