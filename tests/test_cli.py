@@ -1,5 +1,6 @@
 """Tests for the CLI entry point."""
 
+import os
 import subprocess
 import sys
 
@@ -10,7 +11,6 @@ def test_langmine_help():
         [sys.executable, "-m", "langmine.cli", "--help"],
         capture_output=True,
         text=True,
-        cwd="/root/projects/langmine",
     )
     assert result.returncode == 0
     assert "usage" in result.stdout.lower() or "Usage" in result.stdout
@@ -23,7 +23,6 @@ def test_langmine_mine_requires_url():
         [sys.executable, "-m", "langmine.cli", "mine"],
         capture_output=True,
         text=True,
-        cwd="/root/projects/langmine",
     )
     # Should either exit non-zero or print an error
     assert result.returncode != 0 or "error" in (result.stdout + result.stderr).lower()
@@ -35,7 +34,6 @@ def test_langmine_serve_subcommand_exists():
         [sys.executable, "-m", "langmine.cli", "serve", "--help"],
         capture_output=True,
         text=True,
-        cwd="/root/projects/langmine",
     )
     assert result.returncode == 0
     assert "serve" in result.stdout.lower()
@@ -47,7 +45,6 @@ def test_langmine_export_subcommand_exists():
         [sys.executable, "-m", "langmine.cli", "export", "--help"],
         capture_output=True,
         text=True,
-        cwd="/root/projects/langmine",
     )
     assert result.returncode == 0
     assert "export" in result.stdout.lower()
@@ -59,8 +56,12 @@ def test_langmine_cli_imports_and_runs():
     assert callable(main)
 
 
-def test_serve_creates_app_with_real_adapters():
+def test_serve_creates_app_with_real_adapters(tmp_path):
     """The serve command creates a Flask app with real adapter wiring."""
+    # Ensure ~/.langmine/ exists so SQLitePersistence can create the database
+    langmine_dir = os.path.expanduser("~/.langmine")
+    os.makedirs(langmine_dir, exist_ok=True)
+
     from langmine.web.app import create_app
     from langmine.adapters import (
         SQLitePersistence, YouTubeTranscriptAdapter, YtdlpAudioAdapter,
