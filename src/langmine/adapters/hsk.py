@@ -18,7 +18,7 @@ def _load() -> dict[str, int]:
 
     # adapters/hsk.py → langmine/ → src/ → project root → data/hsk/
     path = (
-        Path(__file__).parent.parent.parent.parent
+        Path(__file__).resolve().parent.parent.parent.parent
         / "data" / "hsk" / "hsk_levels.json"
     )
     with open(path, encoding="utf-8") as f:

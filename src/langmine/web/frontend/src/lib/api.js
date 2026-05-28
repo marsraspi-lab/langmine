@@ -60,3 +60,26 @@ export const api = {
       force_update_model: forceUpdateModel || false,
     }),
 };
+
+// Vocab API calls
+export async function fetchVocab(page = 1, status = null, search = null, sort = 'frequency') {
+  const params = new URLSearchParams({ page, per_page: 200, sort });
+  if (status) params.set('status', status);
+  if (search) params.set('search', search);
+  const res = await fetch(`/api/vocab?${params}`);
+  return res.json();
+}
+
+export async function fetchVocabWord(word) {
+  const res = await fetch(`/api/vocab/${encodeURIComponent(word)}`);
+  return res.json();
+}
+
+export async function updateVocabWord(word, status) {
+  const res = await fetch(`/api/vocab/${encodeURIComponent(word)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  return res.json();
+}

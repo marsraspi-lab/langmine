@@ -4,6 +4,7 @@
   import CardList from './lib/CardList.svelte';
   import { loadVideos, selectedVideoId, toasts, removeToast, theme, toggleTheme, currentView, loadConfig } from './lib/stores.js';
   import SettingsPage from './lib/SettingsPage.svelte';
+  import VocabPage from './lib/VocabPage.svelte';
 
   onMount(() => {
     loadVideos();
@@ -21,6 +22,9 @@
       <button class="nav-btn" class:active={$currentView === 'settings'} onclick={() => currentView.set('settings')}>
         ⚙️ Settings
       </button>
+      <button class="nav-btn" class:active={$currentView === 'vocab'} onclick={() => currentView.set('vocab')}>
+        📚 Vocabulary
+      </button>
       <button class="theme-btn" onclick={toggleTheme} title="Toggle theme">
         {$theme === 'dark' ? '☀️' : '🌙'}
       </button>
@@ -31,6 +35,10 @@
     {#if $currentView === 'settings'}
       <div class="settings-container">
         <SettingsPage />
+      </div>
+    {:else if $currentView === 'vocab'}
+      <div class="settings-container">
+        <VocabPage />
       </div>
     {:else}
       <Sidebar />

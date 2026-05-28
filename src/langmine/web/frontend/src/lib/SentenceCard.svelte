@@ -1,6 +1,7 @@
 <script>
   import { fly } from 'svelte/transition';
   import { updateSentenceField } from './stores.js';
+  import { updateVocabWord } from './api.js';
 
   /** @type {{ sentence: Object, onkeep: Function, ondelete: Function, oniknowthis: Function }} */
   let { sentence, onkeep = () => {}, ondelete = () => {}, oniknowthis = () => {} } = $props();
@@ -49,15 +50,110 @@
     if (e.key === 'Escape') cancelEdit();
   }
 
-  function highlightUnknown(text, word) {
-    if (!word) return text;
-    const escaped = word.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
-    const parts = text.split(new RegExp(`(${escaped})`, 'g'));
-    return parts.map(part =>
-      part === word
-        ? `<span class="unknown-word-highlight">${part}</span>`
-        : part
-    ).join('');
+  // ---- Word highlighting & status toggle ----
+
+  let activeWordIdx = $state(null);
+  let togglingWord = $state(null);
+
+  // Build derived words array with computed status
+  let displayWords = $derived(
+    sentence.words
+      ? sentence.words.map((w) => ({
+          token: w.token,
+          status: w.status || 'unknown',
+          frequency_rank: w.frequency_rank,
+          hsk_level: w.hsk_level,
+        }))
+      : []
+  );
+
+  function freqBadge(rank) {
+    if (rank === null || rank === undefined) return null;
+    if (rank <= 500) return '🔥';
+    if (rank <= 3000) return '⭐';
+    return '💎';
+  }
+
+  function freqRank(rank) {
+    if (rank === null || rank === undefined) return null;
+    return `#${rank}`;
+  }
+
+  function togglePopover(idx) {
+    if (activeWordIdx === idx) {
+      activeWordIdx = null;
+    } else {
+      activeWordIdx = idx;
+    }
+  }
+
+  function closePopover() {
+    activeWordIdx = null;
+  }
+
+  async function toggleWordStatus(wordObj, idx) {
+    const nextStatus =
+      wordObj.status === 'unknown' ? 'learning' :
+      wordObj.status === 'learning' ? 'known' :
+      'unknown';
+
+    togglingWord = idx;
+    try {
+      const result = await updateVocabWord(wordObj.token, nextStatus);
+      if (result.ok || result.status) {
+        // Update local state
+        wordObj.status = nextStatus;
+        // Also update in the parent sentence.words array if present
+        if (sentence.words && sentence.words[idx]) {
+          sentence.words[idx].status = nextStatus;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to toggle word status:', err);
+    } finally {
+      togglingWord = null;
+    }
+  }
+
+  async function setWordStatus(wordObj, idx, newStatus) {
+    togglingWord = idx;
+    try {
+      const result = await updateVocabWord(wordObj.token, newStatus);
+      if (result.ok || result.status) {
+        wordObj.status = newStatus;
+        if (sentence.words && sentence.words[idx]) {
+          sentence.words[idx].status = newStatus;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to set word status:', err);
+    } finally {
+      togglingWord = null;
+      closePopover();
+    }
+  }
+
+  function handleWordClick(wordObj, idx) {
+    togglePopover(idx);
+  }
+
+  // Handle click outside to close popover
+  function handleDocClick(e) {
+    // Svelte on:click outside isn't available in Svelte 5, use global handler
+    // Handled via svelte:window below in the component
+  }
+
+  function onWindowClick(e) {
+    if (activeWordIdx !== null) {
+      // Check if click is outside any word popover
+      const popover = document.querySelector('.word-popover');
+      if (popover && !popover.contains(e.target)) {
+        // Check if the click target is a word itself (let the word handler toggle)
+        if (!e.target.closest('.word-token')) {
+          closePopover();
+        }
+      }
+    }
   }
 
   let SHOW_DELETE_CONFIRM = $state(false);
@@ -69,10 +165,27 @@
   }
 </script>
 
+<svelte:window onclick={onWindowClick} />
+
 <div class="sentence-card" transition:fly={{ y: 20, duration: 200 }}>
   <div class="card-header">
     <span class="chinese-text">
-      {@html highlightUnknown(sentence.text, sentence.unknown_word)}
+      {#if displayWords.length > 0}
+        {#each displayWords as word, idx}
+          <span
+            class="word-token word-{word.status}"
+            class:word-toggling={togglingWord === idx}
+            onclick={() => handleWordClick(word, idx)}
+            role="button"
+            tabindex="0"
+            onkeydown={(e) => e.key === 'Enter' && handleWordClick(word, idx)}
+          >
+            {word.token}
+          </span>
+        {/each}
+      {:else}
+        {sentence.text}
+      {/if}
     </span>
     <span class="status-badge {sentence.status}">{STATUS_LABELS[sentence.status] || sentence.status}</span>
   </div>
@@ -115,22 +228,49 @@
     </div>
   {/if}
 
-  {#if editingField === 'text_segmented' || sentence.text_segmented}
-    <div class="editable-field" class:saving>
-      {#if editingField === 'text_segmented'}
-        <input
-          type="text"
-          class="edit-input seg-input"
-          bind:value={editValue}
-          onkeydown={(e) => handleEditKeydown(e, 'text_segmented')}
-          onblur={() => saveEdit('text_segmented')}
-          autofocus
-        />
-      {:else}
-        <span class="segmented-text" onclick={() => startEdit('text_segmented')} title="Click to edit (re-classifies)">
-          {sentence.text_segmented}
-        </span>
-      {/if}
+  <!-- Word-level annotation badges row -->
+  {#if displayWords.length > 0}
+    <div class="word-annotations">
+      {#each displayWords as word, idx}
+        {#if word.status === 'unknown' || word.status === 'learning'}
+          <span class="word-annotation word-annotation-{idx}">
+            {#if word.hsk_level}
+              <span class="hsk-badge hsk-{word.hsk_level}">HSK{word.hsk_level}</span>
+            {/if}
+            {#if word.frequency_rank}
+              <span class="freq-badge" title="Rank {word.frequency_rank}">{freqBadge(word.frequency_rank)} {freqRank(word.frequency_rank)}</span>
+            {/if}
+          </span>
+        {/if}
+      {/each}
+    </div>
+  {/if}
+
+  <!-- Word status popover -->
+  {#if activeWordIdx !== null && displayWords[activeWordIdx]}
+    {@const word = displayWords[activeWordIdx]}
+    <div class="word-popover">
+      <div class="popover-word">{word.token}</div>
+      <div class="popover-status">
+        Status: <span class="popover-status-badge word-{word.status}">{word.status}</span>
+      </div>
+      <div class="popover-actions">
+        <button
+          class="popover-btn btn-mark-known"
+          onclick={() => setWordStatus(word, activeWordIdx, 'known')}
+          disabled={togglingWord === activeWordIdx || word.status === 'known'}
+        >
+          ✅ Mark known
+        </button>
+        <button
+          class="popover-btn btn-mark-learning"
+          onclick={() => setWordStatus(word, activeWordIdx, 'learning')}
+          disabled={togglingWord === activeWordIdx || word.status === 'learning'}
+        >
+          📚 Mark learning
+        </button>
+      </div>
+      <button class="popover-close" onclick={closePopover}>✕</button>
     </div>
   {/if}
 
@@ -143,15 +283,6 @@
   {#if sentence.has_screenshot}
     <div class="screenshot-thumb">
       <img src="/api/sentences/{sentence.id}/screenshot" alt="Screenshot" />
-    </div>
-  {/if}
-
-  {#if sentence.unknown_word}
-    <div class="word-info">
-      {sentence.frequency_badge || ''} <strong>{sentence.unknown_word}</strong>
-      {#if sentence.unknown_word_rank}
-        <span class="rank">(rank #{sentence.unknown_word_rank})</span>
-      {/if}
     </div>
   {/if}
 
@@ -186,6 +317,7 @@
     border-radius: var(--radius);
     padding: 20px;
     margin-bottom: 12px;
+    position: relative;
   }
   .card-header {
     display: flex;
@@ -196,8 +328,162 @@
   }
   .chinese-text {
     font-size: 1.3rem;
-    line-height: 1.6;
+    line-height: 1.8;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 6px;
   }
+
+  /* --- Word tokens --- */
+  .word-token {
+    cursor: pointer;
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: background 0.15s, opacity 0.15s;
+    user-select: none;
+    position: relative;
+  }
+  .word-token:hover {
+    filter: brightness(1.2);
+  }
+  .word-toggling {
+    opacity: 0.5;
+  }
+
+  .word-known {
+    color: var(--accent-green, #4ecca3);
+  }
+  .word-learning {
+    color: #ffa726;
+    border-bottom: 2px dotted #ffa726;
+  }
+  .word-unknown {
+    color: var(--accent, #e94560);
+    border-bottom: 2px dotted var(--accent, #e94560);
+  }
+
+  /* --- Word annotations row --- */
+  .word-annotations {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin-bottom: 8px;
+    font-size: 0.75rem;
+  }
+  .word-annotation {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .hsk-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: rgba(100, 149, 237, 0.25);
+    color: #6495ed;
+  }
+  .freq-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+  }
+
+  /* --- Word popover --- */
+  .word-popover {
+    position: absolute;
+    top: 80px;
+    left: 20px;
+    z-index: 100;
+    background: var(--bg-card, #1e1e2e);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    min-width: 180px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .popover-word {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .popover-status {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .popover-status-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .popover-status-badge.word-known {
+    background: rgba(78, 204, 163, 0.2);
+    border-bottom: none;
+  }
+  .popover-status-badge.word-learning {
+    background: rgba(255, 167, 38, 0.2);
+    border-bottom: none;
+  }
+  .popover-status-badge.word-unknown {
+    background: rgba(233, 69, 96, 0.2);
+    border-bottom: none;
+  }
+  .popover-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .popover-btn {
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .popover-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .popover-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .btn-mark-known {
+    border-color: var(--accent-green, #4ecca3);
+  }
+  .btn-mark-learning {
+    border-color: #ffa726;
+  }
+  .popover-close {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 2px 4px;
+  }
+  .popover-close:hover {
+    color: var(--text);
+  }
+
   .pinyin-text {
     font-size: 0.9rem;
     color: var(--accent-green);
@@ -216,16 +502,6 @@
     cursor: pointer;
   }
   .translation-text:hover {
-    text-decoration: underline;
-    text-decoration-style: dotted;
-  }
-  .segmented-text {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-    cursor: pointer;
-  }
-  .segmented-text:hover {
     text-decoration: underline;
     text-decoration-style: dotted;
   }
@@ -250,9 +526,6 @@
   .translation-input {
     font-size: 0.95rem;
   }
-  .seg-input {
-    font-size: 0.85rem;
-  }
   .saving {
     opacity: 0.6;
   }
@@ -271,14 +544,6 @@
     max-height: 200px;
     border-radius: 4px;
     border: 1px solid var(--border);
-  }
-  .word-info {
-    font-size: 0.8rem;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-  }
-  .rank {
-    opacity: 0.7;
   }
   .card-actions {
     display: flex;
@@ -320,13 +585,6 @@
     border-color: var(--text-secondary) !important;
   }
 
-  :global(.unknown-word-highlight) {
-    color: var(--accent);
-    font-weight: 700;
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 4px;
-  }
   :global(.status-badge) {
     display: inline-block;
     padding: 2px 10px;
