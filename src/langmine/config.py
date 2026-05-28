@@ -61,6 +61,9 @@ class Config:
     # Vocab
     hsk_bootstrap: int = 3
 
+    # Storage
+    data_dir: str = "~/.langmine/data"
+
 
 def load_config(config_dir: str | None = None) -> Config:
     """Load configuration from a YAML file, with defaults for missing keys.
@@ -114,6 +117,9 @@ def _config_to_dict(config: Config) -> dict:
         "vocab": {
             "hsk_bootstrap": config.hsk_bootstrap,
         },
+        "storage": {
+            "data_dir": config.data_dir,
+        },
     }
 
 
@@ -151,6 +157,7 @@ def _dict_to_config(data: dict) -> Config:
         max_cards_per_video=data["mining"]["max_cards_per_video"],
         max_stash_cards=data["mining"]["max_stash_cards"],
         hsk_bootstrap=data["vocab"]["hsk_bootstrap"],
+        data_dir=data.get("storage", {}).get("data_dir", "~/.langmine/data"),
     )
 
 

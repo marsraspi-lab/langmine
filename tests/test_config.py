@@ -63,3 +63,21 @@ def test_data_dir_created_on_first_load():
 
         assert data_dir.exists()
         assert data_dir.is_dir()
+
+
+def test_data_dir_default_and_round_trip():
+    """Config data_dir should default to ~/.langmine/data and survive YAML round-trip."""
+    from langmine.config import save_config
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Default value
+        config = load_config(config_dir=tmpdir)
+        assert config.data_dir == "~/.langmine/data"
+
+        # Override and save
+        config.data_dir = "/custom/data/path"
+        save_config(config, config_dir=tmpdir)
+
+        # Reload and verify
+        config2 = load_config(config_dir=tmpdir)
+        assert config2.data_dir == "/custom/data/path"
