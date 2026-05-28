@@ -33,6 +33,10 @@ clips/
 *.mp4
 !tests/fixtures/*.mp3
 
+# Project binaries (downloaded via setup script)
+bin/ffmpeg
+bin/ffprobe
+
 # OS
 .DS_Store
 Thumbs.db

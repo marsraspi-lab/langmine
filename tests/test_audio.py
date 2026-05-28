@@ -49,10 +49,12 @@ def test_download_audio_named_by_video_id():
 
 def _create_test_audio(dir_path: str) -> str:
     """Create a small test audio file using ffmpeg for clip tests."""
+    from langmine.audio import _FFMPEG
+
     audio_path = Path(dir_path) / "test.mp3"
     # Generate 5 seconds of silence
     os.system(
-        f"ffmpeg -y -f lavfi -i anullsrc=r=44100:cl=mono "
+        f"{_FFMPEG} -y -f lavfi -i anullsrc=r=44100:cl=mono "
         f"-t 5 -q:a 9 -acodec libmp3lame {audio_path} 2>/dev/null"
     )
     return str(audio_path)

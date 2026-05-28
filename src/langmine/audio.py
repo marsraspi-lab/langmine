@@ -1,8 +1,25 @@
-"""Audio downloading and clipping using yt-dlp and ffmpeg."""
+"""Audio downloading and clipping using yt-dlp and ffmpeg.
+
+Uses project-bundled ffmpeg/ffprobe binaries from ../../bin/ so tests
+work even when the system ffmpeg gets wiped by container resets.
+"""
 
 import os
 import subprocess
 from pathlib import Path
+
+# Project-bundled binaries — survive Docker container resets
+# bin/ is a local setup artifact (gitignored), downloaded once via setup
+_PROJECT_BIN = Path(__file__).parent.parent.parent / "bin"
+_FFMPEG = str(_PROJECT_BIN / "ffmpeg") if (_PROJECT_BIN / "ffmpeg").exists() else "ffmpeg"
+_FFPROBE = str(_PROJECT_BIN / "ffprobe") if (_PROJECT_BIN / "ffprobe").exists() else "ffprobe"
+
+
+def _ffmpeg_location_args() -> list[str]:
+    """Return --ffmpeg-location args for yt-dlp if using project binaries."""
+    if _FFMPEG != "ffmpeg":
+        return ["--ffmpeg-location", str(_PROJECT_BIN)]
+    return []
 
 
 def download_audio(
@@ -40,6 +57,7 @@ def download_audio(
             "--no-playlist",
             "--no-warnings",
             "-o", str(output_path.with_suffix(".%(ext)s")),
+            *_ffmpeg_location_args(),
             url,
         ],
         capture_output=True,
@@ -99,7 +117,7 @@ def clip_audio(
 
     result = subprocess.run(
         [
-            "ffmpeg",
+            _FFMPEG,
             "-y",
             "-ss", str(clip_start_sec),
             "-i", audio_path,
@@ -174,6 +192,7 @@ def capture_frame(
                 "--no-playlist",
                 "--no-warnings",
                 "-o", str(segment_path),
+                *_ffmpeg_location_args(),
                 url,
             ],
             capture_output=True,
@@ -187,7 +206,7 @@ def capture_frame(
         frame_time = min(1.0, (timestamp_sec - segment_start))
         ffmpeg_result = subprocess.run(
             [
-                "ffmpeg",
+                _FFMPEG,
                 "-y",
                 "-ss", str(frame_time),
                 "-i", str(segment_path),
