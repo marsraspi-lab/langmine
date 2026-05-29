@@ -188,7 +188,10 @@ vocab:
   hsk_bootstrap: 3            # HSK levels 1-3 treated as known
 
 storage:
-  data_dir: \"~/.langmine/data\"   # audio clips, screenshots, downloads
+  data_dir: "~/.langmine/data"   # audio clips, screenshots, downloads
+
+network:
+  user_agent: ""                # custom User-Agent (e.g. "Mozilla/5.0 ...")
 ```
 
 See **[docs/TEMPLATES.md](docs/TEMPLATES.md)** for card template customization — available fields, Mustache conditionals, and Anki-side editing.

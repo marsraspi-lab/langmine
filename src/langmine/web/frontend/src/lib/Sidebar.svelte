@@ -4,6 +4,8 @@
 
   let urlInput = $state('');
   let forceUpdateModel = $state(false);
+  /** @type {File|null} */
+  let transcriptFile = $state(null);
 
   async function handleMine() {
     const url = urlInput.trim();
@@ -11,12 +13,20 @@
       mineStatus.set('Enter a YouTube URL.');
       return;
     }
-    await mineVideo(url);
+    await mineVideo(url, transcriptFile);
     urlInput = '';
+    transcriptFile = null;
+    // Reset the file input
+    const fileInput = document.getElementById('transcript-file-input');
+    if (fileInput) fileInput.value = '';
   }
 
   function handleKeydown(e) {
     if (e.key === 'Enter') handleMine();
+  }
+
+  function handleFileChange(e) {
+    transcriptFile = e.target.files[0] || null;
   }
 </script>
 
@@ -33,6 +43,16 @@
       onkeydown={handleKeydown}
       disabled={$mining}
     />
+    <label class="file-upload-label" class:has-file={transcriptFile !== null}>
+      <span>{transcriptFile ? `📄 ${transcriptFile.name}` : '📂 Transcript .srt / .vtt (optional)'}</span>
+      <input
+        id="transcript-file-input"
+        type="file"
+        accept=".srt,.vtt"
+        onchange={handleFileChange}
+        disabled={$mining}
+      />
+    </label>
     <button onclick={handleMine} disabled={$mining}>
       {$mining ? '⏳' : 'Mine'}
     </button>
@@ -127,6 +147,34 @@
   .mine-form input:focus {
     outline: none;
     border-color: var(--accent);
+  }
+  .file-upload-label {
+    display: block;
+    padding: 8px 12px;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin-bottom: 8px;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.15s;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .file-upload-label:hover {
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .file-upload-label.has-file {
+    border-style: solid;
+    border-color: var(--accent-green);
+    color: var(--text);
+  }
+  .file-upload-label input[type="file"] {
+    display: none;
   }
   .mine-form button {
     width: 100%;

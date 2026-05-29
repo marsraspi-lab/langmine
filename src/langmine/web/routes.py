@@ -43,17 +43,45 @@ def register_routes(app: Flask):
 
     @app.route("/api/videos/mine", methods=["POST"])
     def mine_video():
-        """Mine a YouTube video: transcript → merge → classify → persist."""
+        """Mine a YouTube video: transcript → merge → classify → persist.
+
+        Accepts JSON with 'url' or multipart/form-data with 'url' + optional
+        transcript file (.srt/.vtt). When a transcript file is provided, it
+        is used directly instead of calling youtube-transcript-api.
+        """
         persistence = _get_persistence()
         processor = _get_processor()
-        transcript = _get_transcript_source()
         audio = _get_audio_processor()
 
-        data = request.get_json(silent=True)
-        if not data or "url" not in data:
-            return jsonify({"error": "Missing 'url' field"}), 400
+        # Determine which transcript source to use
+        transcript = _get_transcript_source()
 
-        url = data["url"]
+        # Handle multipart form data (with optional file upload)
+        if request.content_type and "multipart" in request.content_type:
+            url = request.form.get("url", "").strip()
+            if not url:
+                return jsonify({"error": "Missing 'url' field"}), 400
+
+            file = request.files.get("file")
+            if file and file.filename:
+                InlineTranscriptSource = current_app.config.get(
+                    "LANGMINE_INLINE_TRANSCRIPT_CLASS"
+                )
+                parse_subtitle_file = current_app.config.get(
+                    "LANGMINE_PARSE_SUBTITLE_FILE"
+                )
+                if InlineTranscriptSource and parse_subtitle_file:
+                    content = file.read().decode("utf-8")
+                    chunks = parse_subtitle_file(content, filename=file.filename)
+                    if not chunks:
+                        return jsonify({"error": "No subtitle entries found in uploaded file"}), 400
+                    transcript = InlineTranscriptSource(chunks)
+        else:
+            # JSON body (backward compatible)
+            data = request.get_json(silent=True)
+            if not data or "url" not in data:
+                return jsonify({"error": "Missing 'url' field"}), 400
+            url = data["url"]
 
         # Extract video ID (simple extraction, same as transcript module)
         from langmine.transcript import _extract_video_id
@@ -105,6 +133,18 @@ def register_routes(app: Flask):
         return jsonify({
             "video_id": video_id,
             "filter_status": status,
+            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
+        })
+
+    @app.route("/api/videos/<int:video_id>/transcript")
+    def get_transcript(video_id: int):
+        """Return all sentences in time-order for the reading view."""
+        persistence = _get_persistence()
+        sentences = persistence.get_sentences_by_video(video_id)
+        # Sort chronologically for reading order
+        sentences.sort(key=lambda s: s.start_ms)
+        return jsonify({
+            "video_id": video_id,
             "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
         })
 
@@ -507,6 +547,8 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
         "translation_de": sentence.translation_de,
         "unknown_word": sentence.unknown_word,
         "unknown_word_rank": sentence.unknown_word_rank,
+        "start_ms": sentence.start_ms,
+        "end_ms": sentence.end_ms,
         "status": sentence.status,
         "has_audio": bool(sentence.audio_clip_path),
         "has_screenshot": bool(sentence.screenshot_path),

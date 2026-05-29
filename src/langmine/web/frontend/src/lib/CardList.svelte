@@ -1,6 +1,7 @@
 <script>
   import SentenceCard from './SentenceCard.svelte';
-  import { sentences, currentFilter, loadSentences, keepSentence, deleteSentence, markWordKnown } from './stores.js';
+  import TranscriptView from './TranscriptView.svelte';
+  import { sentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordKnown } from './stores.js';
 
   let { videoId } = $props();
 
@@ -34,6 +35,10 @@
     markWordKnown(id);
   }
 
+  function toggleReadingMode() {
+    readingMode.update(v => !v);
+  }
+
   const EMPTY_MESSAGES = {
     all: 'No sentences for this video yet.',
     i1: 'No i+1 candidates. All words known or already curated! 🎉',
@@ -49,16 +54,25 @@
   {#each FILTERS as { key, label }}
     <button
       class="tab"
-      class:active={$currentFilter === key}
-      onclick={() => setFilter(key)}
+      class:active={$currentFilter === key && !$readingMode}
+      onclick={() => { readingMode.set(false); setFilter(key); }}
     >
       {label}
     </button>
   {/each}
+  <button
+    class="tab"
+    class:active={$readingMode}
+    onclick={toggleReadingMode}
+  >
+    📖 Read
+  </button>
 </nav>
 
 <div class="cards-container">
-  {#if loading}
+  {#if $readingMode}
+    <TranscriptView {videoId} />
+  {:else if loading}
     <div class="empty-state">⏳ Loading...</div>
   {:else if $sentences.length === 0}
     <div class="empty-state">{emptyMessage}</div>

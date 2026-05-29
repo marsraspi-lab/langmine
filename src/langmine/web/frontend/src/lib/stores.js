@@ -37,6 +37,9 @@ export const theme = writable(localStorage.getItem('langmine-theme') || 'dark');
 /** @type {import('svelte/store').Writable<string>} */
 export const currentView = writable('curation'); // 'curation' | 'settings'
 
+/** @type {import('svelte/store').Writable<boolean>} */
+export const readingMode = writable(false);
+
 let toastId = 0;
 
 export function addToast(message, type = 'info', duration = 4000) {
@@ -82,11 +85,11 @@ export async function loadSentences(videoId, filter) {
   sentences.set(data.sentences);
 }
 
-export async function mineVideo(url) {
+export async function mineVideo(url, file = null) {
   mining.set(true);
   mineStatus.set('⏳ Mining...');
   try {
-    const { ok, data } = await api.mineVideo(url);
+    const { ok, data } = await api.mineVideo(url, file);
     if (!ok) {
       mineStatus.set(`❌ ${data.error || 'Failed'}`);
       return null;

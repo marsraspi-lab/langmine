@@ -15,7 +15,18 @@ class TestFetchTranscript:
 
     def test_fetch_returns_list_of_chunks(self):
         """fetch_transcript should return a list of TranscriptChunk objects."""
-        chunks = fetch_transcript("dQw4w9WgXcQ")  # Rick Roll — has subtitles
+        from unittest.mock import patch, MagicMock
+
+        mock_chunks = []
+        for text, start, dur in [("我们", 1.0, 2.0), ("一般", 3.5, 1.5), ("早上", 5.5, 2.0)]:
+            m = MagicMock()
+            m.text = text
+            m.start = start
+            m.duration = dur
+            mock_chunks.append(m)
+
+        with patch("youtube_transcript_api.YouTubeTranscriptApi.fetch", return_value=mock_chunks):
+            chunks = fetch_transcript("dQw4w9WgXcQ")
 
         assert isinstance(chunks, list)
         assert len(chunks) > 0
@@ -33,7 +44,18 @@ class TestFetchTranscript:
 
     def test_chunks_have_increasing_timestamps(self):
         """Chunks should be returned in chronological order."""
-        chunks = fetch_transcript("dQw4w9WgXcQ")
+        from unittest.mock import patch, MagicMock
+
+        mock_chunks = []
+        for text, start, dur in [("我们", 1.0, 2.0), ("一般", 3.5, 1.5), ("早上", 5.5, 2.0)]:
+            m = MagicMock()
+            m.text = text
+            m.start = start
+            m.duration = dur
+            mock_chunks.append(m)
+
+        with patch("youtube_transcript_api.YouTubeTranscriptApi.fetch", return_value=mock_chunks):
+            chunks = fetch_transcript("dQw4w9WgXcQ")
 
         for i in range(1, len(chunks)):
             assert chunks[i].start_ms >= chunks[i - 1].start_ms

@@ -25,6 +25,7 @@ def _ffmpeg_location_args() -> list[str]:
 def download_audio(
     video_id_or_url: str,
     output_dir: str,
+    user_agent: str = "",
 ) -> str:
     """Download the best audio from a YouTube video as MP3.
 
@@ -33,6 +34,7 @@ def download_audio(
     Args:
         video_id_or_url: YouTube video ID or full URL.
         output_dir: Directory to save the MP3 file.
+        user_agent: Optional custom User-Agent for yt-dlp.
 
     Returns:
         Absolute path to the downloaded MP3 file.
@@ -48,22 +50,21 @@ def download_audio(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     url = f"https://www.youtube.com/watch?v={video_id}"
-    result = subprocess.run(
-        [
-            "yt-dlp",
-            "-x",
-            "--audio-format", "mp3",
-            "--audio-quality", "0",
-            "--no-playlist",
-            "--no-warnings",
-            "-o", str(output_path.with_suffix(".%(ext)s")),
-            *_ffmpeg_location_args(),
-            url,
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
+    cmd = [
+        "yt-dlp",
+        "-x",
+        "--audio-format", "mp3",
+        "--audio-quality", "0",
+        "--no-playlist",
+        "--no-warnings",
+        "-o", str(output_path.with_suffix(".%(ext)s")),
+        *_ffmpeg_location_args(),
+    ]
+    if user_agent:
+        cmd.extend(["--user-agent", user_agent])
+    cmd.append(url)
+
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
 
     if result.returncode != 0:
         raise RuntimeError(
