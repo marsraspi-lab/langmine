@@ -712,3 +712,52 @@ class TestConfigAPI:
         """Should return 400 for empty body."""
         resp = client.put("/api/config", data=None, content_type="application/json")
         assert resp.status_code == 400
+
+
+class TestTranscriptEndpoint:
+    """GET /api/videos/<id>/transcript — reading view endpoint."""
+
+    def test_returns_ordered_sentences(self, client_with_sentences):
+        """Transcript endpoint returns sentences sorted by start_ms."""
+        client, _ = client_with_sentences
+        resp = client.get("/api/videos/1/transcript")
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert "sentences" in data
+        assert len(data["sentences"]) > 0
+        starts = [s["start_ms"] for s in data["sentences"]]
+        assert starts == sorted(starts)
+
+    def test_returns_full_metadata(self, client_with_sentences):
+        """Each sentence has text, pinyin, translation, words array, status."""
+        client, _ = client_with_sentences
+        resp = client.get("/api/videos/1/transcript")
+        data = json.loads(resp.data)
+        sentence = data["sentences"][0]
+        assert "text" in sentence
+        assert "pinyin" in sentence
+        assert "translation_de" in sentence
+        assert "words" in sentence
+        assert "status" in sentence
+        assert "has_audio" in sentence
+
+    def test_includes_deleted_sentences(self, client_with_sentences):
+        """Reading view shows all sentences including deleted, for context."""
+        client, _ = client_with_sentences
+        # Mark sentence 1 as deleted
+        client.patch(
+            "/api/sentences/1",
+            data=json.dumps({"status": "deleted"}),
+            content_type="application/json",
+        )
+        resp = client.get("/api/videos/1/transcript")
+        data = json.loads(resp.data)
+        statuses = [s["status"] for s in data["sentences"]]
+        assert "deleted" in statuses
+
+    def test_unknown_video_returns_empty(self, client):
+        """Non-existent video returns empty sentence list."""
+        resp = client.get("/api/videos/999/transcript")
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+        assert data["sentences"] == []

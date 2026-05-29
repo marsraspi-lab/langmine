@@ -131,6 +131,18 @@ def register_routes(app: Flask):
             "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
         })
 
+    @app.route("/api/videos/<int:video_id>/transcript")
+    def get_transcript(video_id: int):
+        """Return all sentences in time-order for the reading view."""
+        persistence = _get_persistence()
+        sentences = persistence.get_sentences_by_video(video_id)
+        # Sort chronologically for reading order
+        sentences.sort(key=lambda s: s.start_ms)
+        return jsonify({
+            "video_id": video_id,
+            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
+        })
+
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
     def update_sentence(sentence_id: int):
         """Update sentence fields: status, pinyin, translation_de, text_segmented.
@@ -530,6 +542,8 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
         "translation_de": sentence.translation_de,
         "unknown_word": sentence.unknown_word,
         "unknown_word_rank": sentence.unknown_word_rank,
+        "start_ms": sentence.start_ms,
+        "end_ms": sentence.end_ms,
         "status": sentence.status,
         "has_audio": bool(sentence.audio_clip_path),
         "has_screenshot": bool(sentence.screenshot_path),
