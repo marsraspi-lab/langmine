@@ -4,11 +4,15 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from langmine.pipeline import extract_one_sentence
 
 
-def test_extract_one_sentence_returns_sentence_dict():
+def test_extract_one_sentence_returns_sentence_dict(youtube_available):
     """extract_one_sentence should return a dict with text, timing, and audio path."""
+    if not youtube_available:
+        pytest.skip("YouTube is IP-blocking this environment")
     with tempfile.TemporaryDirectory() as tmpdir:
         result = extract_one_sentence(
             video_url="dQw4w9WgXcQ",
@@ -29,8 +33,10 @@ def test_extract_one_sentence_returns_sentence_dict():
         assert os.path.exists(result["audio_path"])
 
 
-def test_extract_one_sentence_uses_default_padding():
+def test_extract_one_sentence_uses_default_padding(youtube_available):
     """The audio clip should be created with default padding from config."""
+    if not youtube_available:
+        pytest.skip("YouTube is IP-blocking this environment")
     with tempfile.TemporaryDirectory() as tmpdir:
         result = extract_one_sentence(
             video_url="dQw4w9WgXcQ",

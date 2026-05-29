@@ -13,8 +13,10 @@ from langmine.transcript import (
 class TestFetchTranscript:
     """Tests for fetching subtitle chunks from YouTube."""
 
-    def test_fetch_returns_list_of_chunks(self):
+    def test_fetch_returns_list_of_chunks(self, youtube_available):
         """fetch_transcript should return a list of TranscriptChunk objects."""
+        if not youtube_available:
+            pytest.skip("YouTube is IP-blocking this environment")
         chunks = fetch_transcript("dQw4w9WgXcQ")  # Rick Roll — has subtitles
 
         assert isinstance(chunks, list)
@@ -31,8 +33,10 @@ class TestFetchTranscript:
         with pytest.raises((ValueError, Exception)):
             fetch_transcript("invalid_video_id_xyz")
 
-    def test_chunks_have_increasing_timestamps(self):
+    def test_chunks_have_increasing_timestamps(self, youtube_available):
         """Chunks should be returned in chronological order."""
+        if not youtube_available:
+            pytest.skip("YouTube is IP-blocking this environment")
         chunks = fetch_transcript("dQw4w9WgXcQ")
 
         for i in range(1, len(chunks)):
