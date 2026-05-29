@@ -14,6 +14,8 @@ from langmine.domain.ports import (
     AudioProcessor,
     AnkiExporter,
 )
+from langmine.adapters.inline_transcript import InlineTranscriptSource
+from langmine.transcript_parser import parse_subtitle_file
 
 
 def create_app(
@@ -44,6 +46,10 @@ def create_app(
     app.config["LANGMINE_TRANSCRIPT_SOURCE"] = transcript_source
     app.config["LANGMINE_AUDIO_PROCESSOR"] = audio_processor
     app.config["LANGMINE_ANKI_EXPORTER"] = anki_exporter
+
+    # Allow routes to create InlineTranscriptSource without importing adapters
+    app.config["LANGMINE_INLINE_TRANSCRIPT_CLASS"] = InlineTranscriptSource
+    app.config["LANGMINE_PARSE_SUBTITLE_FILE"] = parse_subtitle_file
 
     # Register routes
     from langmine.web.routes import register_routes

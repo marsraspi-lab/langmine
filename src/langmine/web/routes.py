@@ -64,13 +64,18 @@ def register_routes(app: Flask):
 
             file = request.files.get("file")
             if file and file.filename:
-                from langmine.adapters.inline_transcript import InlineTranscriptSource
-                from langmine.transcript_parser import parse_subtitle_file
-                content = file.read().decode("utf-8")
-                chunks = parse_subtitle_file(content, filename=file.filename)
-                if not chunks:
-                    return jsonify({"error": "No subtitle entries found in uploaded file"}), 400
-                transcript = InlineTranscriptSource(chunks)
+                InlineTranscriptSource = current_app.config.get(
+                    "LANGMINE_INLINE_TRANSCRIPT_CLASS"
+                )
+                parse_subtitle_file = current_app.config.get(
+                    "LANGMINE_PARSE_SUBTITLE_FILE"
+                )
+                if InlineTranscriptSource and parse_subtitle_file:
+                    content = file.read().decode("utf-8")
+                    chunks = parse_subtitle_file(content, filename=file.filename)
+                    if not chunks:
+                        return jsonify({"error": "No subtitle entries found in uploaded file"}), 400
+                    transcript = InlineTranscriptSource(chunks)
         else:
             # JSON body (backward compatible)
             data = request.get_json(silent=True)
