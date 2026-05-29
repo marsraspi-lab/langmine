@@ -238,14 +238,9 @@
                   {/if}
                 </div>
 
-                {#if wordDetail.definitions && wordDetail.definitions.length > 0}
+                {#if wordDetail.definition_de}
                   <div class="detail-definitions">
-                    <strong>Definitions:</strong>
-                    <ul>
-                      {#each wordDetail.definitions as def}
-                        <li>{def}</li>
-                      {/each}
-                    </ul>
+                    <strong>Definition:</strong> {wordDetail.definition_de}
                   </div>
                 {/if}
 
