@@ -81,3 +81,33 @@ def test_data_dir_default_and_round_trip():
         # Reload and verify
         config2 = load_config(config_dir=tmpdir)
         assert config2.data_dir == "/custom/data/path"
+
+
+def test_user_agent_default_and_round_trip():
+    """Config user_agent should default to empty and survive YAML round-trip."""
+    from langmine.config import save_config
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Default is empty string (use library defaults)
+        config = load_config(config_dir=tmpdir)
+        assert config.user_agent == ""
+
+        # Override and save
+        config.user_agent = "Mozilla/5.0 TestAgent"
+        save_config(config, config_dir=tmpdir)
+
+        # Reload and verify
+        config2 = load_config(config_dir=tmpdir)
+        assert config2.user_agent == "Mozilla/5.0 TestAgent"
+
+
+def test_user_agent_reads_from_network_section():
+    """Config should load user_agent from a network: section in YAML."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_path = Path(tmpdir) / "config.yaml"
+        config_path.write_text("""
+network:
+  user_agent: "Mozilla/5.0 Firefox"
+""")
+        config = load_config(config_dir=tmpdir)
+        assert config.user_agent == "Mozilla/5.0 Firefox"

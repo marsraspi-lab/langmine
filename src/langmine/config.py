@@ -64,6 +64,9 @@ class Config:
     # Storage
     data_dir: str = "~/.langmine/data"
 
+    # Network
+    user_agent: str = ""
+
 
 def load_config(config_dir: str | None = None) -> Config:
     """Load configuration from a YAML file, with defaults for missing keys.
@@ -120,6 +123,9 @@ def _config_to_dict(config: Config) -> dict:
         "storage": {
             "data_dir": config.data_dir,
         },
+        "network": {
+            "user_agent": config.user_agent,
+        },
     }
 
 
@@ -158,6 +164,7 @@ def _dict_to_config(data: dict) -> Config:
         max_stash_cards=data["mining"]["max_stash_cards"],
         hsk_bootstrap=data["vocab"]["hsk_bootstrap"],
         data_dir=data.get("storage", {}).get("data_dir", "~/.langmine/data"),
+        user_agent=data.get("network", {}).get("user_agent", ""),
     )
 
 

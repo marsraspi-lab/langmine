@@ -45,7 +45,17 @@ async function put(path, body) {
 
 export const api = {
   listVideos: () => get('/videos'),
-  mineVideo: (url) => post('/videos/mine', { url }),
+  mineVideo: (url, file = null) => {
+    if (file) {
+      // Multipart form data with transcript file
+      const formData = new FormData();
+      formData.append('url', url);
+      formData.append('file', file);
+      return fetch(BASE + '/videos/mine', { method: 'POST', body: formData })
+        .then(async res => ({ ok: res.ok, status: res.status, data: await res.json() }));
+    }
+    return post('/videos/mine', { url });
+  },
   getSentences: (videoId, status) =>
     get(`/videos/${videoId}/sentences${status && status !== 'all' ? `?status=${status}` : ''}`),
   updateSentence: (id, status) => patch(`/sentences/${id}`, { status }),

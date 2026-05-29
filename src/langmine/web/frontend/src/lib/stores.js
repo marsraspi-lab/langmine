@@ -82,11 +82,11 @@ export async function loadSentences(videoId, filter) {
   sentences.set(data.sentences);
 }
 
-export async function mineVideo(url) {
+export async function mineVideo(url, file = null) {
   mining.set(true);
   mineStatus.set('⏳ Mining...');
   try {
-    const { ok, data } = await api.mineVideo(url);
+    const { ok, data } = await api.mineVideo(url, file);
     if (!ok) {
       mineStatus.set(`❌ ${data.error || 'Failed'}`);
       return null;

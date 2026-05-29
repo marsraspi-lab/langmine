@@ -19,6 +19,7 @@ def main():
     mine_parser = subparsers.add_parser("mine", help="Mine sentences from a YouTube video")
     mine_parser.add_argument("url", nargs="?", help="YouTube video URL")
     mine_parser.add_argument("--dry-run", action="store_true", help="Show what would be mined without saving")
+    mine_parser.add_argument("--transcript-file", help="Path to .srt or .vtt file to use instead of fetching from YouTube")
 
     # serve
     serve_parser = subparsers.add_parser("serve", help="Start the LangMine web UI")
@@ -69,8 +70,22 @@ def _cmd_mine(args):
     from langmine.pipeline import process_video
     from langmine.domain.services.chinese import ChineseLanguageService
 
-    transcript = YouTubeTranscriptAdapter()
-    audio = YtdlpAudioAdapter()
+    transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
+    audio = YtdlpAudioAdapter(user_agent=config.user_agent)
+
+    # Override with uploaded transcript file if provided
+    if getattr(args, "transcript_file", None):
+        from langmine.adapters.inline_transcript import InlineTranscriptSource
+        from langmine.transcript_parser import parse_subtitle_file
+        with open(args.transcript_file) as f:
+            content = f.read()
+        chunks = parse_subtitle_file(content, filename=args.transcript_file)
+        if not chunks:
+            print(f"Error: No subtitle entries found in {args.transcript_file}", file=sys.stderr)
+            sys.exit(1)
+        transcript = InlineTranscriptSource(chunks)
+        print(f"📄 Using transcript from: {args.transcript_file} ({len(chunks)} chunks)")
+
     persistence = SQLitePersistence()
     processor = ChineseLanguageService(
         CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
@@ -129,8 +144,8 @@ def _cmd_serve(args):
     processor = ChineseLanguageService(
         CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
     )
-    transcript = YouTubeTranscriptAdapter()
-    audio = YtdlpAudioAdapter()
+    transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
+    audio = YtdlpAudioAdapter(user_agent=config.user_agent)
 
     app = create_app(
         persistence=persistence,

@@ -6,11 +6,13 @@ from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFoun
 from langmine.domain.ports import TranscriptChunk, MergedSentence
 
 
-def fetch_transcript(video_id_or_url: str) -> list[TranscriptChunk]:
+def fetch_transcript(video_id_or_url: str, user_agent: str = "") -> list[TranscriptChunk]:
     """Fetch subtitle chunks for a YouTube video.
 
     Args:
         video_id_or_url: YouTube video ID (11 chars) or full URL.
+        user_agent: Optional custom User-Agent header. If empty, uses
+            youtube-transcript-api's default.
 
     Returns:
         List of transcript chunks with text and timing.
@@ -20,8 +22,15 @@ def fetch_transcript(video_id_or_url: str) -> list[TranscriptChunk]:
     """
     video_id = _extract_video_id(video_id_or_url)
 
+    kwargs = {}
+    if user_agent:
+        import requests as _requests
+        session = _requests.Session()
+        session.headers.update({"User-Agent": user_agent})
+        kwargs["http_client"] = session
+
     try:
-        api = YouTubeTranscriptApi()
+        api = YouTubeTranscriptApi(**kwargs)
         transcript = api.fetch(video_id)
     except (TranscriptsDisabled, NoTranscriptFound) as e:
         raise ValueError(

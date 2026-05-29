@@ -7,8 +7,11 @@ from langmine.audio import download_audio, clip_audio, capture_frame
 class YtdlpAudioAdapter(AudioProcessor):
     """Downloads audio via yt-dlp and clips via ffmpeg."""
 
+    def __init__(self, user_agent: str = ""):
+        self._user_agent = user_agent
+
     def download(self, video_id: str, output_dir: str) -> str:
-        return download_audio(video_id, output_dir=output_dir)
+        return download_audio(video_id, output_dir=output_dir, user_agent=self._user_agent)
 
     def clip(
         self,

@@ -43,17 +43,40 @@ def register_routes(app: Flask):
 
     @app.route("/api/videos/mine", methods=["POST"])
     def mine_video():
-        """Mine a YouTube video: transcript → merge → classify → persist."""
+        """Mine a YouTube video: transcript → merge → classify → persist.
+
+        Accepts JSON with 'url' or multipart/form-data with 'url' + optional
+        transcript file (.srt/.vtt). When a transcript file is provided, it
+        is used directly instead of calling youtube-transcript-api.
+        """
         persistence = _get_persistence()
         processor = _get_processor()
-        transcript = _get_transcript_source()
         audio = _get_audio_processor()
 
-        data = request.get_json(silent=True)
-        if not data or "url" not in data:
-            return jsonify({"error": "Missing 'url' field"}), 400
+        # Determine which transcript source to use
+        transcript = _get_transcript_source()
 
-        url = data["url"]
+        # Handle multipart form data (with optional file upload)
+        if request.content_type and "multipart" in request.content_type:
+            url = request.form.get("url", "").strip()
+            if not url:
+                return jsonify({"error": "Missing 'url' field"}), 400
+
+            file = request.files.get("file")
+            if file and file.filename:
+                from langmine.adapters.inline_transcript import InlineTranscriptSource
+                from langmine.transcript_parser import parse_subtitle_file
+                content = file.read().decode("utf-8")
+                chunks = parse_subtitle_file(content, filename=file.filename)
+                if not chunks:
+                    return jsonify({"error": "No subtitle entries found in uploaded file"}), 400
+                transcript = InlineTranscriptSource(chunks)
+        else:
+            # JSON body (backward compatible)
+            data = request.get_json(silent=True)
+            if not data or "url" not in data:
+                return jsonify({"error": "Missing 'url' field"}), 400
+            url = data["url"]
 
         # Extract video ID (simple extraction, same as transcript module)
         from langmine.transcript import _extract_video_id
