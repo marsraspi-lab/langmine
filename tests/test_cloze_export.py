@@ -171,3 +171,44 @@ class TestAnkiConnectCloze:
                 "Basic export should NOT wrap words in cloze markers"
             )
             assert sentence_zh == "我们 一般 早上 起床"
+
+
+class TestClozeImageUrlExport:
+    """M12: cloze_image_url is included in cloze export."""
+
+    def test_cloze_image_url_in_export_fields(self):
+        """When sentence has cloze_image_url, it appears in the note."""
+        adapter = AnkiConnectAdapter()
+
+        with patch.object(adapter, "_invoke") as mock_invoke:
+            with patch.object(adapter, "_store_media") as mock_store:
+                with patch("os.path.exists", return_value=False):
+                    mock_invoke.side_effect = [
+                        {"result": None},
+                        {"result": None},
+                        {"result": [None]},
+                        {"result": [1001]},
+                    ]
+
+                    s = _make_sentence(text="我们 一般 早上 起床", unknown="一般")
+                    s.cloze_image_url = "https://example.com/hint.jpg"
+
+                    adapter.export(
+                        sentences=[s],
+                        deck_name="Test",
+                        note_type_name="LangMine Cloze",
+                        card_type="cloze",
+                        card_css=".card{}",
+                        card_front="{{cloze:sentence_zh}}",
+                        card_back="{{sentence_zh}}",
+                    )
+
+            add_calls = [
+                c for c in mock_invoke.call_args_list
+                if c[0][0] == "addNotes"
+            ]
+            notes = add_calls[0][0][1]["notes"]
+            screenshot_field = notes[0]["fields"]["screenshot"]
+            assert "hint.jpg" in screenshot_field, (
+                f"cloze_image_url should appear in screenshot field, got: {screenshot_field}"
+            )

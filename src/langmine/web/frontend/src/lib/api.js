@@ -94,3 +94,18 @@ export async function updateVocabWord(word, status) {
   });
   return res.json();
 }
+
+// Image search API (M12)
+export async function searchImages(query, count = 5) {
+  const res = await fetch(`/api/images/search?q=${encodeURIComponent(query)}&count=${count}`);
+  return res.json();
+}
+
+export async function setClozeImage(sentenceId, imageUrl) {
+  const res = await fetch(`/api/sentences/${sentenceId}/cloze-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image_url: imageUrl }),
+  });
+  return res.json();
+}

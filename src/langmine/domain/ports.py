@@ -272,3 +272,22 @@ class AnkiExporter(ABC):
             Dict with: note_ids (list[int]), added (int),
             duplicates (int), errors (list[str]).
         """
+
+
+class ImageSearch(ABC):
+    """Port for image search by word/query.
+
+    Adapters: Google Custom Search, Bing Image Search.
+    """
+
+    @abstractmethod
+    def search(self, query: str, count: int = 5) -> list[str]:
+        """Return list of image URLs for a query.
+
+        Args:
+            query: Search query (e.g., Chinese word + context).
+            count: Number of image URLs to return (default 5).
+
+        Returns:
+            List of image URLs.
+        """

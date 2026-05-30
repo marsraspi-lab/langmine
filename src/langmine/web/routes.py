@@ -8,6 +8,7 @@ from flask import (
 from langmine.domain.models import Video, Sentence
 from langmine.domain.ports import (
     Persistence, LanguageProcessor, TranscriptSource, AudioProcessor,
+    ImageSearch,
 )
 
 
@@ -256,6 +257,47 @@ def register_routes(app: Flask):
             as_attachment=False,
         )
 
+    # === Image Search API (M12) ===
+
+    @app.route("/api/images/search")
+    def search_images():
+        """Search for images of a word. Query params: q, count (default 5)."""
+        searcher = _get_image_searcher()
+        if searcher is None:
+            return jsonify({"error": "Image search not configured."}), 503
+
+        query = request.args.get("q", "").strip()
+        if not query:
+            return jsonify({"error": "Missing 'q' query parameter."}), 400
+
+        count = request.args.get("count", 5, type=int)
+        try:
+            urls = searcher.search(query, count=count)
+            return jsonify({"query": query, "images": urls})
+        except Exception as e:
+            return jsonify({"error": f"Image search failed: {e}"}), 500
+
+    @app.route("/api/sentences/<int:sentence_id>/cloze-image", methods=["POST"])
+    def set_cloze_image(sentence_id: int):
+        """Store a user-selected cloze hint image URL for a sentence."""
+        persistence = _get_persistence()
+        sentence = _find_sentence(persistence, sentence_id)
+        if sentence is None:
+            return jsonify({"error": "Sentence not found"}), 404
+
+        data = request.get_json(silent=True)
+        if not data or "image_url" not in data:
+            return jsonify({"error": "Missing 'image_url' field"}), 400
+
+        sentence.cloze_image_url = data["image_url"]
+        persistence.update_sentence(sentence)
+
+        return jsonify({
+            "ok": True,
+            "sentence_id": sentence_id,
+            "cloze_image_url": sentence.cloze_image_url,
+        })
+
     # === Vocab API ===
 
     @app.route("/api/vocab")
@@ -468,6 +510,11 @@ def _get_transcript_source() -> TranscriptSource | None:
 def _get_audio_processor() -> AudioProcessor | None:
     """Get the audio processor port from app config."""
     return current_app.config.get("LANGMINE_AUDIO_PROCESSOR")
+
+
+def _get_image_searcher() -> ImageSearch | None:
+    """Get the image search port from app config."""
+    return current_app.config.get("LANGMINE_IMAGE_SEARCHER")
 
 
 def _reclassify_from_segmented(
