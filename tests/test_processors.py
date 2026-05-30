@@ -30,6 +30,9 @@ class DummyProcessor(LanguageProcessor):
     def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         return []
 
+    def get_ruby(self, text: str) -> str:
+        return "[]"
+
 
 def test_abstract_class_cannot_be_instantiated():
     """LanguageProcessor is abstract and cannot be instantiated directly."""

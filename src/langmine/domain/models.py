@@ -72,6 +72,7 @@ class Sentence:
     screenshot_path: str = ""
     screenshot_enabled: bool = True
     cloze_image_url: str | None = None  # User-selected image for cloze hint
+    ruby_json: str = ""                 # JSON: [{char, pinyin, tone}] per character
     status: str = "new"            # i1 | i0 | stashed | kept | deleted | exported
 
     # Set by persistence layer

@@ -101,6 +101,14 @@
       </label>
     </section>
 
+    <section class="settings-section">
+      <h3>Network</h3>
+      <label>
+        User-Agent
+        <input name="user_agent" value={$config.user_agent || ''} placeholder="Mozilla/5.0 ..." />
+      </label>
+    </section>
+
     <button type="submit" class="save-btn" disabled={saving}>
       {saving ? '⏳ Saving...' : '💾 Save Settings'}
     </button>

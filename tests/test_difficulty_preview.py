@@ -31,8 +31,8 @@ class FakeLanguageProcessor(LanguageProcessor):
     def is_non_word(self, token):
         return token in {"的", "了", "吗", "啊", "呢", "吧", "很", "是", "和", "不"}
 
-    def find_known_synonyms(self, word, known_words):
-        return []
+    def find_known_synonyms(self, word, known_words): return []
+    def get_ruby(self, text): return "[]"
 
 
 class FakePersistence(Persistence):

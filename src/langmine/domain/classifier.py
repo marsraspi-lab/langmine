@@ -114,6 +114,9 @@ class SentenceClassifier:
             # Pinyin for all sentences
             sentence.pinyin = self._processor.get_reading(sentence.text)
 
+            # Ruby annotations for all sentences
+            sentence.ruby_json = self._processor.get_ruby(sentence.text)
+
             # Translation and word info for i+1 and kept sentences
             if sentence.status in ("i1", "kept"):
                 sentence.translation_de = self._processor.translate_sentence(sentence.text)

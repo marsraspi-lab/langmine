@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { updateVocabWord } from './api.js';
-  import { addToast } from './stores.js';
+  import { addToast, currentView, vocabSearchQuery } from './stores.js';
   import ImagePicker from './ImagePicker.svelte';
 
   let { videoId } = $props();
@@ -10,9 +10,13 @@
   let loading = $state(true);
   let showTranslation = $state(false);
   let showLegend = $state(false);
+  let showRuby = $state(false);
   let activeWord = $state(null);
   let activeSentenceIdx = $state(0);
   let showImagePicker = $state(false);
+
+  // Pleco tone colors: 1=red, 2=green, 3=blue, 4=purple, 5=gray
+  const TONE_COLORS = ['', '#E53935', '#43A047', '#1E88E5', '#8E24AA', '#9E9E9E'];
 
   onMount(loadTranscript);
 
@@ -66,6 +70,7 @@
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     switch (e.key) {
       case 't': case 'T': showTranslation = !showTranslation; break;
+      case 'r': case 'R': showRuby = !showRuby; break;
       case 's': case 'S': case ' ':
         e.preventDefault();
         if (sentences[activeSentenceIdx]) playAudio(sentences[activeSentenceIdx]);
@@ -78,6 +83,11 @@
   }
 
   function closePopover() { activeWord = null; }
+
+  function showInDictionary(token) {
+    vocabSearchQuery.set(token);
+    currentView.set('vocab');
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -93,6 +103,10 @@
         title="Toggle translation (T)"
       >
         {showTranslation ? '📖 Hide translation' : '📖 Show translation'}
+      </button>
+      <button class="toolbar-btn" class:active={showRuby}
+        onclick={() => showRuby = !showRuby} title="Toggle ruby annotations (R)">
+        🎨 Ruby
       </button>
     </div>
   </div>
@@ -116,7 +130,14 @@
           <div class="sentence-content">
             <!-- Chinese text with clickable words -->
             <div class="sentence-chinese">
-              {#if sentence.words?.length}
+              {#if showRuby && sentence.ruby?.length}
+                <!-- Ruby annotation mode: character-level pinyin with tone colors -->
+                {#each sentence.ruby as entry}
+                  <ruby class="ruby-char">
+                    {entry.char}<rt style="color: {TONE_COLORS[entry.tone] || '#9E9E9E'}">{entry.pinyin}</rt>
+                  </ruby>
+                {/each}
+              {:else if sentence.words?.length}
                 {#each sentence.words as word, widx}
                   <span
                     class="word-token word-{word.status}"
@@ -199,6 +220,10 @@
           class="popover-btn"
           onclick={() => showImagePicker = true}
         >🖼️ Search images</button>
+        <button
+          class="popover-btn"
+          onclick={() => showInDictionary(activeWord.word.token)}
+        >📋 Show in dictionary</button>
       </div>
       <button class="popover-close" onclick={closePopover}>✕</button>
     </div>
@@ -217,6 +242,7 @@
   {#if showLegend}
     <div class="shortcuts-bar">
       <span><kbd>T</kbd> Translate</span>
+      <span><kbd>R</kbd> Ruby</span>
       <span><kbd>S</kbd> / <kbd>Space</kbd> Replay</span>
       <span><kbd>↓→J</kbd> Next</span>
       <span><kbd>↑←K</kbd> Previous</span>
