@@ -58,9 +58,6 @@ def test_langmine_cli_imports_and_runs():
 
 def test_serve_creates_app_with_real_adapters(tmp_path):
     """The serve command creates a Flask app with real adapter wiring."""
-    # Ensure ~/.langmine/ exists so SQLitePersistence can create the database
-    langmine_dir = os.path.expanduser("~/.langmine")
-    os.makedirs(langmine_dir, exist_ok=True)
 
     from langmine.web.app import create_app
     from langmine.adapters import (
@@ -71,8 +68,9 @@ def test_serve_creates_app_with_real_adapters(tmp_path):
         ChineseLanguageService, CcCedictAdapter, JiebaFrequencyAdapter,
     )
 
+    db_path = tmp_path / "test_langmine.db"
     app = create_app(
-        persistence=SQLitePersistence(),
+        persistence=SQLitePersistence(str(db_path)),
         language_processor=ChineseLanguageService(
             CcCedictAdapter(), GoogleTranslateAdapter(), JiebaFrequencyAdapter()
         ),

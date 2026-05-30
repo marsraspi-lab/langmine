@@ -43,7 +43,7 @@ class FakePersistence(Persistence):
             if v.youtube_id == yt_id: return v
         return None
 
-    def list_videos(self): return list(self._videos)
+    def list_videos(self, language_code: str = ""): return list(self._videos)
     def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
 
     def save_sentences(self, sentences):
@@ -52,7 +52,7 @@ class FakePersistence(Persistence):
                 s.id = self._next_sid; self._next_sid += 1
             self._sentences.append(s)
 
-    def get_sentences_by_video(self, vid, status=None):
+    def get_sentences_by_video(self, vid, status=None, language_code: str = ""):
         results = [s for s in self._sentences if s.video_id == vid]
         if status: results = [s for s in results if s.status == status]
         return results
@@ -61,7 +61,7 @@ class FakePersistence(Persistence):
         for i, existing in enumerate(self._sentences):
             if existing.id == s.id: self._sentences[i] = s; break
 
-    def get_known_words(self):
+    def get_known_words(self, language_code: str = ""):
         return self._known | {w.word_simplified for w in self._vocab if w.status == "known"}
 
     def get_vocab_word(self, w):
@@ -78,8 +78,8 @@ class FakePersistence(Persistence):
         existing = self.get_vocab_word(w)
         if existing: existing.status = "learning"
         else: self._vocab.append(VocabWord(word_simplified=w, status="learning"))
-    def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": len(self._vocab)}
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+    def get_vocab_stats(self, language_code: str = ""): return {"known": 0, "learning": 0, "total": len(self._vocab)}
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
         words = list(self._vocab)
         if status: words = [w for w in words if w.status == status]
         if search: words = [w for w in words if search.lower() in w.word_simplified.lower()]
@@ -89,7 +89,7 @@ class FakePersistence(Persistence):
         return [s for s in self._sentences if s.unknown_word == word or word in s.text]
     def get_stash_candidates(self, limit=20):
         return [s for s in self._sentences if s.status == "stashed"][:limit]
-    def get_sentences_by_status(self, status):
+    def get_sentences_by_status(self, status, language_code: str = ""):
         return [s for s in self._sentences if s.status == status]
     def reclassify_stashed(self, vid): return 0
 

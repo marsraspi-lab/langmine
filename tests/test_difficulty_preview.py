@@ -44,7 +44,7 @@ class FakePersistence(Persistence):
         self._next_vid = 1
         self._next_sid = 1
 
-    def get_known_words(self):
+    def get_known_words(self, language_code: str = ""):
         return self._known
 
     # Stubs for unused methods
@@ -52,7 +52,7 @@ class FakePersistence(Persistence):
         if v.id is None:
             v.id = self._next_vid; self._next_vid += 1; self._videos.append(v)
 
-    def list_videos(self):
+    def list_videos(self, language_code: str = ""):
         return list(self._videos)
 
     def get_video(self, yt_id):
@@ -104,10 +104,10 @@ class FakePersistence(Persistence):
         else:
             self._vocab.append(VocabWord(word_simplified=w, status="learning"))
 
-    def get_vocab_stats(self):
+    def get_vocab_stats(self, language_code: str = ""):
         return {"known": 0, "learning": 0, "total": 0}
 
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
         return [], 0
 
     def get_sentences_by_word(self, word):
@@ -116,7 +116,7 @@ class FakePersistence(Persistence):
     def get_stash_candidates(self, limit=20):
         return []
 
-    def get_sentences_by_status(self, status):
+    def get_sentences_by_status(self, status, language_code: str = ""):
         return []
 
     def reclassify_stashed(self, vid):

@@ -40,6 +40,11 @@ export const currentView = writable('curation'); // 'curation' | 'settings'
 /** @type {import('svelte/store').Writable<string>} */
 export const vocabSearchQuery = writable('');  // pre-fill vocab search (M14)
 
+/** @type {import('svelte/store').Writable<Array>} */
+export const languages = writable([]);
+/** @type {import('svelte/store').Writable<string>} */
+export const currentLanguage = writable('zh');
+
 /** @type {import('svelte/store').Writable<boolean>} */
 export const readingMode = writable(false);
 
@@ -141,8 +146,36 @@ export async function loadConfig() {
   try {
     const data = await api.getConfig();
     config.set(data);
+    if (data.source_language) {
+      currentLanguage.set(data.source_language);
+    }
   } catch (err) {
     console.error('Failed to load config:', err);
+  }
+}
+
+export async function loadLanguages() {
+  try {
+    const data = await api.listLanguages();
+    languages.set(data.languages);
+  } catch (err) {
+    console.error('Failed to load languages:', err);
+  }
+}
+
+export async function selectLanguage(code) {
+  if (code === $currentLanguageCode) return;
+  try {
+    await api.updateConfig({ source_language: code });
+    currentLanguage.set(code);
+    config.update(c => ({ ...c, source_language: code }));
+    addToast(`Switched to ${code}`, 'info', 2000);
+    await loadVideos();
+    if ($selectedVideoId) {
+      await loadSentences($selectedVideoId, $currentFilter);
+    }
+  } catch (err) {
+    addToast(`Failed to switch language: ${err.message}`, 'error');
   }
 }
 
@@ -172,8 +205,10 @@ async function refreshAfterAction() {
 // Reactive store access for non-component usage
 let $selectedVideoId;
 let $currentFilter;
+let $currentLanguageCode;
 selectedVideoId.subscribe(v => $selectedVideoId = v);
 currentFilter.subscribe(v => $currentFilter = v);
+currentLanguage.subscribe(v => $currentLanguageCode = v);
 
 export async function exportAnki(videoId, forceUpdateModel = false, cardType = 'basic') {
   exporting.set(true);

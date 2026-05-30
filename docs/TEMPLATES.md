@@ -1,8 +1,35 @@
 # Anki Card Template Customization
 
-LangMine exports sentences to Anki as flashcards using the `LangMine Sentence`
-note type. You can customize how cards look either in Anki directly, or
-via `~/.langmine/config.yaml` (pushed on next export).
+LangMine exports sentences to Anki as flashcards using the `LangMine Sentence` note type. Card templates (HTML + CSS) live as files in the language extension directory — one set per language. Customization is done by editing these files.
+
+## Template Files Location
+
+Each language has its own templates under `languages/<lang>/anki/`:
+
+```
+languages/chinese/anki/
+├── basic/
+│   ├── front.html   — Front of basic card
+│   ├── back.html    — Back of basic card
+│   └── css.css      — Styling for basic cards
+└── cloze/
+    ├── front.html   — Front of cloze deletion card
+    ├── back.html    — Back of cloze deletion card
+    └── css.css      — Styling for cloze cards
+```
+
+## How to Customize
+
+1. **Edit the template files** in `languages/<lang>/anki/` directly.
+2. **Push to Anki** — check "⚡ Update card templates" in the web UI sidebar, or use CLI:
+   ```bash
+   langmine export --all-kept --force-update-model
+   ```
+   This calls `updateModelTemplates` and `updateModelStyling` on the AnkiConnect API.
+
+3. **Editing in Anki** — you can also edit directly in Anki: **Tools → Manage Note Types → "LangMine Sentence" → Cards...**. Changes in Anki survive future exports unless you check "⚡ Update card templates".
+
+> **Note:** `force_update_model` only updates templates/CSS. To add or remove fields, delete the note type in Anki first (Tools → Manage Note Types → Delete), then re-export.
 
 ## Available Fields
 
@@ -10,12 +37,12 @@ These fields are available in Anki card templates. Use `{{fieldname}}` syntax:
 
 | Field | Example | Description |
 |-------|---------|-------------|
-| `{{sentence_zh}}` | 你今天去哪儿 | The full Chinese sentence |
-| `{{sentence_pinyin}}` | nǐ jīn tiān qù nǎr | Pinyin reading of the sentence |
-| `{{translation_de}}` | Wohin gehst du heute | German translation |
-|| `{{unknown_word}}` | 哪儿 | The i+1 target word (the one new word) |
-|| `{{screenshot}}` | `<img src="langmine_1_frame.jpg">` | Video frame at sentence midpoint. Use conditional: `{{#screenshot}}{{screenshot}}{{/screenshot}}` |
-|| `{{audio}}` | [sound:langmine_1_clip.mp3] | Embedded audio clip. Use conditional: `{{#audio}}{{audio}}{{/audio}}` |
+| `{{sentence_zh}}` | 你今天去哪儿 | The full sentence |
+| `{{sentence_reading}}` | nǐ jīn tiān qù nǎr | Phonetic reading (pinyin for Chinese) |
+| `{{translation_de}}` | Wohin gehst du heute | Translation |
+| `{{unknown_word}}` | 哪儿 | The i+1 target word |
+| `{{audio}}` | `[sound:langmine_1_clip.mp3]` | Embedded audio clip |
+| `{{screenshot}}` | `<img src="...">` | Video frame at sentence midpoint |
 
 ## Conditional Blocks
 
@@ -37,59 +64,51 @@ This only renders if `unknown_word` is non-empty.
 
 Renders the audio player only when audio is available.
 
-## Customizing in Anki
-
-After the first export creates the note type:
-
-1. Open Anki → **Tools → Manage Note Types**
-2. Select **"LangMine Sentence"** → **Cards...**
-3. Edit the **Front Template**, **Back Template**, and **Styling** (CSS)
-4. Changes take effect immediately for all existing and future cards
-
-## Customizing via config.yaml
-
-Edit `~/.langmine/config.yaml` to set default templates. Changes are
-pushed on the next export:
-
-```yaml
-anki:
-  anki_connect_url: "http://localhost:8765"
-  deck_name: "Chinese::Sentence Mining"
-  note_type: "LangMine Sentence"
-  card_css: |
-    .card { font-family: 'Noto Sans SC', sans-serif; font-size: 22px; }
-    .chinese { font-size: 32px; margin: 20px 0; }
-    .pinyin { color: #2e7d32; font-style: italic; }
-    .translation { font-size: 24px; }
-    .word { color: #e53935; margin-top: 16px; }
-
-  card_front_template: |
-    <div class="chinese">{{sentence_zh}}</div>
-    {{#audio}}{{audio}}{{/audio}}
-
-  card_back_template: |
-    <div class="chinese">{{sentence_zh}}</div>
-    {{#audio}}{{audio}}{{/audio}}
-    <hr id="answer">
-    <div class="pinyin">{{sentence_pinyin}}</div>
-    <div class="translation">{{translation_de}}</div>
-    {{#unknown_word}}
-      <div class="word">🆕 {{unknown_word}}</div>
-    {{/unknown_word}}
+```
+{{#screenshot}}
+  {{screenshot}}
+{{/screenshot}}
 ```
 
-To push updated templates to Anki:
-- **Web UI:** check "⚡ Update card templates" before clicking Export
-- **CLI:** `langmine export --all-kept --force-update-model`
+Renders the screenshot only when available.
 
-> **Note:** The `force_update_model` flag only updates templates/CSS.
-> To add or remove fields, you must delete the note type in Anki first
-> (Tools → Manage Note Types → Delete), then re-export.
+## Default Basic Templates
+
+**Front (`basic/front.html`):**
+```html
+<div class="chinese">{{sentence_zh}}</div>
+{{#audio}}{{audio}}{{/audio}}
+```
+
+**Back (`basic/back.html`):**
+```html
+<div class="chinese">{{sentence_zh}}</div>
+{{#audio}}{{audio}}{{/audio}}
+<hr id="answer">
+<div class="reading">{{sentence_reading}}</div>
+<div class="translation">{{translation_de}}</div>
+{{#unknown_word}}
+<div class="word">🆕 {{unknown_word}}</div>
+{{/unknown_word}}
+{{#screenshot}}
+<div class="screenshot">{{screenshot}}</div>
+{{/screenshot}}
+```
+
+**CSS (`basic/css.css`):**
+```css
+.card { font-family: Arial, sans-serif; font-size: 20px; text-align: center; color: black; background-color: white; }
+.chinese { font-size: 28px; margin: 20px 0; }
+.reading { color: #2e7d32; font-style: italic; margin: 10px 0; }
+.translation { font-size: 22px; margin: 10px 0; }
+.word { color: #e53935; font-size: 18px; margin-top: 16px; }
+.screenshot { margin-top: 16px; }
+.screenshot img { max-width: 100%; border-radius: 4px; }
+```
 
 ## Cloze Deletion Cards
 
-LangMine also exports cloze deletion cards using the `LangMine Cloze` note type.
-Enable the "🕳️ Cloze deletion cards" checkbox in the web UI before exporting.
+Cloze cards use the `LangMine Cloze` note type (name from language manifest). Enable the "🕳️ Cloze deletion cards" checkbox in the web UI.
 
 ### Cloze Fields
 
@@ -97,56 +116,66 @@ Enable the "🕳️ Cloze deletion cards" checkbox in the web UI before exportin
 |-------|---------|-------------|
 | `{{cloze:sentence_zh}}` | 你{{c1::今天}}去哪儿 | Sentence with unknown word hidden as cloze |
 | `{{sentence_zh}}` | 你今天去哪儿 | Full sentence (shown on back) |
-| `{{sentence_pinyin}}` | nǐ jīn tiān qù nǎr | Pinyin reading |
-| `{{translation_de}}` | Wohin gehst du heute | German translation |
+| `{{sentence_reading}}` | nǐ jīn tiān qù nǎr | Reading |
+| `{{translation_de}}` | Wohin gehst du heute | Translation |
 | `{{unknown_word}}` | 今天 | The cloze-hidden word |
-| `{{audio}}` | [sound:langmine_1_clip.mp3] | Audio clip |
+| `{{audio}}` | `[sound:...]` | Audio clip |
 | `{{screenshot}}` | `<img src="...">` | Video frame (hint on front) |
-| `{{cloze_image}}` | `<img src="...">` | Image search result (hint on front, takes priority over screenshot) |
 
-### Cloze Config in config.yaml
+### Default Cloze Templates
 
-```yaml
-anki:
-  cloze_note_type: "LangMine Cloze"
-  cloze_card_css: |
-    .card { font-family: 'Noto Sans SC', sans-serif; font-size: 22px; }
-    .chinese { font-size: 32px; margin: 20px 0; }
-    .cloze { color: #e53935; font-weight: bold; }
-
-  cloze_card_front_template: |
-    <div class="chinese">{{cloze:sentence_zh}}</div>
-    {{#audio}}{{audio}}{{/audio}}
-    {{#cloze_image}}{{cloze_image}}{{/cloze_image}}
-    {{#screenshot}}{{screenshot}}{{/screenshot}}
-
-  cloze_card_back_template: |
-    <div class="chinese">{{sentence_zh}}</div>
-    {{#audio}}{{audio}}{{/audio}}
-    <hr id="answer">
-    <div class="pinyin">{{sentence_pinyin}}</div>
-    <div class="translation">{{translation_de}}</div>
-    <div class="word">🆕 {{unknown_word}}</div>
-    {{#cloze_image}}{{cloze_image}}{{/cloze_image}}
+**Front (`cloze/front.html`):**
+```html
+<div class="chinese">{{cloze:sentence_zh}}</div>
+{{#audio}}{{audio}}{{/audio}}
+{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}
 ```
 
-## Default Template
+**Back (`cloze/back.html`):**
+```html
+<div class="chinese">{{sentence_zh}}</div>
+{{#audio}}{{audio}}{{/audio}}
+<hr id="answer">
+<div class="reading">{{sentence_reading}}</div>
+<div class="translation">{{translation_de}}</div>
+<div>🆕 {{unknown_word}}</div>
+{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}
+```
 
-The default card looks like this:
+**CSS (`cloze/css.css`):**
+```css
+.card { font-family: Arial, sans-serif; font-size: 20px; }
+.chinese { font-size: 28px; margin: 20px 0; }
+.cloze { color: #e53935; font-weight: bold; }
+.reading { color: #2e7d32; font-style: italic; }
+.translation { font-size: 22px; }
+.hint-img { margin-top: 12px; max-width: 100%; }
+```
 
-**Front:**
-```
-  你今天去哪儿
-  🔊 [audio player]
-  📸 [screenshot if available]
+## Language-Specific Card Appearance
+
+Each language can have completely different card styling. For example:
+- **Chinese**: large font for characters, tone-colored readings
+- **Spanish**: smaller font, no ruby annotations
+- **Korean**: Hangul-friendly font stack
+
+The template files in `languages/<lang>/anki/` are the source of truth — edit them directly.
+
+## Adding Templates for a New Language
+
+When creating a new language extension, include the `anki/` directory with both `basic/` and `cloze/` subdirectories. The `__init__.py` must expose a `get_anki_templates()` function that reads from these files:
+
+```python
+def get_anki_templates() -> dict:
+    base = Path(__file__).parent / "anki"
+    return {
+        "basic_front": (base / "basic/front.html").read_text(),
+        "basic_back": (base / "basic/back.html").read_text(),
+        "basic_css": (base / "basic/css.css").read_text(),
+        "cloze_front": (base / "cloze/front.html").read_text(),
+        "cloze_back": (base / "cloze/back.html").read_text(),
+        "cloze_css": (base / "cloze/css.css").read_text(),
+    }
 ```
 
-**Back:**
-```
-  你今天去哪儿
-  🔊 [audio player]
-  ────────────────
-  nǐ jīn tiān qù nǎr
-  Wohin gehst du heute
-  🆕 哪儿
-```
+The `MANIFEST` dict in `__init__.py` sets `deck_name`, `note_type`, and `cloze_note_type` for the language.

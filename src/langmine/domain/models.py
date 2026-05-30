@@ -48,6 +48,7 @@ class Video:
     transcript_json: str = ""     # raw transcript JSON
     audio_path: str = ""           # path to full MP3
     processed_at: str | None = None
+    language_code: str = ""        # "zh", "es", "ko", etc.
 
     # Set by persistence layer
     id: int | None = None
@@ -74,6 +75,7 @@ class Sentence:
     cloze_image_url: str | None = None  # User-selected image for cloze hint
     annotation_json: str = ""          # Character-level annotations (ruby for CJK, IPA, etc.)
     status: str = "new"            # i1 | i0 | stashed | kept | deleted | exported
+    language_code: str = ""        # "zh", "es", "ko", etc.
 
     # Set by persistence layer
     id: int | None = None
@@ -90,6 +92,7 @@ class VocabWord:
     hsk_level: int | None = None      # 1-6 or None if not in HSK
     frequency_rank: int | None = None  # from SUBTLEX-CH
     status: str = "known"             # known | learning
+    language_code: str = ""           # "zh", "es", "ko", etc.
 
     # Set by persistence layer
     id: int | None = None

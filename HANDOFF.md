@@ -1,75 +1,97 @@
-# Handoff — 2026-05-30 (Decouple Chinese, PR #9)
+# Handoff — 2026-05-31 (Multi-Language Data Isolation + Anki Template Extraction)
 
 ## Where We Are
 
-**Decouple Chinese refactor complete.** PR #9 open against `main`, ready for review/merge.
+**Multi-language support complete.** Ready for review/merge into `main`.
 
-- **`main`:** v1.0.0 tag (`5ab98e7`) — M0–M14, 213 pytest + 42 E2E
-- **`refactor/decouple-chinese`:** v1.1.0 (`756ef38`) — 217 pytest + 42 E2E (adds 4 decoupling tests)
-- CI passes: `check` ✅ + `e2e` ✅
+- **`main`:** v1.1.0 tag (`6f80bdd`) — M0–M14 + decouple Chinese. 217 pytest + 42 E2E.
+- **Working tree:** 200 pytest pass. All changes uncommitted.
+- **Status:** v1.2.0 material — multi-language data isolation, `/api/languages` endpoint, frontend language selector, Anki templates as files in language extension.
 
-## Version Infrastructure
+## What Changed
 
-Single source of truth: `pyproject.toml` → `importlib.metadata.version("langmine")`.
+### Data Isolation
+- `language_code TEXT NOT NULL DEFAULT 'zh'` column added to `videos`, `sentences`, `vocab` tables (DB schema v2).
+- `Sentence`, `Video`, `VocabWord` models have `language_code: str` field.
+- `SQLitePersistence` filters all SELECTs by `language_code`; INSERTs include it.
+- `_get_language_code()` helper in `routes.py` reads `config.source_language`.
+- **No migration needed** — delete `~/.langmine/langmine.db` to recreate with new schema (no production users).
 
-| Channel | How |
-|---|---|
-| CLI | `langmine --version` |
-| API | `GET /api/version` → `{"version": "1.1.0", "name": "langmine"}` |
-| UI | Settings page footer (fetches `/api/version` on mount) |
-| Docker | `--build-arg VERSION=1.1.0` → OCI `org.opencontainers.image.version` label |
+### New API Endpoint
+- `GET /api/languages` — returns `{"languages": [{"code": "zh", "name": "中文"}]}`.
+- Factory function `get_available_languages()` drives it.
 
-## Architecture Rules (updated)
+### Frontend Language Selector
+- `<select>` dropdown in `App.svelte` top bar — shows available languages from `/api/languages`.
+- On change: `PUT /api/config` with `source_language`, then reloads videos and sentences.
+- New stores: `languages` (writable), `currentLanguage` (writable).
+- New actions: `loadLanguages()`, `selectLanguage(code)`.
+
+### Anki Templates Moved to Language Extension
+- Card templates extracted from `config.yaml` / `Config` class → files under `languages/chinese/anki/`:
+  - `basic/{front.html, back.html, css.css}`
+  - `cloze/{front.html, back.html, css.css}`
+- Language manifest (`languages/chinese/__init__.py`) declares `MANIFEST` with `name`, `deck_name`, `note_type`, `cloze_note_type`.
+- Factory functions: `get_anki_templates(lang)` and `get_language_manifest(lang)`.
+- `POST /api/export/anki` now reads templates from factory instead of config.
+
+### Config Surface Cleaned
+- `GET /api/config` no longer returns `deck_name` or `note_type`.
+- `PUT /api/config` `ALLOWED` set no longer accepts template fields (`cloze_note_type`, `cloze_card_css`, etc.).
+- SettingsPage (Svelte) removed Deck Name / Note Type inputs.
+
+### Tests
+- `tests/test_multi_language.py` — 5 tests: `language_code` on models + isolation.
+- `tests/test_web_api.py::TestLanguagesEndpoint` — 2 tests for `/api/languages`.
+- `tests/test_config.py::TestConfigApiAllowed` — no longer expects cloze fields in ALLOWED.
+- All FakePersistence classes in tests accept `language_code` kwargs.
+
+## Architecture Rules (unchanged)
 
 - Hexagonal: `domain/` never imports from `adapters/` or `web/`
-- **NEW:** `domain/` never imports from `languages/`
-- **NEW:** `web/` never imports from `languages/`
-- **NEW:** Language packages never cross-import each other
-- **NEW:** Language packages never import from `web/`
-- Only `language_factory.py` imports from `languages/` — it is THE single switch point
-- Adding a language = `languages/<code>/` with 4 files + `case "<code>"` in factory
+- `domain/` never imports from `languages/`
+- `web/` never imports from `languages/`
+- Language packages never cross-import each other
+- Language packages never import from `web/`
+- Only `language_factory.py` imports from `languages/` — THE single switch point
 - `routes.py` must not import from `adapters/` (wire through Flask config)
-- YouTube-dependent tests MUST use mocks (patch at adapter module level)
-- E2E tests only run on PRs, never on direct push to main
-- Branch naming: `feat/*`, `fix/*`, `refactor/*`
-- PR workflow only — never push to main
 - TDD: failing test first, then implementation
 
-## Key File Structure (post-decouple)
+## Key File Structure (current)
 
 ```
 src/langmine/
 ├── domain/              # Language-agnostic core
 ├── adapters/            # Language-agnostic adapters only
 ├── languages/
-│   └── chinese/         # 6 source files + 4 test files
-│       ├── service.py   # ChineseLanguageService
-│       ├── dictionary.py # CcCedictAdapter
-│       ├── frequency.py  # SubtlexChAdapter + JiebaFrequencyAdapter
-│       ├── hsk.py        # HSK proficiency data
-│       └── data/         # CC-CEDICT + SUBTLEX corpus
-├── language_factory.py  # Single switch point for language loading
+│   └── chinese/
+│       ├── __init__.py         # MANIFEST + get_anki_templates() + exports
+│       ├── service.py          # ChineseLanguageService
+│       ├── dictionary.py       # CcCedictAdapter
+│       ├── frequency.py        # SubtlexChAdapter + JiebaFrequencyAdapter
+│       ├── hsk_data.py         # HSK proficiency data
+│       ├── anki/               # Card templates as files
+│       │   ├── basic/{front.html, back.html, css.css}
+│       │   └── cloze/{front.html, back.html, css.css}
+│       └── data/               # CC-CEDICT + SUBTLEX corpus
+├── language_factory.py  # Factory: processors, templates, manifest, proficiency
 ├── web/                 # No language-specific code
-├── pipeline.py          # Accepts ports, language-agnostic
-├── cli.py               # Uses factory, no hardcoded imports
-└── config.py            # hsk_bootstrap removed
+├── pipeline.py          # Accepts ports, stamps language_code
+├── cli.py               # Uses factory
+└── config.py
 tests/
-├── languages/
-│   └── chinese/         # 4 test files + data
-├── adapters/
+├── test_multi_language.py      # 5 tests — model + isolation
 ├── test_language_factory.py
+├── languages/chinese/          # 4 test files
 └── ...
 ```
 
 ## Key Commands
 
 ```bash
-# Version
-langmine --version                        # e.g. "langmine 1.1.0"
-
 # Run all tests
 cd /root/projects/langmine
-python -m pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
+python -m pytest tests/ -q
 
 # Run E2E tests
 cd src/langmine/web/frontend
@@ -84,19 +106,20 @@ grep -r "from langmine.languages" src/langmine/web/         # must be EMPTY
 grep -r "from langmine.adapters" src/langmine/domain/       # must be EMPTY
 
 # Docker build with version
-docker build --build-arg VERSION=1.1.0 -t langmine:1.1.0 .
+docker build --build-arg VERSION=1.2.0 -t langmine:1.2.0 .
 ```
 
-## Container Notes
+## Version Infrastructure
 
-After Docker container reset:
-```bash
-apt-get install -y gh libnspr4 libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 \
-  libcups2t64 libdrm2 libdbus-1-3 libxkbcommon0 libxcomposite1 libxdamage1 \
-  libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64
-pip install -e ".[dev]"
-```
+Single source of truth: `pyproject.toml` → `importlib.metadata.version("langmine")`.
 
-## Decoupling Plan
+| Channel | How |
+|---|---|
+| CLI | `langmine --version` |
+| API | `GET /api/version` → `{"version": "1.2.0", "name": "langmine"}` |
+| UI | Settings page footer (fetches `/api/version` on mount) |
+| Docker | `--build-arg VERSION=1.2.0` → OCI label |
 
-See `.hermes/plans/2026-05-30-decouple-chinese.md` for full phase breakdown.
+## Multi-Language Plan
+
+See `.hermes/plans/2026-05-30-decouple-chinese.md` for full phase breakdown (7 phases, ~35 tasks). Spanish, Korean, Russian are planned — create `languages/<code>/` with service + dictionary + frequency + anki templates + manifest, add to factory.

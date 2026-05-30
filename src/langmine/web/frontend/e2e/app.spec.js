@@ -271,7 +271,7 @@ test.describe('LangMine SPA', () => {
     const response = await page.request.get('/api/config');
     expect(response.status()).toBe(200);
     const data = await response.json();
-    expect(data.deck_name).toBeDefined();
+    expect(data.anki_connect_url).toBeDefined();
     expect(data.source_language).toBeDefined();
     expect(data.max_cards_per_video).toBeDefined();
   });

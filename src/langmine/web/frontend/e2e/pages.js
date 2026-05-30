@@ -146,18 +146,18 @@ export class SettingsPage {
   }
 
   get heading()          { return this.page.locator('h2'); }
-  get deckNameInput()    { return this.page.locator('input[name="deck_name"]'); }
+  get ankiUrlInput()     { return this.page.locator('input[name="anki_connect_url"]'); }
   get maxCardsInput()    { return this.page.locator('input[name="max_cards_per_video"]'); }
   get saveBtn()          { return this.page.locator('.save-btn'); }
 
   async expectFormVisible() {
     await expect(this.heading).toContainText('Settings');
-    await expect(this.deckNameInput).toBeVisible();
+    await expect(this.ankiUrlInput).toBeVisible();
     await expect(this.maxCardsInput).toBeVisible();
   }
 
   async saveDeckName(name) {
-    await this.deckNameInput.fill(name);
+    await this.ankiUrlInput.fill(name);
     await this.saveBtn.click();
   }
 }

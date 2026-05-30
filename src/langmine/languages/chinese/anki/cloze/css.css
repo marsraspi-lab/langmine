@@ -1,0 +1,6 @@
+.card { font-family: Arial, sans-serif; font-size: 20px; }
+.chinese { font-size: 28px; margin: 20px 0; }
+.cloze { color: #e53935; font-weight: bold; }
+.reading { color: #2e7d32; font-style: italic; }
+.translation { font-size: 22px; }
+.hint-img { margin-top: 12px; max-width: 100%; }

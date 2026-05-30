@@ -9,6 +9,55 @@ from langmine.domain.ports import LanguageProcessor
 from langmine.config import Config
 
 
+# Language metadata for UI — code + display name for each available language.
+# Extend this when adding a new language extension.
+LANGUAGES = [
+    {"code": "zh", "name": "Chinese"},
+    # {"code": "es", "name": "Spanish"},  # uncomment when implemented
+    # {"code": "ko", "name": "Korean"},
+    # {"code": "ru", "name": "Russian"},
+]
+
+
+def get_available_languages() -> list[dict]:
+    """Return list of available languages: [{code, name}, ...].
+
+    Only returns languages that successfully load (no NotImplementedError).
+    """
+    available = []
+    for lang in LANGUAGES:
+        code = lang["code"]
+        try:
+            _try_load_processor(code)
+            available.append(lang)
+        except NotImplementedError:
+            continue  # skip languages not yet implemented
+        except Exception:
+            available.append(lang)  # let errors surface at call time
+    return available
+
+
+def _try_load_processor(lang_code: str) -> None:
+    """Try to instantiate a processor for lang_code. Raises if not possible."""
+    from langmine.adapters.google_translate import GoogleTranslateAdapter
+    translator = GoogleTranslateAdapter()
+
+    match lang_code:
+        case "zh":
+            from langmine.languages.chinese import (
+                ChineseLanguageService,
+                CcCedictAdapter,
+                SubtlexChAdapter,
+            )
+            ChineseLanguageService(
+                CcCedictAdapter(), translator, SubtlexChAdapter()
+            )
+        case _:
+            raise NotImplementedError(
+                f"Language '{lang_code}' not yet implemented."
+            )
+
+
 def create_language_processor(config: Config) -> LanguageProcessor:
     """Create a LanguageProcessor for the configured source language.
 
@@ -73,3 +122,31 @@ def get_proficiency_level(word: str) -> int | None:
 
     # Other languages don't have proficiency frameworks yet
     return None
+
+
+def get_anki_templates(lang_code: str) -> dict:
+    """Load Anki card templates for a language from its anki/ directory.
+
+    Returns dict with: basic_front, basic_back, basic_css,
+    cloze_front, cloze_back, cloze_css.
+    Falls back to empty strings for unimplemented languages.
+    """
+    match lang_code:
+        case "zh":
+            from langmine.languages.chinese import get_anki_templates as _zh_templates
+            return _zh_templates()
+        case _:
+            return {}
+
+
+def get_language_manifest(lang_code: str) -> dict:
+    """Return the language manifest dict with deck_name, note_type, etc.
+
+    Returns empty dict for unimplemented languages.
+    """
+    match lang_code:
+        case "zh":
+            from langmine.languages.chinese import MANIFEST
+            return MANIFEST
+        case _:
+            return {}

@@ -1,4 +1,4 @@
-# LangMine Acceptance Test Checklist — M0–M14
+# LangMine Acceptance Test Checklist — M0–M15
 
 > Manual QA checklist. Run through these in order after a fresh deploy.
 > Each item is one observable pass/fail check.
@@ -152,7 +152,20 @@
 
 - [ ] **User-Agent override** — Network section in Settings accepts a custom User-Agent string
 - [ ] **Rate-limit handling** — when YouTube blocks, error message shows actionable advice (wait/VPN/User-Agent/upload .srt)
+- [ ] **Config surface clean** — Settings page shows `anki_connect_url` but NOT `deck_name`/`note_type`
 
 ---
 
-**Checklist version:** v1.0 — covers M0–M14, 2026-05-30
+## M15: Multi-Language Support
+
+- [ ] **Language selector appears** — top bar shows a `<select>` dropdown with available languages
+- [ ] **Initial language is Chinese (中文)** — from default `source_language: "zh"`
+- [ ] **`GET /api/languages`** returns `{"languages": [{"code": "zh", "name": "中文"}]}`
+- [ ] **Switching language calls config PATCH** — selecting a new language triggers `PUT /api/config` with `source_language`
+- [ ] **Data is isolated** — Chinese videos/sentences/vocab don't appear when browsing another language
+- [ ] **Language persists in config** — after page reload, the selected language is remembered
+- [ ] **Anki templates are per-language** — card CSS/HTML comes from `languages/chinese/anki/`, not config.yaml
+
+---
+
+**Checklist version:** v1.2 — covers M0–M15, 2026-05-31

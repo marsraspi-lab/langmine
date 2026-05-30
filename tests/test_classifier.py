@@ -52,26 +52,26 @@ class FakePersistence(Persistence):
         self.videos_list: list = []
         self.sentences_list: list[Sentence] = []
 
-    def get_known_words(self) -> set[str]:
+    def get_known_words(self, language_code: str = "") -> set[str]:
         return self._known
 
     def save_video(self, video): self.videos_list.append(video)
     def get_video(self, yt_id): return None
-    def list_videos(self): return self.videos_list
+    def list_videos(self, language_code: str = ""): return self.videos_list
     def video_exists(self, yt_id): return False
     def save_sentences(self, sentences): self.sentences_list.extend(sentences)
     def get_sentences_by_video(self, vid, status=None):
         return [s for s in self.sentences_list if s.video_id == vid]
     def get_stash_candidates(self, limit=20): return []
     def update_sentence(self, s): pass
-    def get_sentences_by_status(self, status): return []
+    def get_sentences_by_status(self, status, language_code: str = ""): return []
     def reclassify_stashed(self, vid): return 0
     def save_vocab_word(self, w): pass
     def get_vocab_word(self, w): return None
     def mark_word_known(self, w): pass
     def mark_word_learning(self, w): pass
-    def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+    def get_vocab_stats(self, language_code: str = ""): return {"known": 0, "learning": 0, "total": 0}
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
         return [], 0
     def get_sentences_by_word(self, word):
         return [s for s in self.sentences_list

@@ -144,7 +144,7 @@ Forbidden:
 | `FrequencySource` | `languages/*/frequency.py` (e.g. SUBTLEX-CH) | Word frequency |
 | `AnkiExporter` | `AnkiConnectAdapter` | Flashcard export (AnkiConnect JSON-RPC) |
 
-**Adding a language:** Create `languages/<code>/` with 4 files: `__init__.py`, `service.py`, `dictionary.py`, `frequency.py`. Add `case "<code>"` to `language_factory.py`. No code changes needed in domain, web, or adapters.
+**Adding a language:** Create `languages/<code>/` with 5 files + template directory: `__init__.py` (with `MANIFEST` dict + `get_anki_templates()`), `service.py`, `dictionary.py`, `frequency.py`, and `anki/` directory with `basic/` and `cloze/` subdirectories containing `front.html`, `back.html`, `css.css`. Add `case "<code>"` to all match/case blocks in `language_factory.py` and add an entry to the `LANGUAGES` list. No code changes needed in domain, web, or adapters.
 
 ### Testing with Fake Ports
 
@@ -182,7 +182,7 @@ Adapter tests use real dependencies with mocked HTTP (AnkiConnect, Google Transl
 
 ```
 App.svelte
-├── Top bar              — brand, curation/settings/vocab nav, theme toggle
+├── Top bar              — brand, language selector, curation/settings/vocab nav, theme toggle
 ├── Sidebar.svelte       — video list, mine form, export button, preview
 ├── CardList.svelte      — filter tabs (All/Kept/Deleted/Stash/Read) + sentence cards
 │   ├── SentenceCard.svelte — text, reading, translation, audio, annotation, actions
@@ -205,6 +205,8 @@ State management via Svelte 5 stores (`src/lib/stores.js`):
 - `config` — writable store (settings data)
 - `theme` — writable store (dark/light, persisted to localStorage)
 - `currentView` — writable store (curation | settings | vocab)
+- `languages` — writable store (available languages from GET /api/languages)
+- `currentLanguage` — writable store (active language code, synced with config)
 - `readingMode` — writable store (reading view toggle)
 - `clozeMode` — writable store (cloze deletion checkbox)
 - `previewResult` — writable store (difficulty preview data)

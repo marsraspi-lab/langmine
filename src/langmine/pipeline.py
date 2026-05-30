@@ -143,6 +143,7 @@ def process_video(
     video = Video(
         youtube_id=video_id,
         title=video_id,  # Title fetched later (M3/M7)
+        language_code=config.source_language,
     )
     persistence.save_video(video)
 
@@ -153,6 +154,10 @@ def process_video(
         sentences=merged,
         max_cards=max_cards,
     )
+
+    # 3b. Stamp language_code on all sentences
+    for s in sentences:
+        s.language_code = config.source_language
 
     # 4. Enrich with NLP (pinyin, translation, definitions)
     classifier.enrich(sentences)
