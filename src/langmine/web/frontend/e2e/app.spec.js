@@ -41,6 +41,53 @@ test.describe('LangMine SPA', () => {
     await expect(page.locator('.status-badge.i1').first()).toBeVisible();
   });
 
+  // === M9: Word highlighting ===
+
+  test('sentence cards show word highlighting classes', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    // First card (i+1 with vocab seeded)
+    const card = page.locator('.sentence-card').first();
+
+    // Known words should have .word-known class
+    await expect(card.locator('.word-known').first()).toBeVisible();
+
+    // Learning word (一般) should have .word-learning class
+    await expect(card.locator('.word-learning').first()).toBeVisible();
+    await expect(card.locator('.word-learning').first()).toContainText('一般');
+  });
+
+  test('clicking a word opens popover with status toggle', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    const card = page.locator('.sentence-card').first();
+
+    // Click the learning word (一般)
+    await card.locator('.word-learning').first().click();
+
+    // Popover should appear with Mark known button
+    await expect(page.locator('.word-popover')).toBeVisible();
+    await expect(page.locator('.word-popover')).toContainText('Mark known');
+  });
+
+  test('mark word known from popover updates the word status', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    const card = page.locator('.sentence-card').first();
+
+    // Click the learning word (一般)
+    await card.locator('.word-learning').first().click();
+
+    // Click "Mark known" in popover
+    await page.locator('.word-popover .btn-mark-known').click();
+
+    // Word should now have .word-known class
+    await expect(card.locator('.word-known').filter({ hasText: '一般' })).toBeVisible();
+  });
+
   test('Keep button marks a sentence as kept', async ({ page }) => {
     await page.goto('/');
     await page.locator('.video-item').first().click();
@@ -274,53 +321,6 @@ test.describe('LangMine SPA', () => {
     expect(data.deck_name).toBeDefined();
     expect(data.source_language).toBeDefined();
     expect(data.max_cards_per_video).toBeDefined();
-  });
-
-  // === M9: Word highlighting ===
-
-  test('sentence cards show word highlighting classes', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.video-item').first().click();
-
-    // First card (i+1 with vocab seeded)
-    const card = page.locator('.sentence-card').first();
-
-    // Known words should have .word-known class
-    await expect(card.locator('.word-known').first()).toBeVisible();
-
-    // Learning word (一般) should have .word-learning class
-    await expect(card.locator('.word-learning').first()).toBeVisible();
-    await expect(card.locator('.word-learning').first()).toContainText('一般');
-  });
-
-  test('clicking a word opens popover with status toggle', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.video-item').first().click();
-
-    const card = page.locator('.sentence-card').first();
-
-    // Click the learning word (一般)
-    await card.locator('.word-learning').first().click();
-
-    // Popover should appear with Mark known button
-    await expect(page.locator('.word-popover')).toBeVisible();
-    await expect(page.locator('.word-popover')).toContainText('Mark known');
-  });
-
-  test('mark word known from popover updates the word status', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.video-item').first().click();
-
-    const card = page.locator('.sentence-card').first();
-
-    // Click the learning word (一般)
-    await card.locator('.word-learning').first().click();
-
-    // Click "Mark known" in popover
-    await page.locator('.word-popover .btn-mark-known').click();
-
-    // Word should now have .word-known class
-    await expect(card.locator('.word-known').filter({ hasText: '一般' })).toBeVisible();
   });
 
   // === M9: Vocab page ===
