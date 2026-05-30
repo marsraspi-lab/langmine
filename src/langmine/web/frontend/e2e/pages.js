@@ -183,7 +183,7 @@ export class ReadingPage {
   get learningWords()   { return this.page.locator('.word-learning'); }
   get unknownWords()    { return this.page.locator('.word-unknown'); }
   get playButtons()     { return this.page.locator('.play-btn'); }
-  get readingLines()     { return this.page.locator('.sentence-pinyin'); }
+  get readingLines()     { return this.page.locator('.sentence-reading'); }
   get translations()    { return this.page.locator('.sentence-translation'); }
   get wordPopover()     { return this.page.locator('.word-popover'); }
   get popoverOverlay()  { return this.page.locator('.word-popover-overlay'); }

@@ -210,7 +210,7 @@ test.describe('LangMine SPA', () => {
 
   // ── M7: Inline editing ───────────────────────────────────────────────
 
-  test('click pinyin to edit inline', async () => {
+  test('click reading to edit inline', async () => {
     await main.goto();
     await main.selectFirstVideo();
 
