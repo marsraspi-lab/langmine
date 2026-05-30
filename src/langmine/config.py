@@ -58,9 +58,6 @@ class Config:
     max_cards_per_video: int = 20
     max_stash_cards: int = 20
 
-    # Vocab
-    hsk_bootstrap: int = 3
-
     # Storage
     data_dir: str = "~/.langmine/data"
 
@@ -150,9 +147,6 @@ def _config_to_dict(config: Config) -> dict:
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
         },
-        "vocab": {
-            "hsk_bootstrap": config.hsk_bootstrap,
-        },
         "storage": {
             "data_dir": config.data_dir,
         },
@@ -205,7 +199,6 @@ def _dict_to_config(data: dict) -> Config:
         audio_pad_after_ms=data["mining"]["audio_pad_after_ms"],
         max_cards_per_video=data["mining"]["max_cards_per_video"],
         max_stash_cards=data["mining"]["max_stash_cards"],
-        hsk_bootstrap=data["vocab"]["hsk_bootstrap"],
         data_dir=data.get("storage", {}).get("data_dir", "~/.langmine/data"),
         user_agent=data.get("network", {}).get("user_agent", ""),
         google_api_key=data.get("network", {}).get("google_api_key", ""),

@@ -24,7 +24,7 @@
     // Convert numeric fields
     const numericFields = [
       'sentence_gap_ms', 'audio_pad_before_ms', 'audio_pad_after_ms',
-      'max_cards_per_video', 'max_stash_cards', 'hsk_bootstrap',
+      'max_cards_per_video', 'max_stash_cards',
     ];
     for (const field of numericFields) {
       if (updates[field] !== undefined) {

@@ -76,12 +76,9 @@ def _cmd_mine(args):
         YouTubeTranscriptAdapter,
         YtdlpAudioAdapter,
         SQLitePersistence,
-        GoogleTranslateAdapter,
-        CcCedictAdapter,
-        SubtlexChAdapter,
     )
     from langmine.pipeline import process_video
-    from langmine.languages.chinese import ChineseLanguageService
+    from langmine.language_factory import create_language_processor
 
     transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
     audio = YtdlpAudioAdapter(user_agent=config.user_agent)
@@ -100,9 +97,7 @@ def _cmd_mine(args):
         print(f"📄 Using transcript from: {args.transcript_file} ({len(chunks)} chunks)")
 
     persistence = SQLitePersistence()
-    processor = ChineseLanguageService(
-        CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
-    )
+    processor = create_language_processor(config)
 
     print(f"⛏️  Mining: {args.url}")
     print(f"   Output: {output_dir}")
@@ -154,9 +149,7 @@ def _cmd_serve(args):
 
     config = load_config()
     persistence = SQLitePersistence()
-    processor = ChineseLanguageService(
-        CcCedictAdapter(), GoogleTranslateAdapter(), SubtlexChAdapter()
-    )
+    processor = create_language_processor(config)
     transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
     audio = YtdlpAudioAdapter(user_agent=config.user_agent)
 

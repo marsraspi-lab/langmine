@@ -23,7 +23,6 @@ def test_default_config_values():
         assert config.audio_pad_after_ms == 300
         assert config.max_cards_per_video == 20
         assert config.max_stash_cards == 20
-        assert config.hsk_bootstrap == 3
 
 
 def test_config_loaded_from_yaml():

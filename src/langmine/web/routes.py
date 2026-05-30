@@ -533,7 +533,6 @@ def register_routes(app: Flask):
             "audio_pad_after_ms": config.audio_pad_after_ms,
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
-            "hsk_bootstrap": config.hsk_bootstrap,
             "user_agent": config.user_agent,
         })
 
@@ -551,7 +550,7 @@ def register_routes(app: Flask):
             "anki_connect_url", "deck_name", "note_type",
             "source_language", "target_language", "translation_api",
             "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
-            "max_cards_per_video", "max_stash_cards", "hsk_bootstrap",
+            "max_cards_per_video", "max_stash_cards",
             "deepl_api_key",
             "cloze_note_type", "cloze_card_css",
             "cloze_card_front_template", "cloze_card_back_template",
