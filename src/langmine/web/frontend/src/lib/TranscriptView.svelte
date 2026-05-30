@@ -105,8 +105,8 @@
         {showTranslation ? '📖 Hide translation' : '📖 Show translation'}
       </button>
       <button class="toolbar-btn" class:active={showAnnotation}
-        onclick={() => showAnnotation = !showAnnotation} title="Toggle ruby annotations (R)">
-        🎨 Ruby
+        onclick={() => showAnnotation = !showAnnotation} title="Toggle annotations (R)">
+        🎨 Annotate
       </button>
     </div>
   </div>
@@ -131,7 +131,7 @@
             <!-- Chinese text with clickable words -->
             <div class="sentence-chinese">
               {#if showAnnotation && sentence.annotation?.length}
-                <!-- Ruby annotation mode: character-level pinyin with tone colors -->
+                <!-- Annotation mode: character-level pinyin with tone colors -->
                 {#each sentence.annotation as entry}
                   <ruby class="ruby-char">
                     {entry.char}<rt style="color: {TONE_COLORS[entry.tone] || '#9E9E9E'}">{entry.reading}</rt>
@@ -163,7 +163,7 @@
 
             <!-- Pinyin -->
             {#if sentence.reading}
-              <div class="sentence-pinyin">{sentence.reading}</div>
+              <div class="sentence-reading">{sentence.reading}</div>
             {/if}
 
             <!-- Translation (togglable) -->

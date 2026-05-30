@@ -196,19 +196,19 @@
     <span class="status-badge {sentence.status}">{STATUS_LABELS[sentence.status] || sentence.status}</span>
   </div>
 
-  {#if editingField === 'pinyin' || sentence.reading}
+  {#if editingField === 'reading' || sentence.reading}
     <div class="editable-field" class:saving>
-      {#if editingField === 'pinyin'}
+      {#if editingField === 'reading'}
         <input
           type="text"
           class="edit-input reading-input"
           bind:value={editValue}
-          onkeydown={(e) => handleEditKeydown(e, 'pinyin')}
-          onblur={() => saveEdit('pinyin')}
+          onkeydown={(e) => handleEditKeydown(e, 'reading')}
+          onblur={() => saveEdit('reading')}
           autofocus
         />
       {:else}
-        <span class="reading-text" onclick={() => startEdit('pinyin')} title="Click to edit">
+        <span class="reading-text" onclick={() => startEdit('reading')} title="Click to edit">
           {sentence.reading}
         </span>
       {/if}

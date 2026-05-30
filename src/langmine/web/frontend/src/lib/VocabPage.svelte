@@ -147,7 +147,7 @@
       <span class="search-icon">🔍</span>
       <input
         type="text"
-        placeholder="Search by word or pinyin..."
+        placeholder="Search by word or reading..."
         value={searchQuery}
         oninput={onSearchInput}
         class="search-input"
