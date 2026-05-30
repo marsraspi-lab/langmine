@@ -172,6 +172,8 @@ test.describe('LangMine SPA', () => {
   test('Stash tab shows empty state when none', async () => {
     await main.goto();
     await main.selectFirstVideo();
+    // Wait for initial load before switching filters
+    await expect(curation.chineseText.first()).toBeVisible({ timeout: 5000 });
     await curation.clickFilter('Deleted');
     await curation.expectEmptyState('No deleted sentences');
   });
