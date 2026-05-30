@@ -54,3 +54,22 @@ def create_language_processor(config: Config) -> LanguageProcessor:
                 f"Unsupported source language: {config.source_language}. "
                 "Add a language extension under languages/<lang>/."
             )
+
+
+def get_proficiency_level(word: str) -> int | None:
+    """Return a proficiency level for a word (e.g. HSK 1-6), or None.
+
+    Delegates to the proficiency framework of the configured language.
+    Currently only Chinese (HSK) is supported. Returns None for other
+    languages or when no proficiency data matches the word.
+    """
+    from langmine.config import load_config
+
+    config = load_config()
+
+    if config.source_language == "zh":
+        from langmine.languages.chinese.hsk_data import get_hsk_level
+        return get_hsk_level(word)
+
+    # Other languages don't have proficiency frameworks yet
+    return None
