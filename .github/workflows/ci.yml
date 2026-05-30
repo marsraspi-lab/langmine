@@ -81,6 +81,11 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Build frontend
+        run: |
+          cd src/langmine/web/frontend
+          npm run build
+
       - name: Run Playwright E2E tests
         run: |
           cd src/langmine/web/frontend

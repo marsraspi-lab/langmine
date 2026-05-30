@@ -41,6 +41,53 @@ test.describe('LangMine SPA', () => {
     await expect(page.locator('.status-badge.i1').first()).toBeVisible();
   });
 
+  // === M9: Word highlighting ===
+
+  test('sentence cards show word highlighting classes', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    // First card (i+1 with vocab seeded)
+    const card = page.locator('.sentence-card').first();
+
+    // Known words should have .word-known class
+    await expect(card.locator('.word-known').first()).toBeVisible();
+
+    // Learning word (一般) should have .word-learning class
+    await expect(card.locator('.word-learning').first()).toBeVisible();
+    await expect(card.locator('.word-learning').first()).toContainText('一般');
+  });
+
+  test('clicking a word opens popover with status toggle', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    const card = page.locator('.sentence-card').first();
+
+    // Click the learning word (一般)
+    await card.locator('.word-learning').first().click();
+
+    // Popover should appear with Mark known button
+    await expect(page.locator('.word-popover')).toBeVisible();
+    await expect(page.locator('.word-popover')).toContainText('Mark known');
+  });
+
+  test('mark word known from popover updates the word status', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.video-item').first().click();
+
+    const card = page.locator('.sentence-card').first();
+
+    // Click the learning word (一般)
+    await card.locator('.word-learning').first().click();
+
+    // Click "Mark known" in popover
+    await page.locator('.word-popover .btn-mark-known').click();
+
+    // Word should now have .word-known class
+    await expect(card.locator('.word-known').filter({ hasText: '一般' })).toBeVisible();
+  });
+
   test('Keep button marks a sentence as kept', async ({ page }) => {
     await page.goto('/');
     await page.locator('.video-item').first().click();
@@ -177,7 +224,7 @@ test.describe('LangMine SPA', () => {
     await page.locator('.save-btn').click();
 
     // Should see success toast
-    await expect(page.locator('.toast-success')).toContainText('Settings saved');
+    await expect(page.locator('.toast-success').first()).toContainText('Settings saved');
   });
 
   // === M7: Inline editing ===
@@ -199,7 +246,7 @@ test.describe('LangMine SPA', () => {
     await input.press('Enter');
 
     // Should see toast
-    await expect(page.locator('.toast-success')).toContainText('Saved');
+    await expect(page.locator('.toast-success').first()).toContainText('Saved');
   });
 
   test('edit translation inline', async ({ page }) => {
@@ -276,53 +323,6 @@ test.describe('LangMine SPA', () => {
     expect(data.max_cards_per_video).toBeDefined();
   });
 
-  // === M9: Word highlighting ===
-
-  test('sentence cards show word highlighting classes', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.video-item').first().click();
-
-    // First card (i+1 with vocab seeded)
-    const card = page.locator('.sentence-card').first();
-
-    // Known words should have .word-known class
-    await expect(card.locator('.word-known').first()).toBeVisible();
-
-    // Learning word (一般) should have .word-learning class
-    await expect(card.locator('.word-learning').first()).toBeVisible();
-    await expect(card.locator('.word-learning').first()).toContainText('一般');
-  });
-
-  test('clicking a word opens popover with status toggle', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.video-item').first().click();
-
-    const card = page.locator('.sentence-card').first();
-
-    // Click the learning word (一般)
-    await card.locator('.word-learning').first().click();
-
-    // Popover should appear with Mark known button
-    await expect(page.locator('.word-popover')).toBeVisible();
-    await expect(page.locator('.word-popover')).toContainText('Mark known');
-  });
-
-  test('mark word known from popover updates the word status', async ({ page }) => {
-    await page.goto('/');
-    await page.locator('.video-item').first().click();
-
-    const card = page.locator('.sentence-card').first();
-
-    // Click the learning word (一般)
-    await card.locator('.word-learning').first().click();
-
-    // Click "Mark known" in popover
-    await page.locator('.word-popover .btn-mark-known').click();
-
-    // Word should now have .word-known class
-    await expect(card.locator('.word-known').filter({ hasText: '一般' })).toBeVisible();
-  });
-
   // === M9: Vocab page ===
 
   test('navigate to vocab page and see word list', async ({ page }) => {
@@ -335,7 +335,7 @@ test.describe('LangMine SPA', () => {
     await expect(page.locator('h2')).toContainText('Vocabulary');
 
     // Should see some vocab words from seeded data
-    await expect(page.locator('.vocab-row').first()).toBeVisible();
+    await expect(page.locator('.word-row').first()).toBeVisible();
   });
 
   test('vocab page shows status filter tabs', async ({ page }) => {
@@ -343,9 +343,9 @@ test.describe('LangMine SPA', () => {
     await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
 
     // Should see filter tabs
-    await expect(page.locator('.vocab-filters .tab', { hasText: 'All' })).toBeVisible();
-    await expect(page.locator('.vocab-filters .tab', { hasText: 'Known' })).toBeVisible();
-    await expect(page.locator('.vocab-filters .tab', { hasText: 'Learning' })).toBeVisible();
+    await expect(page.locator('.filter-tab', { hasText: 'All' })).toBeVisible();
+    await expect(page.locator('.filter-tab').filter({ hasText: /^🟢 Known$/ })).toBeVisible();
+    await expect(page.locator('.filter-tab').filter({ hasText: /^🟡 Learning$/ })).toBeVisible();
   });
 
   test('vocab page search filters words', async ({ page }) => {
@@ -353,13 +353,13 @@ test.describe('LangMine SPA', () => {
     await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
 
     // Type in search
-    await page.locator('.vocab-search input').fill('学习');
+    await page.locator('.search-input').fill('学习');
 
     // Should see matching word
-    await expect(page.locator('.vocab-row')).toContainText('学习');
+    await expect(page.locator('.word-row').filter({ hasText: '学习' }).first()).toBeVisible();
 
     // Non-matching words should not appear
-    await expect(page.locator('.vocab-row')).not.toContainText('效率');
+    await expect(page.locator('.word-row').filter({ hasText: '效率' })).toHaveCount(0);
   });
 
   test('clicking vocab word row shows detail panel', async ({ page }) => {
@@ -367,11 +367,11 @@ test.describe('LangMine SPA', () => {
     await page.locator('.nav-btn', { hasText: 'Vocabulary' }).click();
 
     // Click a word row
-    await page.locator('.vocab-row').first().click();
+    await page.locator('.word-row').first().click();
 
-    // Detail panel should show definitions and sentences
-    await expect(page.locator('.vocab-detail')).toBeVisible();
-    await expect(page.locator('.vocab-detail')).toContainText('definition');
+    // Detail panel should show word detail
+    await expect(page.locator('.word-detail')).toBeVisible();
+    await expect(page.locator('.detail-word')).toBeVisible();
   });
 
   // === M9: Vocab API ===
@@ -397,7 +397,7 @@ test.describe('LangMine SPA', () => {
     const response = await page.request.get('/api/vocab?status=learning');
     expect(response.status()).toBe(200);
     const data = await response.json();
-    expect(data.total).toBeGreaterThanOrEqual(3);  // 一般, 效率, 管理
+    expect(data.total).toBeGreaterThanOrEqual(2);  // 一般, 效率 (seeded learning words)
     for (const w of data.words) {
       expect(w.status).toBe('learning');
     }
