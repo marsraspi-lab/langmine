@@ -19,7 +19,7 @@ class Config:
         ".card { font-family: Arial, sans-serif; font-size: 20px; "
         "text-align: center; color: black; background-color: white; }"
         ".chinese { font-size: 28px; margin: 20px 0; }"
-        ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
+        ".reading { color: #2e7d32; font-style: italic; margin: 10px 0; }"
         ".translation { font-size: 22px; margin: 10px 0; }"
         ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
         ".screenshot { margin-top: 16px; }"
@@ -33,7 +33,7 @@ class Config:
         '<div class="chinese">{{sentence_zh}}</div>'
         "{{#audio}}{{audio}}{{/audio}}"
         '<hr id="answer">'
-        '<div class="pinyin">{{sentence_pinyin}}</div>'
+        '<div class="reading">{{sentence_reading}}</div>'
         '<div class="translation">{{translation_de}}</div>'
         "{{#unknown_word}}"
         '<div class="word">🆕 {{unknown_word}}</div>'
@@ -70,7 +70,7 @@ class Config:
         ".card { font-family: Arial, sans-serif; font-size: 20px; }\n"
         ".chinese { font-size: 28px; margin: 20px 0; }\n"
         ".cloze { color: #e53935; font-weight: bold; }\n"
-        ".pinyin { color: #2e7d32; font-style: italic; }\n"
+        ".reading { color: #2e7d32; font-style: italic; }\n"
         ".translation { font-size: 22px; }\n"
         ".hint-img { margin-top: 12px; max-width: 100%; }\n"
     )
@@ -83,7 +83,7 @@ class Config:
         '<div class="chinese">{{sentence_zh}}</div>\n'
         '{{#audio}}{{audio}}{{/audio}}\n'
         '<hr id="answer">\n'
-        '<div class="pinyin">{{sentence_pinyin}}</div>\n'
+        '<div class="reading">{{sentence_reading}}</div>\n'
         '<div class="translation">{{translation_de}}</div>\n'
         '<div>🆕 {{unknown_word}}</div>\n'
         '{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}\n'

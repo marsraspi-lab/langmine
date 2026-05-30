@@ -28,7 +28,7 @@ _DEFAULT_BACK = (
     '<div class="chinese">{{sentence_zh}}</div>'
     "{{#audio}}{{audio}}{{/audio}}"
     '<hr id="answer">'
-    '<div class="pinyin">{{sentence_pinyin}}</div>'
+    '<div class="reading">{{sentence_reading}}</div>'
     '<div class="translation">{{translation_de}}</div>'
     "{{#unknown_word}}"
     '<div class="word">🆕 {{unknown_word}}</div>'
@@ -42,7 +42,7 @@ _DEFAULT_CSS = (
     ".card { font-family: Arial, sans-serif; font-size: 20px; "
     "text-align: center; color: black; background-color: white; }"
     ".chinese { font-size: 28px; margin: 20px 0; }"
-    ".pinyin { color: #2e7d32; font-style: italic; margin: 10px 0; }"
+    ".reading { color: #2e7d32; font-style: italic; margin: 10px 0; }"
     ".translation { font-size: 22px; margin: 10px 0; }"
     ".word { color: #e53935; font-size: 18px; margin-top: 16px; }"
     ".screenshot { margin-top: 16px; }"
@@ -172,7 +172,7 @@ class AnkiConnectAdapter(AnkiExporter):
                 "modelName": note_type_name,
                 "fields": {
                     "sentence_zh": sentence_text,
-                    "sentence_pinyin": s.pinyin or "",
+                    "sentence_reading": s.reading or "",
                     "translation_de": s.translation_de or "",
                     "unknown_word": s.unknown_word or "",
                     "audio": audio_field,
@@ -232,7 +232,7 @@ class AnkiConnectAdapter(AnkiExporter):
             "modelName": model_name,
             "inOrderFields": [
                 "sentence_zh",
-                "sentence_pinyin",
+                "sentence_reading",
                 "translation_de",
                 "unknown_word",
                 "audio",

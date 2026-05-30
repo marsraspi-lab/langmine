@@ -58,7 +58,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakePersistence(Persistence):
@@ -138,7 +138,7 @@ class FakePersistence(Persistence):
         if search:
             words = [w for w in words
                      if search.lower() in w.word_simplified.lower()
-                     or search.lower() in (w.pinyin or "").lower()]
+                     or search.lower() in (w.reading or "").lower()]
         words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
         total = len(words)
         start = (page - 1) * per_page

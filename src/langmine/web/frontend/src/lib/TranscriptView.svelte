@@ -10,7 +10,7 @@
   let loading = $state(true);
   let showTranslation = $state(false);
   let showLegend = $state(false);
-  let showRuby = $state(false);
+  let showAnnotation = $state(false);
   let activeWord = $state(null);
   let activeSentenceIdx = $state(0);
   let showImagePicker = $state(false);
@@ -70,7 +70,7 @@
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     switch (e.key) {
       case 't': case 'T': showTranslation = !showTranslation; break;
-      case 'r': case 'R': showRuby = !showRuby; break;
+      case 'r': case 'R': showAnnotation = !showAnnotation; break;
       case 's': case 'S': case ' ':
         e.preventDefault();
         if (sentences[activeSentenceIdx]) playAudio(sentences[activeSentenceIdx]);
@@ -104,8 +104,8 @@
       >
         {showTranslation ? '📖 Hide translation' : '📖 Show translation'}
       </button>
-      <button class="toolbar-btn" class:active={showRuby}
-        onclick={() => showRuby = !showRuby} title="Toggle ruby annotations (R)">
+      <button class="toolbar-btn" class:active={showAnnotation}
+        onclick={() => showAnnotation = !showAnnotation} title="Toggle ruby annotations (R)">
         🎨 Ruby
       </button>
     </div>
@@ -130,11 +130,11 @@
           <div class="sentence-content">
             <!-- Chinese text with clickable words -->
             <div class="sentence-chinese">
-              {#if showRuby && sentence.ruby?.length}
+              {#if showAnnotation && sentence.annotation?.length}
                 <!-- Ruby annotation mode: character-level pinyin with tone colors -->
-                {#each sentence.ruby as entry}
+                {#each sentence.annotation as entry}
                   <ruby class="ruby-char">
-                    {entry.char}<rt style="color: {TONE_COLORS[entry.tone] || '#9E9E9E'}">{entry.pinyin}</rt>
+                    {entry.char}<rt style="color: {TONE_COLORS[entry.tone] || '#9E9E9E'}">{entry.reading}</rt>
                   </ruby>
                 {/each}
               {:else if sentence.words?.length}
@@ -162,8 +162,8 @@
             </div>
 
             <!-- Pinyin -->
-            {#if sentence.pinyin}
-              <div class="sentence-pinyin">{sentence.pinyin}</div>
+            {#if sentence.reading}
+              <div class="sentence-pinyin">{sentence.reading}</div>
             {/if}
 
             <!-- Translation (togglable) -->
@@ -388,7 +388,7 @@
     border-color: var(--accent);
   }
 
-  .sentence-pinyin {
+  .sentence-reading {
     font-size: 0.85rem;
     color: var(--accent-green);
     font-style: italic;

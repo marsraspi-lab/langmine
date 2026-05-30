@@ -32,7 +32,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         return token in {"的", "了", "吗", "啊", "呢", "吧", "很", "是", "和", "不"}
 
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakePersistence(Persistence):
@@ -248,7 +248,7 @@ class TestDifficultyPreview:
         s = data["sentences"][0]
 
         assert " / " in s["text_segmented"]
-        assert s["pinyin"].startswith("py:")
+        assert s["reading"].startswith("py:")
         assert s["translation_de"].startswith("[DE]")
         assert "start_ms" in s
         assert "end_ms" in s

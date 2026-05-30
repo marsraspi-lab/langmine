@@ -128,7 +128,7 @@ class ChineseLanguageService(LanguageProcessor):
 
         return list(synonyms)
 
-    def get_ruby(self, text: str) -> str:
+    def get_annotation(self, text: str) -> str:
         """Return JSON of [{char, pinyin, tone}] per character.
 
         Uses pypinyin with TONE3 style for tone numbers.

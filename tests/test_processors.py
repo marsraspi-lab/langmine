@@ -30,7 +30,7 @@ class DummyProcessor(LanguageProcessor):
     def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         return []
 
-    def get_ruby(self, text: str) -> str:
+    def get_annotation(self, text: str) -> str:
         return "[]"
 
 

@@ -20,7 +20,7 @@ class FakeLanguageProcessor(LanguageProcessor):
     def get_frequency(self, word): return 1000
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakePersistence(Persistence):

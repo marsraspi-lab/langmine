@@ -214,8 +214,8 @@ test.describe('LangMine SPA', () => {
     await main.goto();
     await main.selectFirstVideo();
 
-    await curation.firstCard.pinyinText().click();
-    const input = curation.firstCard.pinyinInput();
+    await curation.firstCard.readingText().click();
+    const input = curation.firstCard.readingInput();
     await expect(input).toBeVisible();
     await input.fill('wo men yi ban zao shang qi chuang');
     await input.press('Enter');

@@ -7,13 +7,13 @@ from langmine.adapters.anki_connect import AnkiConnectAdapter
 
 
 def _make_sentence(text="我们 一般 早上 起床", unknown="一般",
-                   pinyin="wǒmen yībān", translation="Wir stehen auf",
+                   reading="wǒmen yībān", translation="Wir stehen auf",
                    audio="/tmp/audio.mp3"):
     """Create a Sentence with reasonable defaults for export testing."""
     return Sentence(
         video_id=1, start_ms=1000, end_ms=3000,
         text=text, text_segmented=text.replace(" ", " / "),
-        pinyin=pinyin, translation_de=translation,
+        reading=reading, translation_de=translation,
         unknown_word=unknown, unknown_word_rank=1847,
         audio_clip_path=audio, status="kept",
     )
