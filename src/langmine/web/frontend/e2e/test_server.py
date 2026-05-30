@@ -79,7 +79,7 @@ class FakePersistence(Persistence):
             if v.youtube_id == yt_id: return v
         return None
 
-    def list_videos(self): return self._videos
+    def list_videos(self, language_code=""): return self._videos
     def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
 
     def save_sentences(self, sentences):
@@ -88,8 +88,8 @@ class FakePersistence(Persistence):
                 s.id = self._next_sid; self._next_sid += 1
             self._sentences.append(s)
 
-    def get_sentences_by_video(self, vid, status=None):
-        results = [s for s in self._sentences if s.video_id == vid]
+    def get_sentences_by_video(self, video_id, status=None, language_code=""):
+        results = [s for s in self._sentences if s.video_id == video_id]
         if status: results = [s for s in results if s.status == status]
         return results
 
@@ -97,12 +97,12 @@ class FakePersistence(Persistence):
         for i, existing in enumerate(self._sentences):
             if existing.id == s.id: self._sentences[i] = s; break
 
-    def get_known_words(self):
+    def get_known_words(self, language_code=""):
         return self._known_words | {
             w for w, v in self._vocab.items() if v.status == "known"
         }
 
-    def get_vocab_stats(self):
+    def get_vocab_stats(self, language_code=""):
         known = sum(1 for v in self._vocab.values() if v.status == "known")
         learning = sum(1 for v in self._vocab.values() if v.status == "learning")
         return {"known": known, "learning": learning, "total": len(self._vocab)}
@@ -125,13 +125,13 @@ class FakePersistence(Persistence):
     def get_vocab_word(self, w):
         return self._vocab.get(w)
 
-    def get_stash_candidates(self, limit=20):
+    def get_stash_candidates(self, limit=20, language_code=""):
         return [s for s in self._sentences if s.status == "stashed"][:limit]
-    def get_sentences_by_status(self, status):
+    def get_sentences_by_status(self, status, language_code=""):
         return [s for s in self._sentences if s.status == status]
     def reclassify_stashed(self, vid): return 0
 
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code=""):
         words = list(self._vocab.values())
         if status:
             words = [w for w in words if w.status == status]
