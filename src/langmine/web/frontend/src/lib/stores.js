@@ -172,11 +172,11 @@ let $currentFilter;
 selectedVideoId.subscribe(v => $selectedVideoId = v);
 currentFilter.subscribe(v => $currentFilter = v);
 
-export async function exportAnki(videoId, forceUpdateModel = false) {
+export async function exportAnki(videoId, forceUpdateModel = false, cardType = 'basic') {
   exporting.set(true);
   exportStatus.set('⏳ Exporting...');
   try {
-    const { ok, data } = await api.exportAnki(videoId, forceUpdateModel);
+    const { ok, data } = await api.exportAnki(videoId, forceUpdateModel, cardType);
     if (!ok) throw new Error(data.error || 'Export failed');
     exportStatus.set(`✅ ${data.added} new, ${data.duplicates} duplicates`);
   } catch (err) {

@@ -557,6 +557,55 @@ class TestAnkiExport:
         resp = client.post("/api/export/anki", json={"all_kept": True})
         assert resp.status_code == 400
 
+    def test_cloze_card_type_passed_to_exporter(self, client_with_sentences):
+        """POST with card_type='cloze' passes it to the AnkiExporter."""
+        from unittest.mock import MagicMock, patch
+        from langmine.web.app import create_app
+        from tests.test_web_api import (
+            FakePersistence, FakeLanguageProcessor, FakeTranscriptSource,
+            FakeAudioProcessor,
+        )
+
+        # Create a fresh app with a mock exporter that we can inspect
+        persistence = FakePersistence(known_words={"我们", "早上", "起床", "学习", "我", "爱", "你"})
+        video = Video(youtube_id="test", title="T", channel="C")
+        persistence.save_video(video)
+        sentence = Sentence(
+            video_id=video.id, start_ms=1000, end_ms=3000,
+            text="我们 一般 早上 起床", text_segmented="我们 / 一般 / 早上 / 起床",
+            unknown_word="一般", unknown_word_rank=1847,
+            status="kept",
+        )
+        persistence.save_sentences([sentence])
+
+        mock_exporter = MagicMock()
+        mock_exporter.export.return_value = {
+            "note_ids": [], "added": 0, "duplicates": 0, "errors": [],
+        }
+
+        app = create_app(
+            persistence=persistence,
+            language_processor=FakeLanguageProcessor(),
+            transcript_source=FakeTranscriptSource(),
+            audio_processor=FakeAudioProcessor(),
+            anki_exporter=mock_exporter,
+        )
+        app.config["TESTING"] = True
+        client = app.test_client()
+
+        resp = client.post(
+            "/api/export/anki",
+            json={"all_kept": True, "card_type": "cloze"},
+        )
+        assert resp.status_code == 200
+
+        # Verify mock received card_type
+        mock_exporter.export.assert_called_once()
+        call_kwargs = mock_exporter.export.call_args.kwargs
+        assert call_kwargs.get("card_type") == "cloze", (
+            f"Expected card_type='cloze', got {call_kwargs.get('card_type')}"
+        )
+
 
 class TestSPAServing:
     """GET / serves the Svelte SPA."""

@@ -1,24 +1,20 @@
-# Handoff — Session End 2026-05-30
+# Handoff — Session End 2026-05-30 (M10 Complete)
 
 ## Where We Are
 
-**M0–M9 complete.** All 31 Playwright E2E tests + 138 pytest tests pass.
+**M10 complete.** All 154 pytest + 37 Playwright E2E tests pass.
 
-**Next: M10 — Reading Mode + Keyboard Shortcuts**
-Plan: `.hermes/plans/2026-05-29-m10-m14-reading-cloze-image-preview-ruby.md`
+PR #4 (feat/m10-testing) open for merge — adds transcript endpoint tests + reading mode E2E tests.
 
-Some M10 scaffolding already exists:
-- `GET /api/videos/<id>/transcript` endpoint (routes.py line 139)
-- `TranscriptView.svelte` component (basic structure)
-- Keyboard shortcut bar in the plan
+**Next: M11 — Cloze Deletion Export**
 
 ## What We Just Did
 
-Two PRs merged into main:
+Added test coverage for M10 reading mode:
 
-1. **PR #2** — E2E fixes: added `npm run build` to CI e2e job, fixed test order dependency (word highlighting tests before state-modifying tests), fixed stale toast pollution.
-
-2. **PR #3** — Extracted page objects: `e2e/pages.js` with MainPage, CurationPage, SettingsPage, VocabPage. Tests now read like intent instead of raw locators.
+1. **tests/test_web_transcript.py** — 6 unit tests for `GET /api/videos/:id/transcript`
+2. **e2e/pages.js** — ReadingPage page object
+3. **e2e/app.spec.js** — 6 E2E tests: sentence count, word highlighting, popover open/close (Escape), `?` legend toggle, `T` translation toggle
 
 ## Key Commands
 
@@ -53,9 +49,3 @@ apt-get install -y gh libnspr4 libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 \
   libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2t64
 pip install -e ".[dev]"
 ```
-
-## Related Skills
-
-- `langmine-development` — project conventions, testing patterns, CI quirks
-- `writing-plans` — for M10 implementation planning
-- `test-driven-development` — strict TDD enforced

@@ -376,4 +376,14 @@ test.describe('LangMine SPA', () => {
     await reading.pressKey('t');
     await reading.expectTranslationHidden();
   });
+
+  // ── M11: Cloze export ─────────────────────────────────────────────────
+
+  test('cloze deletion checkbox is visible in sidebar', async () => {
+    await main.goto();
+    const clozeCheckbox = main.page.locator('.force-update-label', { hasText: 'Cloze deletion cards' });
+    await expect(clozeCheckbox).toBeVisible();
+    const input = clozeCheckbox.locator('input[type="checkbox"]');
+    await expect(input).not.toBeChecked();
+  });
 });

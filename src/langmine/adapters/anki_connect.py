@@ -65,6 +65,7 @@ class AnkiConnectAdapter(AnkiExporter):
         card_front: str | None = None,
         card_back: str | None = None,
         force_update_model: bool = False,
+        card_type: str = "basic",
     ) -> dict:
         """Export sentences to Anki.
 
@@ -77,6 +78,9 @@ class AnkiConnectAdapter(AnkiExporter):
             card_back: Back template HTML (falls back to default).
             force_update_model: If True, update templates even if model
                 already exists. Use after editing templates in config.yaml.
+            card_type: "basic" for normal cards, "cloze" for cloze deletion.
+                Cloze mode wraps the unknown word in {{c1::...}} and
+                uses Anki's cloze note type (isCloze=True).
 
         Returns:
             Dict with note_ids, added, duplicates, errors.
@@ -87,6 +91,7 @@ class AnkiConnectAdapter(AnkiExporter):
         css = card_css or _DEFAULT_CSS
         front = card_front or _DEFAULT_FRONT
         back = card_back or _DEFAULT_BACK
+        is_cloze = card_type == "cloze"
 
         errors: list[str] = []
         added = 0
@@ -100,12 +105,14 @@ class AnkiConnectAdapter(AnkiExporter):
             # 2. Ensure note type exists
             self._create_model_if_missing(
                 note_type_name, css=css, front=front, back=back,
+                is_cloze=is_cloze,
             )
 
             # 3. Force-update templates if requested
             if force_update_model:
                 self._update_model_templates(
                     note_type_name, css=css, front=front, back=back,
+                    is_cloze=is_cloze,
                 )
 
         except Exception as e:
@@ -150,11 +157,18 @@ class AnkiConnectAdapter(AnkiExporter):
                 f'<img src="{screenshot_refs[i]}">'
                 if i in screenshot_refs else ""
             )
+            # Build sentence_zh field — for cloze, wrap unknown word
+            sentence_text = s.text or ""
+            if is_cloze and s.unknown_word and s.unknown_word in sentence_text:
+                sentence_text = sentence_text.replace(
+                    s.unknown_word, f"{{{{c1::{s.unknown_word}}}}}"
+                )
+
             notes.append({
                 "deckName": deck_name,
                 "modelName": note_type_name,
                 "fields": {
-                    "sentence_zh": s.text or "",
+                    "sentence_zh": sentence_text,
                     "sentence_pinyin": s.pinyin or "",
                     "translation_de": s.translation_de or "",
                     "unknown_word": s.unknown_word or "",
@@ -209,9 +223,9 @@ class AnkiConnectAdapter(AnkiExporter):
         return data
 
     def _create_model_if_missing(self, model_name: str, *, css: str,
-                                  front: str, back: str):
+                                  front: str, back: str, is_cloze: bool = False):
         """Create note type if it doesn't exist (idempotent)."""
-        self._invoke("createModel", {
+        params = {
             "modelName": model_name,
             "inOrderFields": [
                 "sentence_zh",
@@ -225,16 +239,23 @@ class AnkiConnectAdapter(AnkiExporter):
             "cardTemplates": [
                 {"Name": "Card 1", "Front": front, "Back": back},
             ],
-        })
+        }
+        if is_cloze:
+            params["isCloze"] = True
+        self._invoke("createModel", params)
 
     def _update_model_templates(self, model_name: str, *, css: str,
-                                  front: str, back: str):
+                                  front: str, back: str, is_cloze: bool = False):
         """Force-update templates and CSS for an existing model.
 
         AnkiConnect's createModel is idempotent — it won't overwrite
         existing models. Call this after editing templates in config.yaml
         to push changes to Anki.
         """
+        # Note: isCloze cannot be changed after model creation;
+        # it's inherent to the model. The is_cloze parameter is
+        # accepted but only used during model creation.
+        _ = is_cloze
         self._invoke("updateModelTemplates", {
             "model": {
                 "name": model_name,
