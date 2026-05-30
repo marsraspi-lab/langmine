@@ -13,8 +13,9 @@ These fields are available in Anki card templates. Use `{{fieldname}}` syntax:
 | `{{sentence_zh}}` | 你今天去哪儿 | The full Chinese sentence |
 | `{{sentence_pinyin}}` | nǐ jīn tiān qù nǎr | Pinyin reading of the sentence |
 | `{{translation_de}}` | Wohin gehst du heute | German translation |
-| `{{unknown_word}}` | 哪儿 | The i+1 target word (the one new word) |
-| `{{audio}}` | [sound:langmine_1_clip.mp3] | Embedded audio clip. Use conditional: `{{#audio}}{{audio}}{{/audio}}` |
+|| `{{unknown_word}}` | 哪儿 | The i+1 target word (the one new word) |
+|| `{{screenshot}}` | `<img src="langmine_1_frame.jpg">` | Video frame at sentence midpoint. Use conditional: `{{#screenshot}}{{screenshot}}{{/screenshot}}` |
+|| `{{audio}}` | [sound:langmine_1_clip.mp3] | Embedded audio clip. Use conditional: `{{#audio}}{{audio}}{{/audio}}` |
 
 ## Conditional Blocks
 
@@ -85,6 +86,50 @@ To push updated templates to Anki:
 > To add or remove fields, you must delete the note type in Anki first
 > (Tools → Manage Note Types → Delete), then re-export.
 
+## Cloze Deletion Cards
+
+LangMine also exports cloze deletion cards using the `LangMine Cloze` note type.
+Enable the "🕳️ Cloze deletion cards" checkbox in the web UI before exporting.
+
+### Cloze Fields
+
+| Field | Example | Description |
+|-------|---------|-------------|
+| `{{cloze:sentence_zh}}` | 你{{c1::今天}}去哪儿 | Sentence with unknown word hidden as cloze |
+| `{{sentence_zh}}` | 你今天去哪儿 | Full sentence (shown on back) |
+| `{{sentence_pinyin}}` | nǐ jīn tiān qù nǎr | Pinyin reading |
+| `{{translation_de}}` | Wohin gehst du heute | German translation |
+| `{{unknown_word}}` | 今天 | The cloze-hidden word |
+| `{{audio}}` | [sound:langmine_1_clip.mp3] | Audio clip |
+| `{{screenshot}}` | `<img src="...">` | Video frame (hint on front) |
+| `{{cloze_image}}` | `<img src="...">` | Image search result (hint on front, takes priority over screenshot) |
+
+### Cloze Config in config.yaml
+
+```yaml
+anki:
+  cloze_note_type: "LangMine Cloze"
+  cloze_card_css: |
+    .card { font-family: 'Noto Sans SC', sans-serif; font-size: 22px; }
+    .chinese { font-size: 32px; margin: 20px 0; }
+    .cloze { color: #e53935; font-weight: bold; }
+
+  cloze_card_front_template: |
+    <div class="chinese">{{cloze:sentence_zh}}</div>
+    {{#audio}}{{audio}}{{/audio}}
+    {{#cloze_image}}{{cloze_image}}{{/cloze_image}}
+    {{#screenshot}}{{screenshot}}{{/screenshot}}
+
+  cloze_card_back_template: |
+    <div class="chinese">{{sentence_zh}}</div>
+    {{#audio}}{{audio}}{{/audio}}
+    <hr id="answer">
+    <div class="pinyin">{{sentence_pinyin}}</div>
+    <div class="translation">{{translation_de}}</div>
+    <div class="word">🆕 {{unknown_word}}</div>
+    {{#cloze_image}}{{cloze_image}}{{/cloze_image}}
+```
+
 ## Default Template
 
 The default card looks like this:
@@ -93,6 +138,7 @@ The default card looks like this:
 ```
   你今天去哪儿
   🔊 [audio player]
+  📸 [screenshot if available]
 ```
 
 **Back:**

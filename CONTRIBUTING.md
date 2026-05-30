@@ -173,12 +173,16 @@ Adapter tests use real dependencies with mocked HTTP (AnkiConnect, Google Transl
 
 ```
 App.svelte
-├── Top bar              — brand, curation/settings nav, theme toggle
-├── Sidebar.svelte       — video list, mine form, export button
-├── CardList.svelte      — filter tabs + sentence cards
-│   └── SentenceCard.svelte — text, pinyin, translation, audio, actions
-│                            (click-to-edit on pinyin/translation/segmentation)
-├── SettingsPage.svelte  — config form
+├── Top bar              — brand, curation/settings/vocab nav, theme toggle
+├── Sidebar.svelte       — video list, mine form, export button, preview
+├── CardList.svelte      — filter tabs (All/Kept/Deleted/Stash/Read) + sentence cards
+│   ├── SentenceCard.svelte — text, pinyin, translation, audio, ruby, actions
+│   │                         (click-to-edit pinyin/translation/segmentation)
+│   └── TranscriptView.svelte — full reading mode transcript with keyboard shortcuts
+├── ImagePicker.svelte   — image search grid for cloze card hints
+├── PreviewPanel.svelte  — difficulty preview stats + read-only transcript
+├── VocabPage.svelte     — searchable vocabulary list with word detail panel
+├── SettingsPage.svelte  — config form (Anki, NLP, mining, vocab, network)
 └── Toast overlay        — success/error notifications
 ```
 
@@ -191,7 +195,11 @@ State management via Svelte 5 stores (`src/lib/stores.js`):
 - `toasts` — writable store (notification queue)
 - `config` — writable store (settings data)
 - `theme` — writable store (dark/light, persisted to localStorage)
-- `currentView` — writable store (curation | settings)
+- `currentView` — writable store (curation | settings | vocab)
+- `readingMode` — writable store (reading view toggle)
+- `clozeMode` — writable store (cloze deletion checkbox)
+- `previewResult` — writable store (difficulty preview data)
+- `imageSearchActive` — writable store (image picker open state)
 
 API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET`, `POST`, `PATCH`, and `PUT`.
 
@@ -262,7 +270,7 @@ cd src/langmine/web/frontend && npm run build && cd -
 | Check | Command |
 |-------|---------|
 | Full test suite | `pytest tests/ -q` (all tests) |
-| E2E tests | `npx playwright test` (19 tests) |
+| E2E tests | `npx playwright test` (42 tests) |
 | Cardinal rule | `grep -r "from.*adapters" src/langmine/domain/` → empty |
 | No adapter→adapter imports | `grep -r "from langmine.adapters" src/langmine/adapters/` → only `__init__.py` |
 | Frequency tiers in domain | `grep "frequency_tier\|frequency_badge" src/langmine/domain/models.py` → found |
