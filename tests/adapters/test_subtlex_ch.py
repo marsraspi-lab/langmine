@@ -2,7 +2,7 @@
 
 import pytest
 
-from langmine.adapters.subtlex_ch import SubtlexChAdapter
+from langmine.languages.chinese import SubtlexChAdapter
 
 
 @pytest.fixture

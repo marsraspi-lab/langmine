@@ -7,7 +7,7 @@ After M2, this module will be superseded by proper dependency injection.
 """
 
 from langmine.domain.ports import LanguageProcessor
-from langmine.domain.services.chinese import ChineseLanguageService
+from langmine.languages.chinese import ChineseLanguageService
 
 
 def get_processor(language_code: str) -> LanguageProcessor:

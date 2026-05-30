@@ -12,7 +12,7 @@ from langmine.domain.ports import (
     Translator,
     FrequencySource,
 )
-from langmine.domain.services.chinese import ChineseLanguageService
+from langmine.languages.chinese import ChineseLanguageService
 
 
 # === Fake Ports ===

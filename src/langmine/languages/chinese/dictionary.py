@@ -42,9 +42,9 @@ class CcCedictAdapter(Dictionary):
             dict_path: Path to cedict_ts.u8. Defaults to bundled data file.
         """
         if dict_path is None:
-            # adapters/cc_cedict.py → langmine/ → src/ → project root → data/
+            # dictionary.py → chinese/ → languages/ → langmine/ → src/ → project root → data/
             dict_path = (
-                Path(__file__).parent.parent.parent.parent / "data" / "cedict" / "cedict_ts.u8"
+                Path(__file__).parent.parent.parent.parent.parent / "data" / "cedict" / "cedict_ts.u8"
             )
         self._dict_path = str(dict_path)
         self._entries: dict[str, dict] | None = None

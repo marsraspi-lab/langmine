@@ -81,7 +81,7 @@ def _cmd_mine(args):
         SubtlexChAdapter,
     )
     from langmine.pipeline import process_video
-    from langmine.domain.services.chinese import ChineseLanguageService
+    from langmine.languages.chinese import ChineseLanguageService
 
     transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
     audio = YtdlpAudioAdapter(user_agent=config.user_agent)
@@ -150,7 +150,7 @@ def _cmd_serve(args):
         SubtlexChAdapter,
         AnkiConnectAdapter,
     )
-    from langmine.domain.services.chinese import ChineseLanguageService
+    from langmine.languages.chinese import ChineseLanguageService
 
     config = load_config()
     persistence = SQLitePersistence()
