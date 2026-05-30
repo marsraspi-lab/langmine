@@ -2,9 +2,18 @@
 
 import argparse
 import sys
+from importlib.metadata import version as _pkg_version
 
 from langmine.config import load_config
 from langmine.transcript import _extract_video_id
+
+
+def _get_version() -> str:
+    """Return the installed package version."""
+    try:
+        return _pkg_version("langmine")
+    except Exception:
+        return "unknown"
 
 
 def main():
@@ -13,6 +22,8 @@ def main():
         prog="langmine",
         description="YouTube sentence mining for language learning",
     )
+    parser.add_argument("--version", action="version",
+                        version=f"langmine {_get_version()}")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # mine

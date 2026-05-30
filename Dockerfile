@@ -12,6 +12,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
+ARG VERSION=unknown
+LABEL org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.title="LangMine" \
+      org.opencontainers.image.description="YouTube sentence mining for language learning"
+
 WORKDIR /app
 COPY . .
 COPY --from=frontend /static /app/src/langmine/web/static/

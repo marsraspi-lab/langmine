@@ -2,6 +2,7 @@
 
 import json
 import os
+from importlib.metadata import version as _pkg_version
 from flask import (
     Flask, jsonify, request, send_file, send_from_directory, current_app,
 )
@@ -29,6 +30,15 @@ def register_routes(app: Flask):
         return send_from_directory(static_dir, "index.html")
 
     # === API Routes ===
+
+    @app.route("/api/version")
+    def app_version():
+        """Return the installed LangMine version."""
+        try:
+            v = _pkg_version("langmine")
+        except Exception:
+            v = "unknown"
+        return jsonify({"version": v, "name": "langmine"})
 
     @app.route("/api/videos")
     def list_videos():

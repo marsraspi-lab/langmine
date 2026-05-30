@@ -2,6 +2,16 @@
   import { config, saveConfig } from './stores.js';
 
   let saving = $state(false);
+  let version = $state('');
+
+  import { onMount } from 'svelte';
+  onMount(async () => {
+    try {
+      const res = await fetch('/api/version');
+      const data = await res.json();
+      version = data.version;
+    } catch { /* ignore */ }
+  });
 
   async function handleSave(e) {
     e.preventDefault();
@@ -94,14 +104,6 @@
     </section>
 
     <section class="settings-section">
-      <h3>Vocabulary</h3>
-      <label>
-        HSK Bootstrap Level
-        <input name="hsk_bootstrap" type="number" value={$config.hsk_bootstrap || 3} min="1" max="6" />
-      </label>
-    </section>
-
-    <section class="settings-section">
       <h3>Network</h3>
       <label>
         User-Agent
@@ -113,6 +115,10 @@
       {saving ? '⏳ Saving...' : '💾 Save Settings'}
     </button>
   </form>
+
+  {#if version}
+    <footer class="version-footer">LangMine v{version}</footer>
+  {/if}
 </div>
 
 <style>
@@ -177,5 +183,12 @@
   .save-btn:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .version-footer {
+    margin-top: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    opacity: 0.6;
   }
 </style>
