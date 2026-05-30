@@ -76,7 +76,7 @@ class TestMergeSentences:
         sentences = merge_sentences(chunks, gap_ms=500)
 
         assert len(sentences) == 1
-        assert sentences[0].text == "我们一般早上七点起床"
+        assert sentences[0].text == "我们一般 早上七点起床"
         assert sentences[0].start_ms == 0
         assert sentences[0].end_ms == 2500
 
@@ -103,7 +103,7 @@ class TestMergeSentences:
         sentences = merge_sentences(chunks, gap_ms=500)
 
         assert len(sentences) == 1
-        assert "我们一般早上七点起床" in sentences[0].text
+        assert "我们 一般 早上 七点起床" in sentences[0].text
 
     def test_empty_chunk_list_returns_empty(self):
         """Empty input should return empty list."""
@@ -123,8 +123,8 @@ class TestMergeSentences:
             self.make_chunk("一般", 500, 500),
         ]
         sentences = merge_sentences(chunks, gap_ms=500)
-        # Chinese merges without injecting spaces; internal spaces already in chunk text
-        assert sentences[0].text == "我们一般"
+        # Merged chunks are joined with a space
+        assert sentences[0].text == "我们 一般"
 
     def test_custom_gap_threshold(self):
         """The gap threshold should be configurable via parameter."""

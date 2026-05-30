@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { MainPage, CurationPage, SettingsPage, VocabPage, ReadingPage } from './pages.js';
+import { MainPage, CurationPage, SettingsPage, VocabPage, ReadingPage, PreviewPage } from './pages.js';
 
 test.describe('LangMine SPA', () => {
-  let main, curation, settings, vocab, reading;
+  let main, curation, settings, vocab, reading, preview;
 
   test.beforeEach(async ({ page }) => {
     main      = new MainPage(page);
@@ -10,6 +10,7 @@ test.describe('LangMine SPA', () => {
     settings  = new SettingsPage(page);
     vocab     = new VocabPage(page);
     reading   = new ReadingPage(page);
+    preview   = new PreviewPage(page);
   });
 
   // ── Basic page load ──────────────────────────────────────────────────
@@ -436,5 +437,25 @@ test.describe('LangMine SPA', () => {
     // Toggle off
     await reading.pressKey('t');
     await reading.expectTranslationHidden();
+  });
+
+  // ── M13: Difficulty preview ───────────────────────────────────────────
+
+  test('preview shows stats and transcript with word highlighting', async () => {
+    await main.goto();
+
+    // Type a YouTube URL (any valid URL — fake transcript returns fixed data)
+    await main.urlInput.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+
+    // Click Preview
+    await preview.clickPreview();
+
+    // Panel should appear with stats
+    await preview.expectPanelVisible();
+    await preview.expectStatsVisible();
+
+    // Transcript with word highlighting should be visible
+    await preview.expectTranscriptVisible();
+    await preview.expectWordHighlighting();
   });
 });

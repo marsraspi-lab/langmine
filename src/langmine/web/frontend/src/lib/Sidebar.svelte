@@ -1,12 +1,19 @@
 <script>
   import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo,
     exportStatus, exporting, exportAnki } from './stores.js';
+  import { previewVideo } from './api.js';
+  import PreviewPanel from './PreviewPanel.svelte';
 
   let urlInput = $state('');
   let forceUpdateModel = $state(false);
   let clozeMode = $state(false);
   /** @type {File|null} */
   let transcriptFile = $state(null);
+
+  // Preview state
+  let previewLoading = $state(false);
+  let previewData = $state(null);
+  let previewError = $state('');
 
   async function handleMine() {
     const url = urlInput.trim();
@@ -28,6 +35,29 @@
 
   function handleFileChange(e) {
     transcriptFile = e.target.files[0] || null;
+  }
+
+  async function handlePreview() {
+    const url = urlInput.trim();
+    if (!url) {
+      previewError = 'Enter a YouTube URL.';
+      return;
+    }
+    previewLoading = true;
+    previewError = '';
+    previewData = null;
+    try {
+      const result = await previewVideo(url);
+      if (result.ok) {
+        previewData = result.data;
+      } else {
+        previewError = result.data?.error || `Preview failed (${result.status})`;
+      }
+    } catch (err) {
+      previewError = `Preview failed: ${err.message}`;
+    } finally {
+      previewLoading = false;
+    }
   }
 </script>
 
@@ -57,10 +87,18 @@
     <button onclick={handleMine} disabled={$mining}>
       {$mining ? '⏳' : 'Mine'}
     </button>
+    <button class="preview-btn" onclick={handlePreview} disabled={previewLoading}>
+      {previewLoading ? '⏳' : '🔍'} Preview
+    </button>
     {#if $mineStatus}
       <div class="mine-status">{$mineStatus}</div>
     {/if}
+    {#if previewError}
+      <div class="mine-status preview-error">{previewError}</div>
+    {/if}
   </div>
+
+  <PreviewPanel data={previewData} />
 
   <nav class="video-list">
     {#if $videos.length === 0}
@@ -201,6 +239,28 @@
   .mine-form button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+  .preview-btn {
+    width: 100%;
+    padding: 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  .preview-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .preview-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .preview-error {
+    color: var(--accent);
   }
   .mine-status {
     font-size: 0.8rem;
