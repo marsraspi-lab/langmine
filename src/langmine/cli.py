@@ -141,11 +141,9 @@ def _cmd_serve(args):
         YtdlpAudioAdapter,
         SQLitePersistence,
         GoogleTranslateAdapter,
-        CcCedictAdapter,
-        SubtlexChAdapter,
         AnkiConnectAdapter,
     )
-    from langmine.languages.chinese import ChineseLanguageService
+    from langmine.language_factory import create_language_processor
 
     config = load_config()
     persistence = SQLitePersistence()
