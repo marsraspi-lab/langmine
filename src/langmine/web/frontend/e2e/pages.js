@@ -162,6 +162,95 @@ export class SettingsPage {
   }
 }
 
+// ── Reading mode (TranscriptView) ──────────────────────────────────────
+
+export class ReadingPage {
+  constructor(page) {
+    this.page = page;
+  }
+
+  // Locators
+  get container()       { return this.page.locator('.transcript-view'); }
+  get toolbar()         { return this.page.locator('.transcript-toolbar'); }
+  get toolbarInfo()     { return this.page.locator('.toolbar-info'); }
+  get translateBtn()    { return this.page.locator('.toolbar-btn'); }
+  get sentenceList()    { return this.page.locator('.sentence-list'); }
+  get sentences()       { return this.page.locator('.transcript-sentence'); }
+  get sentenceNums()    { return this.page.locator('.sentence-num'); }
+  get chineseByRow()    { return this.page.locator('.sentence-chinese'); }
+  get wordTokens()      { return this.page.locator('.word-token'); }
+  get knownWords()      { return this.page.locator('.word-known'); }
+  get learningWords()   { return this.page.locator('.word-learning'); }
+  get unknownWords()    { return this.page.locator('.word-unknown'); }
+  get playButtons()     { return this.page.locator('.play-btn'); }
+  get pinyinLines()     { return this.page.locator('.sentence-pinyin'); }
+  get translations()    { return this.page.locator('.sentence-translation'); }
+  get wordPopover()     { return this.page.locator('.word-popover'); }
+  get popoverOverlay()  { return this.page.locator('.word-popover-overlay'); }
+  get popoverWord()     { return this.page.locator('.popover-word'); }
+  get popoverClose()    { return this.page.locator('.popover-close'); }
+  get shortcutsBar()    { return this.page.locator('.shortcuts-bar'); }
+  get readTab()         { return this.page.locator('.tab', { hasText: 'Read' }); }
+
+  popoverBtn(label)     { return this.page.locator('.popover-btn', { hasText: label }); }
+
+  // Actions
+  async enterReadingMode() {
+    await this.readTab.click();
+  }
+
+  async clickWord(token) {
+    await this.page.locator('.word-token', { hasText: token }).first().click();
+  }
+
+  async toggleTranslation() {
+    await this.translateBtn.click();
+  }
+
+  async pressKey(key) {
+    await this.page.keyboard.press(key);
+  }
+
+  // Assertions
+  async expectLoaded() {
+    await expect(this.container).toBeVisible();
+    await expect(this.sentenceList).toBeVisible();
+  }
+
+  async expectSentenceCount(n) {
+    await expect(this.sentences).toHaveCount(n);
+  }
+
+  async expectToolbarInfo(text) {
+    await expect(this.toolbarInfo).toContainText(text);
+  }
+
+  async expectWordHighlighting() {
+    await expect(this.knownWords.first()).toBeVisible();
+    await expect(this.learningWords.first()).toBeVisible();
+  }
+
+  async expectPopoverVisible() {
+    await expect(this.wordPopover).toBeVisible();
+  }
+
+  async expectPopoverHidden() {
+    await expect(this.wordPopover).not.toBeVisible();
+  }
+
+  async expectTranslationVisible() {
+    await expect(this.translations.first()).toBeVisible();
+  }
+
+  async expectTranslationHidden() {
+    await expect(this.translations.first()).not.toBeVisible();
+  }
+
+  async expectShortcutsVisible() {
+    await expect(this.shortcutsBar).toBeVisible();
+  }
+}
+
 // ── Vocab page ─────────────────────────────────────────────────────────
 
 export class VocabPage {
