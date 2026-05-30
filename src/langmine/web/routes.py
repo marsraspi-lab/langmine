@@ -123,6 +123,103 @@ def register_routes(app: Flask):
         except Exception as e:
             return jsonify({"error": f"Mining failed: {e}"}), 500
 
+    @app.route("/api/videos/preview", methods=["POST"])
+    def preview_video():
+        """Estimate difficulty for a YouTube video before mining.
+
+        Fetches transcript, segments into sentences, and classifies each
+        word against the user's known vocabulary. Does NOT persist anything.
+        Returns stats and annotated sentences with word-level highlighting.
+        """
+        data = request.get_json(silent=True)
+        if not data or "url" not in data:
+            return jsonify({"error": "Missing 'url' field"}), 400
+
+        url = data["url"].strip()
+        if not url:
+            return jsonify({"error": "Missing 'url' field"}), 400
+
+        from langmine.transcript import _extract_video_id, merge_sentences
+        from langmine.config import load_config
+
+        config = load_config()
+        video_id = _extract_video_id(url)
+
+        transcript_source = _get_transcript_source()
+        persistence = _get_persistence()
+        processor = _get_processor()
+
+        if transcript_source is None or processor is None:
+            return jsonify({
+                "error": "Transcript source or language processor not configured."
+            }), 503
+
+        try:
+            chunks = transcript_source.fetch(video_id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        merged = merge_sentences(chunks, gap_ms=config.sentence_gap_ms)
+        known_words = persistence.get_known_words()
+
+        preview_sentences = []
+        total_content_words = 0
+        total_known_words = 0
+        unknown_counts = []
+
+        for m in merged:
+            tokens = processor.segment(m.text)
+            # Classify each token
+            words = []
+            sentence_unknown = 0
+            for token in tokens:
+                if processor.is_non_word(token):
+                    status = "non-word"
+                elif token in known_words:
+                    status = "known"
+                    total_content_words += 1
+                    total_known_words += 1
+                else:
+                    status = "learning"
+                    total_content_words += 1
+                    sentence_unknown += 1
+                words.append({"token": token, "status": status})
+
+            unknown_counts.append(sentence_unknown)
+
+            entry = {
+                "text": m.text,
+                "text_segmented": " / ".join(tokens),
+                "pinyin": processor.get_reading(m.text),
+                "translation_de": processor.translate_sentence(m.text),
+                "words": words,
+                "start_ms": m.start_ms,
+                "end_ms": m.end_ms,
+                "unknown_count": sentence_unknown,
+            }
+            preview_sentences.append(entry)
+
+        total_sentences = len(merged)
+        i1_count = sum(1 for u in unknown_counts if u == 1)
+        i0_count = sum(1 for u in unknown_counts if u == 0)
+        stash_count = sum(1 for u in unknown_counts if u >= 2)
+        known_word_pct = round(
+            total_known_words / total_content_words * 100, 1
+        ) if total_content_words > 0 else 0.0
+        avg_unknown = round(
+            sum(unknown_counts) / total_sentences, 1
+        ) if total_sentences > 0 else 0.0
+
+        return jsonify({
+            "total_sentences": total_sentences,
+            "i1_estimated": i1_count,
+            "i0_count": i0_count,
+            "stash_count": stash_count,
+            "known_word_pct": known_word_pct,
+            "avg_unknown_per_sentence": avg_unknown,
+            "sentences": preview_sentences,
+        })
+
     @app.route("/api/videos/<int:video_id>/sentences")
     def get_sentences(video_id: int):
         """Get sentences for a video, optionally filtered by status."""

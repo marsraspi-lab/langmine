@@ -290,3 +290,50 @@ export class VocabPage {
     await expect(this.detailWord).toBeVisible();
   }
 }
+
+// ── Difficulty preview (M13) ──────────────────────────────────────────
+
+export class PreviewPage {
+  constructor(page) {
+    this.page = page;
+  }
+
+  // Locators
+  get previewBtn()     { return this.page.locator('.preview-btn'); }
+  get panel()          { return this.page.locator('.preview-panel'); }
+  get toggle()         { return this.page.locator('.preview-toggle'); }
+  get stats()          { return this.page.locator('.preview-stats'); }
+  get statValues()     { return this.page.locator('.stat-value'); }
+  get transcript()     { return this.page.locator('.preview-transcript'); }
+  get sentences()      { return this.page.locator('.preview-sentence'); }
+  get wordTokens()     { return this.page.locator('.preview-sentence .word-token'); }
+  get knownWords()     { return this.page.locator('.preview-sentence .word-known'); }
+  get learningWords()  { return this.page.locator('.preview-sentence .word-learning'); }
+  get nonWords()       { return this.page.locator('.preview-sentence .word-non-word'); }
+
+  // Actions
+  async clickPreview() {
+    await this.previewBtn.click();
+  }
+
+  // Assertions
+  async expectPanelVisible() {
+    await expect(this.panel).toBeVisible();
+    await expect(this.toggle).toContainText('Difficulty Preview');
+  }
+
+  async expectStatsVisible() {
+    await expect(this.stats).toBeVisible();
+    await expect(this.statValues.first()).toBeVisible();
+  }
+
+  async expectTranscriptVisible() {
+    await expect(this.transcript).toBeVisible();
+    await expect(this.sentences.first()).toBeVisible();
+  }
+
+  async expectWordHighlighting() {
+    await expect(this.knownWords.first()).toBeVisible();
+    await expect(this.learningWords.first()).toBeVisible();
+  }
+}

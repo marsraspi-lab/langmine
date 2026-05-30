@@ -109,3 +109,13 @@ export async function setClozeImage(sentenceId, imageUrl) {
   });
   return res.json();
 }
+
+// Difficulty preview API (M13)
+export async function previewVideo(url) {
+  const res = await fetch('/api/videos/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  return { ok: res.ok, status: res.status, data: await res.json() };
+}

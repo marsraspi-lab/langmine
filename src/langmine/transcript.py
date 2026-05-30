@@ -83,7 +83,7 @@ def merge_sentences(
 
         if gap <= gap_ms:
             # Merge: append text with a space
-            current_text += chunks[i].text.strip()
+            current_text += " " + chunks[i].text.strip()
             current_end = chunks[i].start_ms + chunks[i].duration_ms
         else:
             # Split: finish current sentence, start new one
