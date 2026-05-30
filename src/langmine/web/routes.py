@@ -1,5 +1,6 @@
 """Flask routes for the LangMine curation API."""
 
+import json
 import os
 from flask import (
     Flask, jsonify, request, send_file, send_from_directory, current_app,
@@ -395,6 +396,45 @@ def register_routes(app: Flask):
             "cloze_image_url": sentence.cloze_image_url,
         })
 
+    @app.route("/api/sentences/<int:sentence_id>/ruby", methods=["PATCH"])
+    def update_ruby(sentence_id: int):
+        """Update a single ruby annotation entry for a sentence.
+
+        Accepts {index, char?, pinyin?, tone?, definition?}.
+        Updates the ruby_json entry at the given index and persists.
+        """
+        persistence = _get_persistence()
+        sentence = _find_sentence(persistence, sentence_id)
+        if sentence is None:
+            return jsonify({"error": "Sentence not found"}), 404
+
+        data = request.get_json(silent=True)
+        if not data or "index" not in data:
+            return jsonify({"error": "Missing 'index' field"}), 400
+
+        index = data["index"]
+
+        # Parse existing ruby data
+        try:
+            ruby = json.loads(sentence.ruby_json or "[]")
+        except (json.JSONDecodeError, TypeError):
+            ruby = []
+
+        if not isinstance(ruby, list) or index < 0 or index >= len(ruby):
+            return jsonify({
+                "error": f"Index {index} out of range (0-{len(ruby) - 1 if ruby else -1})"
+            }), 400
+
+        entry = ruby[index]
+        for field in ("char", "pinyin", "tone", "definition"):
+            if field in data:
+                entry[field] = data[field]
+
+        sentence.ruby_json = json.dumps(ruby)
+        persistence.update_sentence(sentence)
+
+        return jsonify({"ok": True, "ruby": ruby})
+
     # === Vocab API ===
 
     @app.route("/api/vocab")
@@ -484,6 +524,7 @@ def register_routes(app: Flask):
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
             "hsk_bootstrap": config.hsk_bootstrap,
+            "user_agent": config.user_agent,
         })
 
     @app.route("/api/config", methods=["PUT"])
@@ -504,6 +545,7 @@ def register_routes(app: Flask):
             "deepl_api_key",
             "cloze_note_type", "cloze_card_css",
             "cloze_card_front_template", "cloze_card_back_template",
+            "user_agent",
         }
 
         config = load_config()
@@ -717,6 +759,12 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
 
     # Compute frequency badge from rank
     result["frequency_badge"] = frequency_badge(sentence.unknown_word_rank)
+
+    # Ruby annotations — parse JSON, fallback to empty list
+    try:
+        result["ruby"] = json.loads(sentence.ruby_json) if sentence.ruby_json else []
+    except (json.JSONDecodeError, TypeError):
+        result["ruby"] = []
 
     # Enrich with per-word metadata for highlighting
     if persistence is not None:

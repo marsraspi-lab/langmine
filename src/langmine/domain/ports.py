@@ -77,6 +77,13 @@ class LanguageProcessor(ABC):
     ) -> list[str]:
         """Return any known synonyms of `word`."""
 
+    @abstractmethod
+    def get_ruby(self, text: str) -> str:
+        """Return JSON string of [{char, pinyin, tone}] per character.
+
+        Tone values: 1-5 (Pleco convention — 5 = neutral).
+        """
+
 
 class TranscriptSource(ABC):
     """Port for fetching video subtitles.

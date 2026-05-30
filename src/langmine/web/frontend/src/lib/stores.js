@@ -37,6 +37,9 @@ export const theme = writable(localStorage.getItem('langmine-theme') || 'dark');
 /** @type {import('svelte/store').Writable<string>} */
 export const currentView = writable('curation'); // 'curation' | 'settings'
 
+/** @type {import('svelte/store').Writable<string>} */
+export const vocabSearchQuery = writable('');  // pre-fill vocab search (M14)
+
 /** @type {import('svelte/store').Writable<boolean>} */
 export const readingMode = writable(false);
 

@@ -38,6 +38,9 @@ class FakeChineseProcessor(LanguageProcessor):
     def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         return []
 
+    def get_ruby(self, text: str) -> str:
+        return "[]"
+
 
 class FakeTranscript(TranscriptSource):
     def __init__(self, chunks):

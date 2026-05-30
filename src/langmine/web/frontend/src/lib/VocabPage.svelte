@@ -1,6 +1,6 @@
 <script>
   import { fetchVocab, fetchVocabWord, updateVocabWord } from './api.js';
-  import { addToast } from './stores.js';
+  import { addToast, vocabSearchQuery } from './stores.js';
 
   let words = $state([]);
   let total = $state(0);
@@ -127,6 +127,11 @@
   }
 
   // Initial load
+  const q = $vocabSearchQuery;
+  if (q) {
+    searchQuery = q;
+    vocabSearchQuery.set('');
+  }
   loadWords(true);
 
   let prevFilter = $derived(statusFilter);

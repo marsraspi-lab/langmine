@@ -127,3 +127,31 @@ class ChineseLanguageService(LanguageProcessor):
                     synonyms.add(match)
 
         return list(synonyms)
+
+    def get_ruby(self, text: str) -> str:
+        """Return JSON of [{char, pinyin, tone}] per character.
+
+        Uses pypinyin with TONE3 style for tone numbers.
+        Pleco tone colors: 1=red, 2=green, 3=blue, 4=purple, 5=gray.
+        """
+        import json as _json
+        from pypinyin import pinyin, Style
+
+        py_list = pinyin(text, style=Style.TONE3)
+        entries = []
+        for i, char in enumerate(text):
+            py_with_tone = py_list[i][0] if i < len(py_list) else ""
+            # Extract tone number (last digit of pinyin string)
+            tone = 5  # neutral default
+            if py_with_tone and py_with_tone[-1].isdigit():
+                tone = int(py_with_tone[-1])
+                pinyin_str = py_with_tone[:-1]
+            else:
+                pinyin_str = py_with_tone or char
+
+            entries.append({
+                "char": char,
+                "pinyin": pinyin_str,
+                "tone": tone,
+            })
+        return _json.dumps(entries)

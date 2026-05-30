@@ -458,4 +458,26 @@ test.describe('LangMine SPA', () => {
     await preview.expectTranscriptVisible();
     await preview.expectWordHighlighting();
   });
+
+  // ── M14: Show in dictionary ────────────────────────────────────────────
+
+  test('Show in dictionary from popover navigates to VocabPage', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // Open popover for a known learning word ("一般")
+    await reading.clickWord('一般');
+    await reading.expectPopoverVisible();
+
+    // Click "Show in dictionary"
+    const dictBtn = main.page.locator('.popover-btn', { hasText: 'Show in dictionary' });
+    await expect(dictBtn).toBeVisible();
+    await dictBtn.click();
+
+    // Should navigate to VocabPage
+    await expect(main.page.locator('h2')).toContainText('Vocabulary', { timeout: 5000 });
+    // Search input should be pre-filled with the word
+    await expect(main.page.locator('.search-input')).toHaveValue('一般');
+  });
 });

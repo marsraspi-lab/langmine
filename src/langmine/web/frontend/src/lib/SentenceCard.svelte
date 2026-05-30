@@ -2,6 +2,7 @@
   import { fly } from 'svelte/transition';
   import { updateSentenceField } from './stores.js';
   import { updateVocabWord } from './api.js';
+  import { currentView, vocabSearchQuery } from './stores.js';
 
   /** @type {{ sentence: Object, onkeep: Function, ondelete: Function, oniknowthis: Function }} */
   let { sentence, onkeep = () => {}, ondelete = () => {}, oniknowthis = () => {} } = $props();
@@ -89,6 +90,11 @@
 
   function closePopover() {
     activeWordIdx = null;
+  }
+
+  function showInDictionary(token) {
+    vocabSearchQuery.set(token);
+    currentView.set('vocab');
   }
 
   async function toggleWordStatus(wordObj, idx) {
@@ -269,6 +275,10 @@
         >
           📚 Mark learning
         </button>
+        <button
+          class="popover-btn"
+          onclick={() => showInDictionary(word.token)}
+        >📋 Show in dictionary</button>
       </div>
       <button class="popover-close" onclick={closePopover}>✕</button>
     </div>

@@ -1,7 +1,10 @@
 """Transcript fetching and sentence merging for YouTube videos."""
 
 from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
+from youtube_transcript_api._errors import (
+    TranscriptsDisabled, NoTranscriptFound, VideoUnavailable,
+    IpBlocked, RequestBlocked, YouTubeRequestFailed,
+)
 
 from langmine.domain.ports import TranscriptChunk, MergedSentence
 
@@ -40,6 +43,20 @@ def fetch_transcript(video_id_or_url: str, user_agent: str = "") -> list[Transcr
     except VideoUnavailable as e:
         raise ValueError(
             f"Video '{video_id}' is unavailable or private."
+        ) from e
+    except IpBlocked as e:
+        raise ValueError(
+            f"YouTube is blocking requests from this IP address. "
+            f"Options:\n"
+            f"  • Wait a few hours — blocks are usually temporary\n"
+            f"  • Use a VPN or different network\n"
+            f"  • Set a custom User-Agent in Settings (network.user_agent)\n"
+            f"  • Use a transcript file (.srt/.vtt) via the upload option"
+        ) from e
+    except (RequestBlocked, YouTubeRequestFailed) as e:
+        raise ValueError(
+            f"YouTube rejected the transcript request (likely rate-limiting). "
+            f"Try again in a few minutes, or use a custom User-Agent in Settings."
         ) from e
 
     return [
