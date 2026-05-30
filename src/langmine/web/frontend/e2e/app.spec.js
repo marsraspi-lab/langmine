@@ -246,7 +246,7 @@ test.describe('LangMine SPA', () => {
     await input.press('Enter');
 
     // Should see toast
-    await expect(page.locator('.toast-success')).toContainText('Saved');
+    await expect(page.locator('.toast-success').first()).toContainText('Saved');
   });
 
   test('edit translation inline', async ({ page }) => {
