@@ -4,6 +4,7 @@
 
   let urlInput = $state('');
   let forceUpdateModel = $state(false);
+  let clozeMode = $state(false);
   /** @type {File|null} */
   let transcriptFile = $state(null);
 
@@ -90,7 +91,7 @@
     <div class="export-section">
       <button
         class="export-btn"
-        onclick={() => exportAnki(null, forceUpdateModel)}
+        onclick={() => exportAnki(null, forceUpdateModel, clozeMode ? 'cloze' : 'basic')}
         disabled={$exporting}
       >
         {$exporting ? '⏳' : '📦'} Export to Anki
@@ -102,6 +103,14 @@
           disabled={$exporting}
         />
         ⚡ Update card templates
+      </label>
+      <label class="force-update-label">
+        <input
+          type="checkbox"
+          bind:checked={clozeMode}
+          disabled={$exporting}
+        />
+        🕳️ Cloze deletion cards
       </label>
       {#if $exportStatus}
         <div class="export-status">{$exportStatus}</div>

@@ -1,6 +1,6 @@
 """Configuration management for LangMine."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +64,31 @@ class Config:
     # Storage
     data_dir: str = "~/.langmine/data"
 
+    # Cloze
+    cloze_note_type: str = "LangMine Cloze"
+    cloze_card_css: str = (
+        ".card { font-family: Arial, sans-serif; font-size: 20px; }\n"
+        ".chinese { font-size: 28px; margin: 20px 0; }\n"
+        ".cloze { color: #e53935; font-weight: bold; }\n"
+        ".pinyin { color: #2e7d32; font-style: italic; }\n"
+        ".translation { font-size: 22px; }\n"
+        ".hint-img { margin-top: 12px; max-width: 100%; }\n"
+    )
+    cloze_card_front_template: str = (
+        '<div class="chinese">{{cloze:sentence_zh}}</div>\n'
+        '{{#audio}}{{audio}}{{/audio}}\n'
+        '{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}\n'
+    )
+    cloze_card_back_template: str = (
+        '<div class="chinese">{{sentence_zh}}</div>\n'
+        '{{#audio}}{{audio}}{{/audio}}\n'
+        '<hr id="answer">\n'
+        '<div class="pinyin">{{sentence_pinyin}}</div>\n'
+        '<div class="translation">{{translation_de}}</div>\n'
+        '<div>🆕 {{unknown_word}}</div>\n'
+        '{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}\n'
+    )
+
     # Network
     user_agent: str = ""
 
@@ -101,6 +126,10 @@ def _config_to_dict(config: Config) -> dict:
             "card_css": config.card_css,
             "card_front_template": config.card_front_template,
             "card_back_template": config.card_back_template,
+            "cloze_note_type": config.cloze_note_type,
+            "cloze_card_css": config.cloze_card_css,
+            "cloze_card_front_template": config.cloze_card_front_template,
+            "cloze_card_back_template": config.cloze_card_back_template,
         },
         "languages": {
             "source": config.source_language,
@@ -152,6 +181,14 @@ def _dict_to_config(data: dict) -> Config:
         ),
         card_back_template=data["anki"].get(
             "card_back_template", Config.card_back_template
+        ),
+        cloze_note_type=data["anki"].get("cloze_note_type", Config.cloze_note_type),
+        cloze_card_css=data["anki"].get("cloze_card_css", Config.cloze_card_css),
+        cloze_card_front_template=data["anki"].get(
+            "cloze_card_front_template", Config.cloze_card_front_template
+        ),
+        cloze_card_back_template=data["anki"].get(
+            "cloze_card_back_template", Config.cloze_card_back_template
         ),
         source_language=data["languages"]["source"],
         target_language=data["languages"]["target"],

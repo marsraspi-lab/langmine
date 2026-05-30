@@ -20,6 +20,22 @@ from langmine.domain.ports import (
 from langmine.domain.models import Video, Sentence, VocabWord
 
 
+# === Fake AnkiExporter for E2E tests ===
+
+class FakeAnkiExporter:
+    """Fake AnkiExporter that returns success without AnkiConnect."""
+
+    def export(self, sentences, deck_name, note_type_name, card_css=None,
+               card_front=None, card_back=None, force_update_model=False,
+               card_type="basic"):
+        return {
+            "note_ids": [1001],
+            "added": len(sentences),
+            "duplicates": 0,
+            "errors": [],
+        }
+
+
 # === Fake ports (same as test_web_api.py) ===
 
 class FakeLanguageProcessor(LanguageProcessor):
@@ -182,6 +198,16 @@ sentences = [
         audio_clip_path="",
         status="stashed",
     ),
+    # Kept sentence for M11 export tests
+    Sentence(
+        video_id=video.id, start_ms=13000, end_ms=16000,
+        text="今天 天气 很 好",
+        text_segmented="今天 / 天气 / 很 / 好",
+        pinyin="jīntiān tiānqì hěn hǎo",
+        translation_de="Heute ist das Wetter sehr gut",
+        unknown_word="天气", unknown_word_rank=2500,
+        status="kept",
+    ),
 ]
 for s in sentences:
     persistence.save_sentences([s])
@@ -209,6 +235,7 @@ app = create_app(
     language_processor=FakeLanguageProcessor(),
     transcript_source=FakeTranscriptSource(),
     audio_processor=FakeAudioProcessor(),
+    anki_exporter=FakeAnkiExporter(),
 )
 
 if __name__ == "__main__":

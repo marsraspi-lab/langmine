@@ -363,6 +363,8 @@ def register_routes(app: Flask):
             "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
             "max_cards_per_video", "max_stash_cards", "hsk_bootstrap",
             "deepl_api_key",
+            "cloze_note_type", "cloze_card_css",
+            "cloze_card_front_template", "cloze_card_back_template",
         }
 
         config = load_config()
@@ -388,6 +390,7 @@ def register_routes(app: Flask):
         video_id = data.get("video_id")
         all_kept = data.get("all_kept", False)
         force_update = data.get("force_update_model", False)
+        card_type = data.get("card_type", "basic")
 
         if video_id is not None:
             sentences = persistence.get_sentences_by_video(
@@ -408,14 +411,28 @@ def register_routes(app: Flask):
         try:
             from langmine.config import load_config
             config = load_config()
+
+            # Select templates based on card type
+            if card_type == "cloze":
+                note_type = config.cloze_note_type
+                css = config.cloze_card_css
+                front = config.cloze_card_front_template
+                back = config.cloze_card_back_template
+            else:
+                note_type = config.note_type
+                css = config.card_css
+                front = config.card_front_template
+                back = config.card_back_template
+
             result = exporter.export(
                 sentences=sentences,
                 deck_name=config.deck_name,
-                note_type_name=config.note_type,
-                card_css=config.card_css,
-                card_front=config.card_front_template,
-                card_back=config.card_back_template,
+                note_type_name=note_type,
+                card_css=css,
+                card_front=front,
+                card_back=back,
                 force_update_model=force_update,
+                card_type=card_type,
             )
 
             # Mark exported sentences

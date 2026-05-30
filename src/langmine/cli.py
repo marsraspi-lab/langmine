@@ -32,6 +32,8 @@ def main():
     export_parser.add_argument("--all-kept", action="store_true", help="Export all kept sentences")
     export_parser.add_argument("--force-update-model", action="store_true",
                                 help="Force-update card templates in Anki (use after editing config.yaml)")
+    export_parser.add_argument("--cloze", action="store_true",
+                                help="Export as cloze deletion cards instead of basic")
 
     args = parser.parse_args()
 
@@ -186,15 +188,17 @@ def _cmd_export(args):
         print("No kept sentences to export.")
         return
 
+    card_type = "cloze" if args.cloze else "basic"
     try:
         result = exporter.export(
             sentences=sentences,
             deck_name=config.deck_name,
-            note_type_name=config.note_type,
-            card_css=config.card_css,
-            card_front=config.card_front_template,
-            card_back=config.card_back_template,
+            note_type_name=config.cloze_note_type if args.cloze else config.note_type,
+            card_css=config.cloze_card_css if args.cloze else config.card_css,
+            card_front=config.cloze_card_front_template if args.cloze else config.card_front_template,
+            card_back=config.cloze_card_back_template if args.cloze else config.card_back_template,
             force_update_model=args.force_update_model,
+            card_type=card_type,
         )
 
         print(
