@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.2 — M0–M9 complete. M10 next. All tests pass.
+**Status:** v1.3 — M0–M14 complete. 203 pytest + 42 E2E. All tests pass.
 
 ---
 
@@ -281,11 +281,11 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M7 | Polish & Edit | ✅ — inline editing, settings page, theme toggle, error handling |
 | M8 | Docker Deployment | ✅ — multi-stage image, docker-compose, one-command startup |
 | M9 | Vocabulary Depth | ✅ — word highlighting, vocab page, cascading reclassification, Playwright E2E |
-| **M10** | **Reading Mode** | **next** — full transcript view, keyboard shortcuts, word popups |
-| M11 | Cloze Export | — cloze deletion Anki cards with screenshot hints |
-| M12 | Image Search | — image search for visual context on cards |
-| M13 | Difficulty Preview | — pre-mine difficulty check for a video |
-| M14 | Ruby Annotations | — tone-colored pinyin ruby text above characters |
+| M10 | Reading Mode | ✅ — full transcript view, keyboard shortcuts, word popups |
+| M11 | Cloze Export | ✅ — cloze deletion Anki cards with screenshot hints |
+| M12 | Image Search | ✅ — image search for visual context on cards |
+| M13 | Difficulty Preview | ✅ — pre-mine difficulty check for a video |
+| M14 | Ruby Annotations | ✅ — tone-colored pinyin ruby text above characters |
 
 > **Plan:** `.hermes/plans/2026-05-29-m10-m14-reading-cloze-image-preview-ruby.md`
 
