@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.3 — M0–M14 complete. 203 pytest + 42 E2E. All tests pass.
+**Status:** v1.4 — M0–M14 + decouple Chinese. 217 pytest + 42 E2E. All tests pass.
 
 ---
 
@@ -91,6 +91,8 @@ cd src/langmine/web/frontend && npm install && npm run build && cd -
 This installs LangMine in editable mode with all Python dependencies:
 `yt-dlp`, `youtube-transcript-api`, `jieba`, `pypinyin`, `deep-translator`, `flask`, `pyyaml`, `requests`, `pytest`, `pytest-cov`
 
+Chinese language processing uses `jieba` (segmentation), `pypinyin` (reading), and CC-CEDICT. Other languages use their own NLP toolchain — see `languages/` directory.
+
 ---
 
 ## Usage
@@ -108,7 +110,7 @@ langmine serve                  # → http://127.0.0.1:8080
 langmine serve --port 9000      # custom port
 ```
 
-The web UI lets you browse mined sentences, edit pinyin/translations/segmentation inline, keep or delete sentences, mark words as known, and configure settings.
+The web UI lets you browse mined sentences, edit readings/translations/segmentation inline, keep or delete sentences, mark words as known, and configure settings.
 
 ### Export to Anki
 
@@ -152,7 +154,7 @@ anki:
   card_css: |
     .card { font-family: Arial, sans-serif; font-size: 20px; }
     .chinese { font-size: 28px; margin: 20px 0; }
-    .pinyin { color: #2e7d32; font-style: italic; }
+    .reading { color: #2e7d32; font-style: italic; }
     .translation { font-size: 22px; }
     .word { color: #e53935; font-size: 18px; }
     .screenshot { margin-top: 16px; }
@@ -165,7 +167,7 @@ anki:
     <div class="chinese">{{sentence_zh}}</div>
     {{#audio}}{{audio}}{{/audio}}
     <hr id="answer">
-    <div class="pinyin">{{sentence_pinyin}}</div>
+    <div class="reading">{{sentence_reading}}</div>
     <div class="translation">{{translation_de}}</div>
     {{#unknown_word}}<div class="word">🆕 {{unknown_word}}</div>{{/unknown_word}}
     {{#screenshot}}<div class="screenshot">{{screenshot}}</div>{{/screenshot}}
@@ -185,7 +187,7 @@ mining:
   max_stash_cards: 20         # stash re-scan candidates
 
 vocab:
-  hsk_bootstrap: 3            # HSK levels 1-3 treated as known
+  # No generic vocab config needed — language packages manage their own bootstrapping
 
 storage:
   data_dir: "~/.langmine/data"   # audio clips, screenshots, downloads
@@ -204,11 +206,11 @@ See **[docs/TEMPLATES.md](docs/TEMPLATES.md)** for card template customization �
 YouTube URL → transcript → merge subtitle chunks into sentences
              → download full audio → clip per-sentence with padding
              → capture screenshot at sentence midpoint
-             → Chinese NLP (jieba segmentation, pypinyin, CC-CEDICT dictionary,
-                Google Translate, SUBTLEX-CH frequency ranking)
+             → Language NLP (segmentation, reading, dictionary,
+                translation, frequency ranking)
              → i+1 filter (one unknown word = learnable)
              → stash i+2+ sentences for later
-             → curate in browser (keep/delete/I-know-this, edit pinyin/translation/segmentation)
+             → curate in browser (keep/delete/I-know-this, edit reading/translation/segmentation)
              → dark/light theme toggle
              → export to Anki via AnkiConnect (cards with audio + screenshots)
 ```
@@ -225,27 +227,26 @@ src/langmine/
 │   ├── ports.py          # Abstract interfaces (Persistence, Translator, etc.)
 │   ├── models.py         # Pure dataclasses + frequency tier logic
 │   ├── classifier.py     # i+1 classification engine
-│   └── services/
-│       └── chinese.py    # Chinese NLP (segment, pinyin, frequency)
+│   └── services/         # Language-agnostic service logic
 ├── adapters/
 │   ├── sqlite_persistence.py   # SQLite behind Persistence port
 │   ├── youtube_transcript.py   # YouTube behind TranscriptSource port
 │   ├── ytdlp_audio.py          # yt-dlp+ffmpeg behind AudioProcessor port
 │   ├── google_translate.py     # deep-translator behind Translator port
-│   ├── cc_cedict.py            # CC-CEDICT behind Dictionary port
-│   ├── subtlex_ch.py           # SUBTLEX-CH behind FrequencySource port
-│   ├── jieba_frequency.py      # jieba dict behind FrequencySource port
 │   └── anki_connect.py         # AnkiConnect behind AnkiExporter port
+├── languages/
+│   └── chinese/
+│       ├── service.py          # ChineseLanguageService (segment, reading, classify)
+│       ├── dictionary.py       # CcCedictAdapter (CC-CEDICT, 125K entries)
+│       ├── frequency.py        # SubtlexChAdapter + JiebaFrequencyAdapter
+│       ├── hsk.py              # HSK proficiency levels
+│       └── data/               # CC-CEDICT dictionary + SUBTLEX corpus
+├── language_factory.py   # Single switch point for language loading
 ├── web/
 │   ├── app.py            # Flask app factory (port injection)
 │   ├── routes.py         # REST API endpoints
 │   ├── static/           # Built Svelte output (served by Flask)
-│   └── frontend/         # Svelte 5 + Vite source
-│       └── src/lib/      # Components: Sidebar, CardList, SentenceCard, SettingsPage
-├── data/
-│   ├── cedict/           # CC-CEDICT dictionary (125K entries)
-│   ├── SUBTLEX-CH-*      # Word frequency corpus
-│   └── hsk/              # HSK level data (coming in M9)
+│   └── frontend/         # Svelte 5 + Vite source (language-agnostic)
 ├── pipeline.py           # End-to-end mining (accepts ports)
 ├── cli.py                # CLI entry point (mine, serve, export)
 ├── config.py             # YAML config with defaults
@@ -253,7 +254,29 @@ src/langmine/
 └── bin/                  # Static ffmpeg/ffprobe (downloaded via setup script)
 ```
 
-The cardinal rule: `domain/` never imports from `adapters/` or `web/`.
+The cardinal rule: `domain/` never imports from `adapters/` or `web/`. Similarly, `domain/` and `web/` never import from `languages/` — only `language_factory.py` touches language packages.
+
+### Adding a Language
+
+Create `languages/<code>/` with 4 files:
+
+```
+languages/spanish/
+├── __init__.py           # Package init
+├── service.py            # SpanishLanguageService(LanguageProcessor)
+├── dictionary.py         # SpanishDict adapter (Dictionary port)
+└── frequency.py          # SUBTLEX-ES adapter (FrequencySource port)
+```
+
+Then add to `language_factory.py`:
+
+```python
+case "es":
+    from langmine.languages.spanish import SpanishLanguageService, SpanishDict, SubtlexEsAdapter
+    return SpanishLanguageService(SpanishDict(), GoogleTranslateAdapter(), SubtlexEsAdapter())
+```
+
+No changes needed in `domain/`, `web/`, `adapters/`, `pipeline.py`, or `cli.py` — the factory handles everything. The Svelte frontend is fully language-agnostic — it renders whatever JSON the API returns.
 
 ### Frequency tiers
 
