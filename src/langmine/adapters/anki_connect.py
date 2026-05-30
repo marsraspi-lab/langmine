@@ -157,6 +157,9 @@ class AnkiConnectAdapter(AnkiExporter):
                 f'<img src="{screenshot_refs[i]}">'
                 if i in screenshot_refs else ""
             )
+            # For cloze cards, user-selected hint image takes priority
+            if is_cloze and s.cloze_image_url:
+                screenshot_field = f'<img src="{s.cloze_image_url}">'
             # Build sentence_zh field — for cloze, wrap unknown word
             sentence_text = s.text or ""
             if is_cloze and s.unknown_word and s.unknown_word in sentence_text:

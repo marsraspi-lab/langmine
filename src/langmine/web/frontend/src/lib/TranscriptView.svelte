@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { updateVocabWord } from './api.js';
   import { addToast } from './stores.js';
+  import ImagePicker from './ImagePicker.svelte';
 
   let { videoId } = $props();
 
@@ -11,6 +12,7 @@
   let showLegend = $state(false);
   let activeWord = $state(null);
   let activeSentenceIdx = $state(0);
+  let showImagePicker = $state(false);
 
   onMount(loadTranscript);
 
@@ -193,9 +195,22 @@
           onclick={() => setWordStatus(activeWord.word.token, 'unknown')}
           disabled={activeWord.word.status === 'unknown'}
         >❓ Mark unknown</button>
+        <button
+          class="popover-btn"
+          onclick={() => showImagePicker = true}
+        >🖼️ Search images</button>
       </div>
       <button class="popover-close" onclick={closePopover}>✕</button>
     </div>
+  {/if}
+
+  <!-- Image picker modal -->
+  {#if showImagePicker && activeWord}
+    <ImagePicker
+      word={activeWord.word.token}
+      sentenceId={sentences[activeWord.sentenceIdx]?.id}
+      onClose={() => showImagePicker = false}
+    />
   {/if}
 
   <!-- Keyboard shortcuts legend bar -->

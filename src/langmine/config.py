@@ -92,6 +92,10 @@ class Config:
     # Network
     user_agent: str = ""
 
+    # Image search (M12)
+    google_api_key: str = ""
+    google_cse_id: str = ""
+
 
 def load_config(config_dir: str | None = None) -> Config:
     """Load configuration from a YAML file, with defaults for missing keys.
@@ -154,6 +158,8 @@ def _config_to_dict(config: Config) -> dict:
         },
         "network": {
             "user_agent": config.user_agent,
+            "google_api_key": config.google_api_key,
+            "google_cse_id": config.google_cse_id,
         },
     }
 
@@ -202,6 +208,8 @@ def _dict_to_config(data: dict) -> Config:
         hsk_bootstrap=data["vocab"]["hsk_bootstrap"],
         data_dir=data.get("storage", {}).get("data_dir", "~/.langmine/data"),
         user_agent=data.get("network", {}).get("user_agent", ""),
+        google_api_key=data.get("network", {}).get("google_api_key", ""),
+        google_cse_id=data.get("network", {}).get("google_cse_id", ""),
     )
 
 

@@ -13,6 +13,7 @@ from langmine.domain.ports import (
     TranscriptSource,
     AudioProcessor,
     AnkiExporter,
+    ImageSearch,
 )
 from langmine.adapters.inline_transcript import InlineTranscriptSource
 from langmine.transcript_parser import parse_subtitle_file
@@ -24,6 +25,7 @@ def create_app(
     transcript_source: TranscriptSource | None = None,
     audio_processor: AudioProcessor | None = None,
     anki_exporter: AnkiExporter | None = None,
+    image_searcher: ImageSearch | None = None,
 ) -> Flask:
     """Create a Flask app with injected domain ports.
 
@@ -33,6 +35,7 @@ def create_app(
         transcript_source: Where to fetch subtitles (YouTube, etc.)
         audio_processor: Where to download/clip audio (yt-dlp, etc.)
         anki_exporter: Where to export flashcards (AnkiConnect, etc.)
+        image_searcher: Image search adapter (Google CSE, etc.)
 
     Returns:
         Configured Flask app.
@@ -46,6 +49,7 @@ def create_app(
     app.config["LANGMINE_TRANSCRIPT_SOURCE"] = transcript_source
     app.config["LANGMINE_AUDIO_PROCESSOR"] = audio_processor
     app.config["LANGMINE_ANKI_EXPORTER"] = anki_exporter
+    app.config["LANGMINE_IMAGE_SEARCHER"] = image_searcher
 
     # Allow routes to create InlineTranscriptSource without importing adapters
     app.config["LANGMINE_INLINE_TRANSCRIPT_CLASS"] = InlineTranscriptSource

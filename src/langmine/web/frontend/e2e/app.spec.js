@@ -84,6 +84,34 @@ test.describe('LangMine SPA', () => {
     await expect(input).not.toBeChecked();
   });
 
+  // ── M12: Image search ─────────────────────────────────────────────────
+
+  test('image search modal opens from word popover', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    // Click word to open popover, then click image search
+    await reading.clickWord('一般');
+    await reading.expectPopoverVisible();
+
+    const searchBtn = main.page.locator('.popover-btn', { hasText: 'Search images' });
+    await searchBtn.click();
+
+    // Image picker modal should appear
+    const picker = main.page.locator('.image-picker-modal');
+    await expect(picker).toBeVisible();
+    await expect(picker).toContainText('一般');
+
+    // Click "Search images" to trigger the API call
+    await main.page.locator('.image-picker-search-btn').click();
+
+    // Images should load (FakeImageSearch returns placeholder URLs)
+    const grid = main.page.locator('.image-grid');
+    await expect(grid).toBeVisible({ timeout: 5000 });
+    const items = main.page.locator('.image-grid-item');
+    await expect(items.first()).toBeVisible();
+  });
+
   test('export with cloze sends card_type=cloze to API', async () => {
     await main.goto();
     // Click first video to load sentences (so export section appears)

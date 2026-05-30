@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from langmine.web.app import create_app
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
-    TranscriptChunk, MergedSentence,
+    TranscriptChunk, MergedSentence, ImageSearch,
 )
 from langmine.domain.models import Video, Sentence, VocabWord
 
@@ -34,6 +34,16 @@ class FakeAnkiExporter:
             "duplicates": 0,
             "errors": [],
         }
+
+
+class FakeImageSearch(ImageSearch):
+    """Fake image search returning hardcoded placeholder images."""
+    def search(self, query, count=5):
+        return [
+            f"https://placehold.co/200x200/333/eee?text={query}+1",
+            f"https://placehold.co/200x200/333/eee?text={query}+2",
+            f"https://placehold.co/200x200/333/eee?text={query}+3",
+        ][:count]
 
 
 # === Fake ports (same as test_web_api.py) ===
@@ -236,6 +246,7 @@ app = create_app(
     transcript_source=FakeTranscriptSource(),
     audio_processor=FakeAudioProcessor(),
     anki_exporter=FakeAnkiExporter(),
+    image_searcher=FakeImageSearch(),
 )
 
 if __name__ == "__main__":
