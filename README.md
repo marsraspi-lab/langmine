@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.4 — M0–M14 + decouple Chinese. 217 pytest + 42 E2E. All tests pass.
+**Status:** v1.1.0 — M0–M14 + decouple Chinese (PR #9). 217 pytest + 42 E2E. All tests pass.
 
 ---
 
@@ -66,10 +66,10 @@ for Mac/Windows provides `host.docker.internal` automatically).
 ```bash
 git clone https://github.com/marsraspi-lab/langmine.git
 cd langmine
-docker build -t langmine .
+docker build --build-arg VERSION=1.1.0 -t langmine:1.1.0 .
 docker run -p 8080:8080 -v ~/.langmine:/root/.langmine \
   --add-host=host.docker.internal:host-gateway \
-  langmine
+  langmine:1.1.0
 ```
 
 ---
@@ -129,10 +129,11 @@ Or use the **📦 Export to Anki** button in the sidebar. Check "⚡ Update card
 
 Anki must be running with the AnkiConnect addon installed.
 
-### View help
+### View help and version
 
 ```bash
 langmine --help
+langmine --version                  # e.g. "langmine 1.1.0"
 langmine mine --help
 langmine serve --help
 langmine export --help

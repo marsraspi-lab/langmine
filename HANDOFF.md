@@ -1,10 +1,23 @@
-# Handoff — Session End 2026-05-30 (Decouple Chinese)
+# Handoff — 2026-05-30 (Decouple Chinese, PR #9)
 
 ## Where We Are
 
-**Decouple Chinese refactor in progress.** Branch: `refactor/decouple-chinese`. 217 pytest + 42 Playwright E2E tests pass.
+**Decouple Chinese refactor complete.** PR #9 open against `main`, ready for review/merge.
 
-All M0–M14 features are intact. The decoupling extracts Chinese-specific code from the language-agnostic core into `languages/chinese/`, making it possible to add Spanish, Korean, Russian, etc. with ~4 files + 1 factory `case` branch.
+- **`main`:** v1.0.0 tag (`5ab98e7`) — M0–M14, 213 pytest + 42 E2E
+- **`refactor/decouple-chinese`:** v1.1.0 (`756ef38`) — 217 pytest + 42 E2E (adds 4 decoupling tests)
+- CI passes: `check` ✅ + `e2e` ✅
+
+## Version Infrastructure
+
+Single source of truth: `pyproject.toml` → `importlib.metadata.version("langmine")`.
+
+| Channel | How |
+|---|---|
+| CLI | `langmine --version` |
+| API | `GET /api/version` → `{"version": "1.1.0", "name": "langmine"}` |
+| UI | Settings page footer (fetches `/api/version` on mount) |
+| Docker | `--build-arg VERSION=1.1.0` → OCI `org.opencontainers.image.version` label |
 
 ## Architecture Rules (updated)
 
@@ -51,6 +64,9 @@ tests/
 ## Key Commands
 
 ```bash
+# Version
+langmine --version                        # e.g. "langmine 1.1.0"
+
 # Run all tests
 cd /root/projects/langmine
 python -m pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
@@ -66,6 +82,9 @@ cd src/langmine/web/frontend && npm run build
 grep -r "from langmine.languages" src/langmine/domain/      # must be EMPTY
 grep -r "from langmine.languages" src/langmine/web/         # must be EMPTY
 grep -r "from langmine.adapters" src/langmine/domain/       # must be EMPTY
+
+# Docker build with version
+docker build --build-arg VERSION=1.1.0 -t langmine:1.1.0 .
 ```
 
 ## Container Notes

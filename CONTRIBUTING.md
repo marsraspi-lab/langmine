@@ -114,14 +114,21 @@ grep -r "from langmine.adapters\|from langmine.web" src/langmine/domain/
 ```
 Allowed:
   cli → domain ports + adapters        (wiring)
+  cli → language_factory → languages/  (single switch point)
   web → domain ports                   (API uses ports)
   adapters → domain ports              (implements ports)
   adapters → external libs             (subprocess, sqlite3, requests)
+  languages/<lang> → domain ports      (implements LanguageProcessor)
+  languages/<lang> → external NLP      (jieba, pypinyin, etc.)
 
 Forbidden:
   domain → adapters        ← THE CARDINAL SIN
+  domain → languages       ← must go through factory
   domain → external libs
+  web → languages          ← must go through factory
   adapter → adapter
+  languages/<lang> → languages/<other_lang>
+  languages/<lang> → web
 ```
 
 ### Ports (abstract interfaces in `domain/ports.py`)
@@ -184,7 +191,7 @@ App.svelte
 ├── ImagePicker.svelte   — image search grid for cloze card hints
 ├── PreviewPanel.svelte  — difficulty preview stats + read-only transcript
 ├── VocabPage.svelte     — searchable vocabulary list with word detail panel
-├── SettingsPage.svelte  — config form (Anki, NLP, mining, vocab, network)
+├── SettingsPage.svelte  — config form (Anki, Language, Mining, Network) + version footer
 └── Toast overlay        — success/error notifications
 ```
 
@@ -217,6 +224,7 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET
 - **Frontend build step required.** `npm run build` before `langmine serve`.
 - **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests use project-bundled ffmpeg binaries or system PATH fallback.
 - **Frequency tiers** are pure domain logic in `domain/models.py` — adapters delegate to `frequency_tier()`/`frequency_badge()` rather than duplicating thresholds.
+- **Version is a single source of truth** in `pyproject.toml`. Imported via `importlib.metadata.version("langmine")` in Python; exposed via `--version` CLI flag, `/api/version` endpoint, and Settings page footer. Docker build accepts `--build-arg VERSION=x.y.z` for OCI labels.
 
 ---
 
