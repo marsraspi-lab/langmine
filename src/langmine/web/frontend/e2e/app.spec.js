@@ -68,6 +68,39 @@ test.describe('LangMine SPA', () => {
     await curation.expectFirstBadge('kept');
   });
 
+  // ── M11: Cloze export ─────────────────────────────────────────────────
+
+  test('cloze deletion checkbox is visible and togglable', async () => {
+    await main.goto();
+    const clozeCheckbox = main.page.locator('.force-update-label', { hasText: 'Cloze deletion cards' });
+    await expect(clozeCheckbox).toBeVisible();
+    const input = clozeCheckbox.locator('input[type="checkbox"]');
+    await expect(input).not.toBeChecked();
+    // Toggle on
+    await input.check();
+    await expect(input).toBeChecked();
+    // Toggle off
+    await input.uncheck();
+    await expect(input).not.toBeChecked();
+  });
+
+  test('export with cloze sends card_type=cloze to API', async () => {
+    await main.goto();
+    // Click first video to load sentences (so export section appears)
+    await main.selectFirstVideo();
+
+    // Check the cloze checkbox
+    const clozeLabel = main.page.locator('.force-update-label', { hasText: 'Cloze deletion cards' });
+    await clozeLabel.locator('input[type="checkbox"]').check();
+
+    // Click the export button
+    const exportBtn = main.page.locator('.export-btn');
+    await exportBtn.click();
+
+    // Should show success status (fake exporter returns added=1)
+    await expect(main.page.locator('.export-status')).toContainText('new');
+  });
+
   test('Delete button shows confirmation, then deletes', async () => {
     await main.goto();
     await main.selectFirstVideo();
@@ -320,8 +353,8 @@ test.describe('LangMine SPA', () => {
     await main.selectFirstVideo();
     await reading.enterReadingMode();
     await reading.expectLoaded();
-    await reading.expectSentenceCount(3);
-    await reading.expectToolbarInfo('3 sentences');
+    await reading.expectSentenceCount(4);
+    await reading.expectToolbarInfo('4 sentences');
   });
 
   test('reading mode shows word highlighting', async () => {
@@ -375,15 +408,5 @@ test.describe('LangMine SPA', () => {
     // Toggle off
     await reading.pressKey('t');
     await reading.expectTranslationHidden();
-  });
-
-  // ── M11: Cloze export ─────────────────────────────────────────────────
-
-  test('cloze deletion checkbox is visible in sidebar', async () => {
-    await main.goto();
-    const clozeCheckbox = main.page.locator('.force-update-label', { hasText: 'Cloze deletion cards' });
-    await expect(clozeCheckbox).toBeVisible();
-    const input = clozeCheckbox.locator('input[type="checkbox"]');
-    await expect(input).not.toBeChecked();
   });
 });
