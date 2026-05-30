@@ -63,7 +63,7 @@ class Sentence:
     text: str
     text_segmented: str = ""        # "我们 / 一般 / 早上 / 七点 / 起床"
     non_words_json: str = ""        # JSON list of filtered-out tokens
-    pinyin: str = ""                # "wǒmen yībān zǎoshang..."
+    reading: str = ""               # Phonetic: pinyin for zh, IPA for es, romanization for ko
     translation_de: str = ""        # German translation
     unknown_word: str | None = None  # the i+1 target word
     unknown_word_rank: int | None = None
@@ -72,7 +72,7 @@ class Sentence:
     screenshot_path: str = ""
     screenshot_enabled: bool = True
     cloze_image_url: str | None = None  # User-selected image for cloze hint
-    ruby_json: str = ""                 # JSON: [{char, pinyin, tone}] per character
+    annotation_json: str = ""          # Character-level annotations (ruby for CJK, IPA, etc.)
     status: str = "new"            # i1 | i0 | stashed | kept | deleted | exported
 
     # Set by persistence layer
@@ -85,7 +85,7 @@ class VocabWord:
 
     word_simplified: str
     word_traditional: str = ""
-    pinyin: str = ""
+    reading: str = ""
     definition_de: str = ""
     hsk_level: int | None = None      # 1-6 or None if not in HSK
     frequency_rank: int | None = None  # from SUBTLEX-CH

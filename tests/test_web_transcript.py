@@ -22,7 +22,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakePersistence(Persistence):
@@ -151,7 +151,7 @@ def client_with_ordered_sentences(client, persistence):
         Sentence(
             video_id=video.id, start_ms=8000, end_ms=12000,
             text="我们 需要 提高 效率", text_segmented="我们 / 需要 / 提高 / 效率",
-            pinyin="wǒmen xūyào tígāo xiàolǜ",
+            reading="wǒmen xūyào tígāo xiàolǜ",
             translation_de="Wir müssen Effizienz verbessern",
             unknown_word="效率", unknown_word_rank=3412,
             status="i1",
@@ -159,7 +159,7 @@ def client_with_ordered_sentences(client, persistence):
         Sentence(
             video_id=video.id, start_ms=1000, end_ms=3000,
             text="我们 一般 早上 起床", text_segmented="我们 / 一般 / 早上 / 起床",
-            pinyin="wǒmen yībān zǎoshang qǐchuáng",
+            reading="wǒmen yībān zǎoshang qǐchuáng",
             translation_de="Wir stehen normalerweise morgens auf",
             unknown_word="一般", unknown_word_rank=1847,
             audio_clip_path="/tmp/clip1.mp3",
@@ -168,7 +168,7 @@ def client_with_ordered_sentences(client, persistence):
         Sentence(
             video_id=video.id, start_ms=4000, end_ms=7000,
             text="我 爱 学习", text_segmented="我 / 爱 / 学习",
-            pinyin="wǒ ài xuéxí",
+            reading="wǒ ài xuéxí",
             translation_de="Ich liebe es zu lernen",
             status="i0",
         ),
@@ -210,7 +210,7 @@ class TestTranscriptEndpoint:
         resp = client.get("/api/videos/1/transcript")
         data = json.loads(resp.data)
         s = data["sentences"][0]
-        required = ["id", "video_id", "text", "text_segmented", "pinyin",
+        required = ["id", "video_id", "text", "text_segmented", "reading",
                      "translation_de", "unknown_word", "start_ms", "end_ms",
                      "status", "has_audio", "has_screenshot"]
         for field in required:

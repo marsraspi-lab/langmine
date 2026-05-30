@@ -150,7 +150,7 @@ class InMemoryPersistence(Persistence):
         if search:
             words = [w for w in words
                      if search.lower() in w.word_simplified.lower()
-                     or search.lower() in (w.pinyin or "").lower()]
+                     or search.lower() in (w.reading or "").lower()]
         words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
         total = len(words)
         start = (page - 1) * per_page
@@ -214,7 +214,7 @@ def test_in_memory_persistence_vocab():
 
     word = VocabWord(
         word_simplified="你好",
-        pinyin="nǐ hǎo",
+        reading="nǐ hǎo",
         definition_de="Hallo",
         hsk_level=1,
         frequency_rank=50,
@@ -224,7 +224,7 @@ def test_in_memory_persistence_vocab():
 
     retrieved = store.get_vocab_word("你好")
     assert retrieved is not None
-    assert retrieved.pinyin == "nǐ hǎo"
+    assert retrieved.reading == "nǐ hǎo"
     assert retrieved.hsk_level == 1
 
     known = store.get_known_words()

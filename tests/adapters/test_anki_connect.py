@@ -20,7 +20,7 @@ def sample_sentences():
     return [
         Sentence(
             id=1, video_id=1, start_ms=0, end_ms=1000,
-            text="你好", pinyin="nǐ hǎo",
+            text="你好", reading="nǐ hǎo",
             translation_de="Hallo", unknown_word="你好",
             status="kept",
         ),
@@ -81,7 +81,7 @@ def test_export_handles_audio(adapter):
         sentences = [
             Sentence(
                 id=1, video_id=1, start_ms=0, end_ms=1000,
-                text="你好", pinyin="nǐ hǎo",
+                text="你好", reading="nǐ hǎo",
                 translation_de="Hallo", unknown_word="你好",
                 audio_clip_path=audio_path, status="kept",
             ),
@@ -171,14 +171,14 @@ def test_snapshot_note_payload(adapter, sample_sentences):
 
         fields = note["fields"]
         assert fields["sentence_zh"] == "你好"
-        assert fields["sentence_pinyin"] == "nǐ hǎo"
+        assert fields["sentence_reading"] == "nǐ hǎo"
         assert fields["translation_de"] == "Hallo"
         assert fields["unknown_word"] == "你好"
         assert fields["audio"] == ""  # No audio attached
 
         # Verify no extra fields (schema drift)
         assert set(fields.keys()) == {
-            "sentence_zh", "sentence_pinyin", "translation_de",
+            "sentence_zh", "sentence_reading", "translation_de",
             "unknown_word", "audio", "screenshot",
         }
 
@@ -193,7 +193,7 @@ def test_snapshot_note_payload_with_audio(adapter):
         sentences = [
             Sentence(
                 id=1, video_id=1, start_ms=0, end_ms=1000,
-                text="你好", pinyin="nǐ hǎo",
+                text="你好", reading="nǐ hǎo",
                 translation_de="Hallo", unknown_word="你好",
                 audio_clip_path=audio_path, status="kept",
             ),

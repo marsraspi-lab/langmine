@@ -65,9 +65,11 @@ def test_serve_creates_app_with_real_adapters(tmp_path):
     from langmine.web.app import create_app
     from langmine.adapters import (
         SQLitePersistence, YouTubeTranscriptAdapter, YtdlpAudioAdapter,
-        GoogleTranslateAdapter, CcCedictAdapter, JiebaFrequencyAdapter,
+        GoogleTranslateAdapter,
     )
-    from langmine.domain.services.chinese import ChineseLanguageService
+    from langmine.languages.chinese import (
+        ChineseLanguageService, CcCedictAdapter, JiebaFrequencyAdapter,
+    )
 
     app = create_app(
         persistence=SQLitePersistence(),

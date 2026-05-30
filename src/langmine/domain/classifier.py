@@ -111,11 +111,11 @@ class SentenceClassifier:
         Only enriches i+1 and kept sentences (the ones shown to the user).
         """
         for sentence in sentences:
-            # Pinyin for all sentences
-            sentence.pinyin = self._processor.get_reading(sentence.text)
+            # Reading for all sentences
+            sentence.reading = self._processor.get_reading(sentence.text)
 
-            # Ruby annotations for all sentences
-            sentence.ruby_json = self._processor.get_ruby(sentence.text)
+            # Annotations for all sentences
+            sentence.annotation_json = self._processor.get_annotation(sentence.text)
 
             # Translation and word info for i+1 and kept sentences
             if sentence.status in ("i1", "kept"):

@@ -6,6 +6,29 @@ Run after every milestone. If any check fails, fix before proceeding.
 
 ---
 
+## 0. Language Extension Isolation
+
+```bash
+# domain/ must NEVER import from languages/
+grep -r "from langmine.languages" src/langmine/domain/      # must be empty
+
+# web/ must NEVER import from languages/
+grep -r "from langmine.languages" src/langmine/web/         # must be empty
+
+# Language packages must NEVER cross-import each other
+grep -r "from langmine.languages" src/langmine/languages/chinese/ | grep -v languages.chinese  # must be empty
+
+# Language packages must NEVER import from web/
+grep -r "from langmine.web" src/langmine/languages/          # must be empty
+```
+
+- [ ] `domain/` imports nothing from `languages/`
+- [ ] `web/` imports nothing from `languages/`
+- [ ] No cross-imports between language packages
+- [ ] `languages/` imports nothing from `web/`
+
+---
+
 ## 1. Import Direction
 
 ```bash
@@ -65,14 +88,21 @@ pytest tests/ --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py -v
 ```text
 Allowed:
   cli → pipeline → domain
+  cli → language_factory → languages/<lang>         (single switch point)
   adapters → domain (implements ports)
   adapters → external libs (subprocess, sqlite3, requests)
+  languages/<lang> → domain ports (implements LanguageProcessor)
+  languages/<lang> → external NLP libs (jieba, pypinyin, etc.)
 
 Forbidden:
   domain → adapters        ← THE CARDINAL SIN
+  domain → languages       ← must go through factory
   domain → external libs
+  web → languages          ← must go through factory
   port → port              (ports are independent)
   adapter → adapter
+  languages/<lang> → languages/<other_lang>    ← cross-language
+  languages/<lang> → web
 ```
 
 - [ ] No forbidden dependency edges exist
@@ -89,3 +119,4 @@ Forbidden:
 | M3: Web UI | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: web module at edge — injects ports from config, no adapter imports. Check 4: web imports domain ports only, adapters wired in CLI. Check 6: 83/83 domain tests pass without ffmpeg/network. New: 21 web API tests (fake ports), 1 serve wiring test. |
 | M4–M9 (Translate, Export, Stash, Polish, Docker, Vocab) | ✅ Pass | All milestones: domain imports checked, adapters isolated, E2E coverage grows (37 tests). Cardinal rule preserved across all additions. |
 | M10–M14 (Reading, Cloze, Image, Preview, Ruby) | ✅ Pass | All milestones: 203 pytest + 42 E2E. `ImageSearch` port added, `ruby_json` on Sentence model, VocabPage deep-dive. No domain→adapter violations. |
+| Decouple Chinese | ✅ Pass | Check 0 (new): zero domain→languages, zero web→languages, no cross-language imports. `language_factory.py` as single switch point. `languages/chinese/` has 6 source files + 4 tests. 217 tests pass. |

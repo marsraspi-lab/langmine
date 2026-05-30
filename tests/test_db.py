@@ -76,7 +76,7 @@ def test_vocab_table_schema():
         col_names = [c[1] for c in columns]
 
         assert "word_simplified" in col_names
-        assert "pinyin" in col_names
+        assert "reading" in col_names
         assert "hsk_level" in col_names
         assert "frequency_rank" in col_names
         assert "status" in col_names

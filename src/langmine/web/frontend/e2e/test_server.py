@@ -58,7 +58,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakePersistence(Persistence):
@@ -138,7 +138,7 @@ class FakePersistence(Persistence):
         if search:
             words = [w for w in words
                      if search.lower() in w.word_simplified.lower()
-                     or search.lower() in (w.pinyin or "").lower()]
+                     or search.lower() in (w.reading or "").lower()]
         words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
         total = len(words)
         start = (page - 1) * per_page
@@ -181,7 +181,8 @@ sentences = [
         video_id=video.id, start_ms=1000, end_ms=3000,
         text="我们 一般 早上 起床",
         text_segmented="我们 / 一般 / 早上 / 起床",
-        pinyin="wǒmen yībān zǎoshang qǐchuáng",
+        reading="wǒmen yībān zǎoshang qǐchuáng",
+        annotation_json="[]",
         translation_de="Wir stehen normalerweise morgens auf",
         unknown_word="一般", unknown_word_rank=1847,
         audio_clip_path="/tmp/clip1.mp3",
@@ -194,7 +195,8 @@ sentences = [
         video_id=video.id, start_ms=4000, end_ms=7000,
         text="我 爱 学习",
         text_segmented="我 / 爱 / 学习",
-        pinyin="wǒ ài xuéxí",
+        reading="wǒ ài xuéxí",
+        annotation_json="[]",
         translation_de="Ich liebe es zu lernen",
         audio_clip_path="",
         status="i0",
@@ -204,7 +206,8 @@ sentences = [
         video_id=video.id, start_ms=8000, end_ms=12000,
         text="我们 需要 提高 效率 和 管理 水平",
         text_segmented="我们 / 需要 / 提高 / 效率 / 和 / 管理 / 水平",
-        pinyin="wǒmen xūyào tígāo xiàolǜ hé guǎnlǐ shuǐpíng",
+        reading="wǒmen xūyào tígāo xiàolǜ hé guǎnlǐ shuǐpíng",
+        annotation_json="[]",
         translation_de="Wir müssen Effizienz und Management verbessern",
         audio_clip_path="",
         status="stashed",
@@ -214,7 +217,8 @@ sentences = [
         video_id=video.id, start_ms=13000, end_ms=16000,
         text="今天 天气 很 好",
         text_segmented="今天 / 天气 / 很 / 好",
-        pinyin="jīntiān tiānqì hěn hǎo",
+        reading="jīntiān tiānqì hěn hǎo",
+        annotation_json="[]",
         translation_de="Heute ist das Wetter sehr gut",
         unknown_word="天气", unknown_word_rank=2500,
         status="kept",
@@ -225,17 +229,17 @@ for s in sentences:
 
 # Seed vocab words for M9 tests — word highlighting and vocab page
 vocab_words = [
-    VocabWord(word_simplified="一般", pinyin="yībān", definition_de="allgemein",
+    VocabWord(word_simplified="一般", reading="yībān", definition_de="allgemein",
               hsk_level=3, frequency_rank=1847, status="learning"),
-    VocabWord(word_simplified="效率", pinyin="xiàolǜ", definition_de="Effizienz",
+    VocabWord(word_simplified="效率", reading="xiàolǜ", definition_de="Effizienz",
               hsk_level=5, frequency_rank=3412, status="learning"),
-    VocabWord(word_simplified="管理", pinyin="guǎnlǐ", definition_de="Verwaltung",
+    VocabWord(word_simplified="管理", reading="guǎnlǐ", definition_de="Verwaltung",
               hsk_level=4, frequency_rank=2100, status="learning"),
-    VocabWord(word_simplified="学习", pinyin="xuéxí", definition_de="lernen",
+    VocabWord(word_simplified="学习", reading="xuéxí", definition_de="lernen",
               hsk_level=1, frequency_rank=500, status="known"),
-    VocabWord(word_simplified="我们", pinyin="wǒmen", definition_de="wir",
+    VocabWord(word_simplified="我们", reading="wǒmen", definition_de="wir",
               hsk_level=1, frequency_rank=100, status="known"),
-    VocabWord(word_simplified="早上", pinyin="zǎoshang", definition_de="Morgen",
+    VocabWord(word_simplified="早上", reading="zǎoshang", definition_de="Morgen",
               hsk_level=1, frequency_rank=800, status="known"),
 ]
 for w in vocab_words:

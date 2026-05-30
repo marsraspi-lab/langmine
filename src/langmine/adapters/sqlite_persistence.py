@@ -72,10 +72,10 @@ class SQLitePersistence(Persistence):
             if s.id:
                 self.conn.execute(
                     """UPDATE sentences SET status=?, translation_de=?,
-                       pinyin=?, text_segmented=?, unknown_word=?,
+                       reading=?, text_segmented=?, unknown_word=?,
                        screenshot_enabled=?
                        WHERE id=?""",
-                    (s.status, s.translation_de, s.pinyin,
+                    (s.status, s.translation_de, s.reading,
                      s.text_segmented, s.unknown_word,
                      int(s.screenshot_enabled), s.id),
                 )
@@ -83,13 +83,13 @@ class SQLitePersistence(Persistence):
                 cursor = self.conn.execute(
                     """INSERT INTO sentences
                        (video_id, start_ms, end_ms, text, text_segmented,
-                        non_words_json, pinyin, translation_de, unknown_word,
+                        non_words_json, reading, translation_de, unknown_word,
                         unknown_word_rank, known_synonyms_json,
                         audio_clip_path, screenshot_path, screenshot_enabled,
                         status)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (s.video_id, s.start_ms, s.end_ms, s.text,
-                     s.text_segmented, s.non_words_json, s.pinyin,
+                     s.text_segmented, s.non_words_json, s.reading,
                      s.translation_de, s.unknown_word, s.unknown_word_rank,
                      s.known_synonyms_json, s.audio_clip_path,
                      s.screenshot_path, int(s.screenshot_enabled), s.status),
@@ -122,9 +122,9 @@ class SQLitePersistence(Persistence):
             raise ValueError("Cannot update sentence without id")
         self.conn.execute(
             """UPDATE sentences SET status=?, translation_de=?,
-               pinyin=?, text_segmented=?, unknown_word=?,
+               reading=?, text_segmented=?, unknown_word=?,
                screenshot_enabled=? WHERE id=?""",
-            (sentence.status, sentence.translation_de, sentence.pinyin,
+            (sentence.status, sentence.translation_de, sentence.reading,
              sentence.text_segmented, sentence.unknown_word,
              int(sentence.screenshot_enabled), sentence.id),
         )
@@ -147,10 +147,10 @@ class SQLitePersistence(Persistence):
     def save_vocab_word(self, word: VocabWord) -> None:
         self.conn.execute(
             """INSERT OR REPLACE INTO vocab
-               (word_simplified, word_traditional, pinyin, definition_de,
+               (word_simplified, word_traditional, reading, definition_de,
                 hsk_level, frequency_rank, status)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (word.word_simplified, word.word_traditional, word.pinyin,
+            (word.word_simplified, word.word_traditional, word.reading,
              word.definition_de, word.hsk_level, word.frequency_rank,
              word.status),
         )
@@ -211,7 +211,7 @@ class SQLitePersistence(Persistence):
             where.append("status = ?")
             params.append(status)
         if search:
-            where.append("(word_simplified LIKE ? OR pinyin LIKE ?)")
+            where.append("(word_simplified LIKE ? OR reading LIKE ?)")
             params.extend([f"%{search}%", f"%{search}%"])
 
         where_clause = f"WHERE {' AND '.join(where)}" if where else ""
@@ -270,7 +270,7 @@ class SQLitePersistence(Persistence):
             text=row["text"],
             text_segmented=row["text_segmented"] or "",
             non_words_json=row["non_words_json"] or "",
-            pinyin=row["pinyin"] or "",
+            reading=row["reading"] or "",
             translation_de=row["translation_de"] or "",
             unknown_word=row["unknown_word"],
             unknown_word_rank=row["unknown_word_rank"],
@@ -286,7 +286,7 @@ class SQLitePersistence(Persistence):
             id=row["id"],
             word_simplified=row["word_simplified"],
             word_traditional=row["word_traditional"] or "",
-            pinyin=row["pinyin"] or "",
+            reading=row["reading"] or "",
             definition_de=row["definition_de"] or "",
             hsk_level=row["hsk_level"],
             frequency_rank=row["frequency_rank"],

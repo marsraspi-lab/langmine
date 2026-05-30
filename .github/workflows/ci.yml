@@ -44,6 +44,38 @@ jobs:
             done
           fi
 
+      - name: "Architecture: domain never imports from languages/"
+        run: |
+          echo "=== Cardinal rule: domain → languages must be empty ==="
+          ! grep -r "from langmine.languages\|import langmine.languages" src/langmine/domain/
+
+      - name: "Architecture: web never imports from languages/"
+        run: |
+          echo "=== Web must not import languages (use port + factory) ==="
+          ! grep -r "from langmine.languages\|import langmine.languages" src/langmine/web/
+
+      - name: "Architecture: languages never cross-import"
+        run: |
+          echo "=== Each language is self-contained ==="
+          LANGS=$(ls -d src/langmine/languages/*/ 2>/dev/null || true)
+          for lang_dir in $LANGS; do
+            lang_name=$(basename "$lang_dir")
+            for other_dir in $LANGS; do
+              other_name=$(basename "$other_dir")
+              if [ "$lang_name" != "$other_name" ]; then
+                if grep -r "from langmine.languages.$other_name\|import langmine.languages.$other_name" "$lang_dir" 2>/dev/null; then
+                  echo "FAIL: $lang_name imports from $other_name"
+                  exit 1
+                fi
+              fi
+            done
+          done
+
+      - name: "Architecture: languages never import from web/"
+        run: |
+          echo "=== Languages must not import web layer ==="
+          ! grep -r "from langmine.web\|import langmine.web" src/langmine/languages/
+
       - name: Run domain + adapter tests (no ffmpeg)
         run: python -m pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
 

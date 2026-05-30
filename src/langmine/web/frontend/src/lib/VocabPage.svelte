@@ -147,7 +147,7 @@
       <span class="search-icon">🔍</span>
       <input
         type="text"
-        placeholder="Search by word or pinyin..."
+        placeholder="Search by word or reading..."
         value={searchQuery}
         oninput={onSearchInput}
         class="search-input"
@@ -214,8 +214,8 @@
         >
           <span class="word-status-emoji">{statusEmoji(word.status)}</span>
           <span class="word-text">{word.word}</span>
-          {#if word.pinyin}
-            <span class="word-pinyin">{word.pinyin}</span>
+          {#if word.reading}
+            <span class="word-pinyin">{word.reading}</span>
           {/if}
           <span class="word-badges">
             {#if word.frequency_rank}
@@ -238,8 +238,8 @@
               <div class="detail-content">
                 <div class="detail-header">
                   <span class="detail-word">{wordDetail.word}</span>
-                  {#if wordDetail.pinyin}
-                    <span class="detail-pinyin">{wordDetail.pinyin}</span>
+                  {#if wordDetail.reading}
+                    <span class="detail-pinyin">{wordDetail.reading}</span>
                   {/if}
                 </div>
 

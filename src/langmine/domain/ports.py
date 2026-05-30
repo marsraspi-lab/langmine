@@ -78,10 +78,11 @@ class LanguageProcessor(ABC):
         """Return any known synonyms of `word`."""
 
     @abstractmethod
-    def get_ruby(self, text: str) -> str:
-        """Return JSON string of [{char, pinyin, tone}] per character.
+    def get_annotation(self, text: str) -> str:
+        """Return JSON string of character-level annotations.
 
-        Tone values: 1-5 (Pleco convention — 5 = neutral).
+        For CJK: [{char, pinyin, tone}] per character (Pleco tone colors 1-5).
+        For other languages: may return "[]" or language-specific annotations.
         """
 
 

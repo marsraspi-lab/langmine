@@ -45,7 +45,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         return token in {"的", "了", "吗", "啊", "呢", "吧"}
 
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakePersistence(Persistence):
@@ -155,7 +155,7 @@ class FakePersistence(Persistence):
         if search:
             words = [w for w in words
                      if search.lower() in w.word_simplified.lower()
-                     or search.lower() in (w.pinyin or "").lower()]
+                     or search.lower() in (w.reading or "").lower()]
         # Sort by frequency_rank (None last)
         words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
         total = len(words)
@@ -631,12 +631,12 @@ class TestSentenceEdits:
         client, _ = client_with_sentences
         resp = client.patch(
             "/api/sentences/1",
-            data=json.dumps({"pinyin": "wǒmen yībān zǎoshang qǐchuáng"}),
+            data=json.dumps({"reading": "wǒmen yībān zǎoshang qǐchuáng"}),
             content_type="application/json",
         )
         assert resp.status_code == 200
         data = json.loads(resp.data)
-        assert data["sentence"]["pinyin"] == "wǒmen yībān zǎoshang qǐchuáng"
+        assert data["sentence"]["reading"] == "wǒmen yībān zǎoshang qǐchuáng"
 
     def test_edit_translation(self, client_with_sentences):
         """Should update translation_de field."""
@@ -656,14 +656,14 @@ class TestSentenceEdits:
         resp = client.patch(
             "/api/sentences/1",
             data=json.dumps({
-                "pinyin": "new pinyin",
+                "reading": "new reading",
                 "translation_de": "new translation",
             }),
             content_type="application/json",
         )
         assert resp.status_code == 200
         data = json.loads(resp.data)
-        assert data["sentence"]["pinyin"] == "new pinyin"
+        assert data["sentence"]["reading"] == "new reading"
         assert data["sentence"]["translation_de"] == "new translation"
 
     def test_edit_and_status_together(self, client_with_sentences):
@@ -672,14 +672,14 @@ class TestSentenceEdits:
         resp = client.patch(
             "/api/sentences/1",
             data=json.dumps({
-                "pinyin": "corrected pinyin",
+                "reading": "corrected reading",
                 "status": "kept",
             }),
             content_type="application/json",
         )
         assert resp.status_code == 200
         data = json.loads(resp.data)
-        assert data["sentence"]["pinyin"] == "corrected pinyin"
+        assert data["sentence"]["reading"] == "corrected reading"
         assert data["sentence"]["status"] == "kept"
 
     def test_reclassify_on_segmentation_change(self, client_with_sentences):
@@ -715,7 +715,7 @@ class TestSentenceEdits:
         """Should return 404 for non-existent sentence."""
         resp = client.patch(
             "/api/sentences/999",
-            data=json.dumps({"pinyin": "test"}),
+            data=json.dumps({"reading": "test"}),
             content_type="application/json",
         )
         assert resp.status_code == 404
@@ -784,7 +784,7 @@ class TestTranscriptEndpoint:
         data = json.loads(resp.data)
         sentence = data["sentences"][0]
         assert "text" in sentence
-        assert "pinyin" in sentence
+        assert "reading" in sentence
         assert "translation_de" in sentence
         assert "words" in sentence
         assert "status" in sentence

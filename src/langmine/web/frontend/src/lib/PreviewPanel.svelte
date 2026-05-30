@@ -51,8 +51,8 @@
                 <span class="word-token word-{word.status}">{word.token}</span>
               {/each}
             </span>
-            {#if sentence.pinyin}
-              <div class="sentence-pinyin">{sentence.pinyin}</div>
+            {#if sentence.reading}
+              <div class="sentence-pinyin">{sentence.reading}</div>
             {/if}
             {#if sentence.translation_de}
               <div class="sentence-translation">{sentence.translation_de}</div>
@@ -164,7 +164,7 @@
     color: var(--text-secondary);
     opacity: 0.6;
   }
-  .sentence-pinyin {
+  .sentence-reading {
     color: var(--text-secondary);
     font-size: 0.75rem;
     margin-top: 2px;

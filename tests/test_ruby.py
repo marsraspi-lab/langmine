@@ -37,7 +37,7 @@ class FakeRubyProcessor(LanguageProcessor):
     def find_known_synonyms(self, word, known_words):
         return []
 
-    def get_ruby(self, text: str) -> str:
+    def get_annotation(self, text: str) -> str:
         """Return ruby JSON for text: one entry per character."""
         entries = []
         for char in text:
@@ -69,12 +69,12 @@ class FakePersistence:
 # === Tests: Ruby generation ===
 
 class TestRubyGeneration:
-    """get_ruby() produces character-level pinyin + tone data."""
+    """get_annotation() produces character-level pinyin + tone data."""
 
     def test_ruby_returns_valid_json_array(self):
-        """get_ruby returns a JSON array of character entries."""
+        """get_annotation returns a JSON array of character entries."""
         processor = FakeRubyProcessor()
-        result = processor.get_ruby("abc")
+        result = processor.get_annotation("abc")
         data = json.loads(result)
 
         assert isinstance(data, list)
@@ -83,7 +83,7 @@ class TestRubyGeneration:
     def test_ruby_each_entry_has_char_pinyin_tone(self):
         """Each entry has char, pinyin, and tone fields."""
         processor = FakeRubyProcessor()
-        result = processor.get_ruby("ab")
+        result = processor.get_annotation("ab")
         data = json.loads(result)
 
         for entry in data:
@@ -94,7 +94,7 @@ class TestRubyGeneration:
     def test_ruby_tone_is_int_1_to_5(self):
         """Tone values are integers 1-5 (Pleco convention)."""
         processor = FakeRubyProcessor()
-        result = processor.get_ruby("a你")
+        result = processor.get_annotation("a你")
         data = json.loads(result)
 
         for entry in data:
@@ -105,7 +105,7 @@ class TestRubyGeneration:
         """Number of entries equals number of characters in input text."""
         processor = FakeRubyProcessor()
         for text in ["你好", "hello world", "测试abc", ""]:
-            result = processor.get_ruby(text)
+            result = processor.get_annotation(text)
             data = json.loads(result)
             assert len(data) == len(text), (
                 f"Text '{text}' ({len(text)} chars) → {len(data)} entries"
@@ -115,10 +115,10 @@ class TestRubyGeneration:
 # === Tests: Sentence enrichment ===
 
 class TestRubyEnrichment:
-    """SentenceClassifier.enrich() populates ruby_json on sentences."""
+    """SentenceClassifier.enrich() populates annotation_json on sentences."""
 
-    def test_enrich_populates_ruby_json(self):
-        """After enrich(), sentences have non-empty ruby_json."""
+    def test_enrich_populates_annotation_json(self):
+        """After enrich(), sentences have non-empty annotation_json."""
         processor = FakeRubyProcessor()
         persistence = FakePersistence(known_words={"你", "好"})
         classifier = SentenceClassifier(processor, persistence)
@@ -132,12 +132,12 @@ class TestRubyEnrichment:
         ]
         classifier.enrich(sentences)
 
-        assert sentences[0].ruby_json, "ruby_json should not be empty"
-        data = json.loads(sentences[0].ruby_json)
+        assert sentences[0].annotation_json, "annotation_json should not be empty"
+        data = json.loads(sentences[0].annotation_json)
         assert len(data) == 2  # 你, 好
 
-    def test_ruby_json_matches_text_length(self):
-        """ruby_json has one entry per character."""
+    def test_annotation_json_matches_text_length(self):
+        """annotation_json has one entry per character."""
         processor = FakeRubyProcessor()
         persistence = FakePersistence()
         classifier = SentenceClassifier(processor, persistence)
@@ -151,7 +151,7 @@ class TestRubyEnrichment:
         ]
         classifier.enrich(sentences)
 
-        data = json.loads(sentences[0].ruby_json)
+        data = json.loads(sentences[0].annotation_json)
         assert len(data) == 4  # 测, 试, 文, 本
 
 
@@ -161,7 +161,7 @@ class TestRubyAPI:
     """Sentence API response includes ruby field."""
 
     def test_sentence_to_dict_includes_ruby(self):
-        """_sentence_to_dict returns ruby field from ruby_json."""
+        """_sentence_to_dict returns ruby field from annotation_json."""
         from langmine.web.routes import _sentence_to_dict
 
         ruby = json.dumps([
@@ -173,45 +173,45 @@ class TestRubyAPI:
             id=1, video_id=1,
             start_ms=0, end_ms=1000,
             text="你好", text_segmented="你 / 好",
-            pinyin="ni3 hao3", translation_de="Hallo",
-            ruby_json=ruby, status="kept",
+            reading="ni3 hao3", translation_de="Hallo",
+            annotation_json=ruby, status="kept",
         )
 
         result = _sentence_to_dict(sentence)
-        assert "ruby" in result
-        assert result["ruby"] is not None
-        data = result["ruby"]
+        assert "annotation" in result
+        assert result["annotation"] is not None
+        data = result["annotation"]
         assert len(data) == 2
         assert data[0]["char"] == "你"
         assert data[0]["tone"] == 3
 
     def test_sentence_to_dict_handles_empty_ruby(self):
-        """Empty ruby_json returns empty list."""
+        """Empty annotation_json returns empty list."""
         from langmine.web.routes import _sentence_to_dict
 
         sentence = Sentence(
             id=1, video_id=1,
             start_ms=0, end_ms=1000,
             text="你好", text_segmented="你 / 好",
-            ruby_json="", status="kept",
+            annotation_json="", status="kept",
         )
 
         result = _sentence_to_dict(sentence)
-        assert result["ruby"] == []
+        assert result["annotation"] == []
 
-    def test_sentence_to_dict_handles_invalid_ruby_json(self):
-        """Invalid ruby_json returns empty list (graceful)."""
+    def test_sentence_to_dict_handles_invalid_annotation_json(self):
+        """Invalid annotation_json returns empty list (graceful)."""
         from langmine.web.routes import _sentence_to_dict
 
         sentence = Sentence(
             id=1, video_id=1,
             start_ms=0, end_ms=1000,
             text="你好", text_segmented="你 / 好",
-            ruby_json="{invalid json", status="kept",
+            annotation_json="{invalid json", status="kept",
         )
 
         result = _sentence_to_dict(sentence)
-        assert result["ruby"] == []
+        assert result["annotation"] == []
 
 
 # === Tests: Ruby edit API ===
@@ -228,7 +228,7 @@ class FakeRbProcessor(LanguageProcessor):
     def get_frequency(self, word): return 1000
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
     def find_known_synonyms(self, word, known_words): return []
-    def get_ruby(self, text): return "[]"
+    def get_annotation(self, text): return "[]"
 
 
 class FakeRbPersistence(Persistence):
@@ -300,7 +300,7 @@ def rb_client(rb_persistence):
 
 @pytest.fixture
 def client_with_ruby_sentence(rb_client, rb_persistence):
-    """Seed a sentence with pre-populated ruby_json."""
+    """Seed a sentence with pre-populated annotation_json."""
     video = Video(youtube_id="test12345678", title="Test", channel="C")
     rb_persistence.save_video(video)
     ruby = _json.dumps([
@@ -310,36 +310,36 @@ def client_with_ruby_sentence(rb_client, rb_persistence):
     sentence = Sentence(
         video_id=video.id, start_ms=0, end_ms=1000,
         text="你好", text_segmented="你 / 好",
-        ruby_json=ruby, status="kept",
+        annotation_json=ruby, status="kept",
     )
     rb_persistence.save_sentences([sentence])
     return rb_client, sentence
 
 
 class TestRubyEditEndpoint:
-    """PATCH /api/sentences/:id/ruby — update a single ruby entry."""
+    """PATCH /api/sentences/:id/annotation — update a single ruby entry."""
 
     def test_update_single_ruby_entry(self, client_with_ruby_sentence):
         """Updating one character's pinyin and tone persists the change."""
         client, sentence = client_with_ruby_sentence
 
         resp = client.patch(
-            f"/api/sentences/{sentence.id}/ruby",
+            f"/api/sentences/{sentence.id}/annotation",
             json={"index": 0, "pinyin": "ni3", "tone": 3},
         )
         assert resp.status_code == 200
         data = _json.loads(resp.data)
         assert data["ok"] is True
-        assert data["ruby"][0]["pinyin"] == "ni3"
-        assert data["ruby"][0]["tone"] == 3
-        assert data["ruby"][1]["char"] == "好"
+        assert data["annotation"][0]["pinyin"] == "ni3"
+        assert data["annotation"][0]["tone"] == 3
+        assert data["annotation"][1]["char"] == "好"
 
     def test_ruby_edit_rejects_invalid_index(self, client_with_ruby_sentence):
         """Index out of range returns 400."""
         client, sentence = client_with_ruby_sentence
 
         resp = client.patch(
-            f"/api/sentences/{sentence.id}/ruby",
+            f"/api/sentences/{sentence.id}/annotation",
             json={"index": 99, "pinyin": "x"},
         )
         assert resp.status_code == 400
@@ -351,15 +351,15 @@ class TestRubyEditEndpoint:
         client, sentence = client_with_ruby_sentence
 
         resp = client.patch(
-            f"/api/sentences/{sentence.id}/ruby",
-            json={"pinyin": "ni"},
+            f"/api/sentences/{sentence.id}/annotation",
+            json={"reading": "ni"},
         )
         assert resp.status_code == 400
 
     def test_ruby_edit_404_for_nonexistent_sentence(self, rb_client):
         """Nonexistent sentence returns 404."""
         resp = rb_client.patch(
-            "/api/sentences/999/ruby",
+            "/api/sentences/999/annotation",
             json={"index": 0, "pinyin": "ni"},
         )
         assert resp.status_code == 404

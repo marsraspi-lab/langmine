@@ -15,7 +15,7 @@ from langmine.domain.ports import (
 
 
 VALID_SENTENCE_STATUSES = {"kept", "deleted"}
-EDITABLE_FIELDS = {"pinyin", "translation_de", "text_segmented"}
+EDITABLE_FIELDS = {"reading", "translation_de", "text_segmented"}
 
 
 def register_routes(app: Flask):
@@ -201,7 +201,7 @@ def register_routes(app: Flask):
             entry = {
                 "text": m.text,
                 "text_segmented": " / ".join(tokens),
-                "pinyin": processor.get_reading(m.text),
+                "reading": processor.get_reading(m.text),
                 "translation_de": processor.translate_sentence(m.text),
                 "words": words,
                 "start_ms": m.start_ms,
@@ -259,7 +259,7 @@ def register_routes(app: Flask):
 
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
     def update_sentence(sentence_id: int):
-        """Update sentence fields: status, pinyin, translation_de, text_segmented.
+        """Update sentence fields: status, reading, translation_de, text_segmented.
 
         text_segmented changes trigger re-classification of unknown words.
         """
@@ -406,12 +406,12 @@ def register_routes(app: Flask):
             "cloze_image_url": sentence.cloze_image_url,
         })
 
-    @app.route("/api/sentences/<int:sentence_id>/ruby", methods=["PATCH"])
-    def update_ruby(sentence_id: int):
-        """Update a single ruby annotation entry for a sentence.
+    @app.route("/api/sentences/<int:sentence_id>/annotation", methods=["PATCH"])
+    def update_annotation(sentence_id: int):
+        """Update a single annotation entry for a sentence.
 
-        Accepts {index, char?, pinyin?, tone?, definition?}.
-        Updates the ruby_json entry at the given index and persists.
+        Accepts {index, char?, reading?, tone?, definition?}.
+        Updates the annotation_json entry at the given index and persists.
         """
         persistence = _get_persistence()
         sentence = _find_sentence(persistence, sentence_id)
@@ -424,26 +424,26 @@ def register_routes(app: Flask):
 
         index = data["index"]
 
-        # Parse existing ruby data
+        # Parse existing annotation data
         try:
-            ruby = json.loads(sentence.ruby_json or "[]")
+            annotation = json.loads(sentence.annotation_json or "[]")
         except (json.JSONDecodeError, TypeError):
-            ruby = []
+            annotation = []
 
-        if not isinstance(ruby, list) or index < 0 or index >= len(ruby):
+        if not isinstance(annotation, list) or index < 0 or index >= len(annotation):
             return jsonify({
-                "error": f"Index {index} out of range (0-{len(ruby) - 1 if ruby else -1})"
+                "error": f"Index {index} out of range (0-{len(annotation) - 1 if annotation else -1})"
             }), 400
 
-        entry = ruby[index]
+        entry = annotation[index]
         for field in ("char", "pinyin", "tone", "definition"):
             if field in data:
                 entry[field] = data[field]
 
-        sentence.ruby_json = json.dumps(ruby)
+        sentence.annotation_json = json.dumps(annotation)
         persistence.update_sentence(sentence)
 
-        return jsonify({"ok": True, "ruby": ruby})
+        return jsonify({"ok": True, "annotation": annotation})
 
     # === Vocab API ===
 
@@ -533,7 +533,6 @@ def register_routes(app: Flask):
             "audio_pad_after_ms": config.audio_pad_after_ms,
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
-            "hsk_bootstrap": config.hsk_bootstrap,
             "user_agent": config.user_agent,
         })
 
@@ -551,7 +550,7 @@ def register_routes(app: Flask):
             "anki_connect_url", "deck_name", "note_type",
             "source_language", "target_language", "translation_api",
             "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
-            "max_cards_per_video", "max_stash_cards", "hsk_bootstrap",
+            "max_cards_per_video", "max_stash_cards",
             "deepl_api_key",
             "cloze_note_type", "cloze_card_css",
             "cloze_card_front_template", "cloze_card_back_template",
@@ -756,7 +755,7 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
         "video_id": sentence.video_id,
         "text": sentence.text,
         "text_segmented": sentence.text_segmented,
-        "pinyin": sentence.pinyin,
+        "reading": sentence.reading,
         "translation_de": sentence.translation_de,
         "unknown_word": sentence.unknown_word,
         "unknown_word_rank": sentence.unknown_word_rank,
@@ -770,11 +769,11 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
     # Compute frequency badge from rank
     result["frequency_badge"] = frequency_badge(sentence.unknown_word_rank)
 
-    # Ruby annotations — parse JSON, fallback to empty list
+    # Annotations — parse JSON, fallback to empty list
     try:
-        result["ruby"] = json.loads(sentence.ruby_json) if sentence.ruby_json else []
+        result["annotation"] = json.loads(sentence.annotation_json) if sentence.annotation_json else []
     except (json.JSONDecodeError, TypeError):
-        result["ruby"] = []
+        result["annotation"] = []
 
     # Enrich with per-word metadata for highlighting
     if persistence is not None:
@@ -785,7 +784,7 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
 
 def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
     """Build the words[] array for a sentence with status/metadata per token."""
-    from langmine.hsk_data import get_hsk_level
+    from langmine.language_factory import get_proficiency_level as get_hsk_level
 
     tokens = [t.strip() for t in sentence.text_segmented.split(" / ") if t.strip()]
     if not tokens:
@@ -816,7 +815,7 @@ def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
 
 def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
     """Convert a VocabWord to a JSON-safe dict with sentence count."""
-    from langmine.hsk_data import get_hsk_level
+    from langmine.language_factory import get_proficiency_level as get_hsk_level
     from langmine.domain.models import frequency_badge
 
     sentence_count = 0
@@ -829,7 +828,7 @@ def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
 
     return {
         "word": word.word_simplified,
-        "pinyin": word.pinyin,
+        "reading": word.reading,
         "definition_de": word.definition_de,
         "definition_en": "",  # VocabWord doesn't store EN; filled if needed
         "hsk_level": hsk,
@@ -842,7 +841,7 @@ def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
 
 def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
     """Build a vocab dict for a word not yet in the vocab table."""
-    from langmine.hsk_data import get_hsk_level
+    from langmine.language_factory import get_proficiency_level as get_hsk_level
     from langmine.domain.models import frequency_badge
 
     sentences = persistence.get_sentences_by_word(word)
@@ -850,7 +849,7 @@ def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
 
     return {
         "word": word,
-        "pinyin": "",
+        "reading": "",
         "definition_de": "",
         "definition_en": "",
         "hsk_level": hsk,

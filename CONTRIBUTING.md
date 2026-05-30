@@ -114,14 +114,21 @@ grep -r "from langmine.adapters\|from langmine.web" src/langmine/domain/
 ```
 Allowed:
   cli → domain ports + adapters        (wiring)
+  cli → language_factory → languages/  (single switch point)
   web → domain ports                   (API uses ports)
   adapters → domain ports              (implements ports)
   adapters → external libs             (subprocess, sqlite3, requests)
+  languages/<lang> → domain ports      (implements LanguageProcessor)
+  languages/<lang> → external NLP      (jieba, pypinyin, etc.)
 
 Forbidden:
   domain → adapters        ← THE CARDINAL SIN
+  domain → languages       ← must go through factory
   domain → external libs
+  web → languages          ← must go through factory
   adapter → adapter
+  languages/<lang> → languages/<other_lang>
+  languages/<lang> → web
 ```
 
 ### Ports (abstract interfaces in `domain/ports.py`)
@@ -129,13 +136,15 @@ Forbidden:
 | Port | Adapters | What it abstracts |
 |------|----------|------------------|
 | `Persistence` | `SQLitePersistence` | Database — store videos, sentences, vocab |
-| `LanguageProcessor` | `ChineseLanguageService` | NLP — segment, pinyin, dictionary, frequency |
+| `LanguageProcessor` | Factory + `languages/*/service.py` | NLP — segment, reading, dictionary, frequency |
 | `TranscriptSource` | `YouTubeTranscriptAdapter` | Subtitles — fetch from YouTube |
 | `AudioProcessor` | `YtdlpAudioAdapter` | Audio — download MP3, clip sentences, capture frames |
-| `Translator` | `GoogleTranslateAdapter` | Sentence translation (zh→de via deep-translator) |
-| `Dictionary` | `CcCedictAdapter` | Word lookup (CC-CEDICT, 125K entries) |
-| `FrequencySource` | `SubtlexChAdapter`, `JiebaFrequencyAdapter` | Word frequency (SUBTLEX-CH film corpus, jieba dict) |
+| `Translator` | `GoogleTranslateAdapter` | Sentence translation (via deep-translator) |
+| `Dictionary` | `languages/*/dictionary.py` (e.g. CC-CEDICT) | Word lookup |
+| `FrequencySource` | `languages/*/frequency.py` (e.g. SUBTLEX-CH) | Word frequency |
 | `AnkiExporter` | `AnkiConnectAdapter` | Flashcard export (AnkiConnect JSON-RPC) |
+
+**Adding a language:** Create `languages/<code>/` with 4 files: `__init__.py`, `service.py`, `dictionary.py`, `frequency.py`. Add `case "<code>"` to `language_factory.py`. No code changes needed in domain, web, or adapters.
 
 ### Testing with Fake Ports
 
@@ -176,13 +185,13 @@ App.svelte
 ├── Top bar              — brand, curation/settings/vocab nav, theme toggle
 ├── Sidebar.svelte       — video list, mine form, export button, preview
 ├── CardList.svelte      — filter tabs (All/Kept/Deleted/Stash/Read) + sentence cards
-│   ├── SentenceCard.svelte — text, pinyin, translation, audio, ruby, actions
-│   │                         (click-to-edit pinyin/translation/segmentation)
+│   ├── SentenceCard.svelte — text, reading, translation, audio, annotation, actions
+│   │                         (click-to-edit reading/translation/segmentation)
 │   └── TranscriptView.svelte — full reading mode transcript with keyboard shortcuts
 ├── ImagePicker.svelte   — image search grid for cloze card hints
 ├── PreviewPanel.svelte  — difficulty preview stats + read-only transcript
 ├── VocabPage.svelte     — searchable vocabulary list with word detail panel
-├── SettingsPage.svelte  — config form (Anki, NLP, mining, vocab, network)
+├── SettingsPage.svelte  — config form (Anki, Language, Mining, Network) + version footer
 └── Toast overlay        — success/error notifications
 ```
 
@@ -215,6 +224,7 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET
 - **Frontend build step required.** `npm run build` before `langmine serve`.
 - **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests use project-bundled ffmpeg binaries or system PATH fallback.
 - **Frequency tiers** are pure domain logic in `domain/models.py` — adapters delegate to `frequency_tier()`/`frequency_badge()` rather than duplicating thresholds.
+- **Version is a single source of truth** in `pyproject.toml`. Imported via `importlib.metadata.version("langmine")` in Python; exposed via `--version` CLI flag, `/api/version` endpoint, and Settings page footer. Docker build accepts `--build-arg VERSION=x.y.z` for OCI labels.
 
 ---
 
@@ -255,9 +265,11 @@ cd src/langmine/web/frontend && npx playwright test && cd -
 ```
 
 ```bash
-# 2. Architecture: domain never imports from adapters or external I/O
+# 2. Architecture: domain never imports from adapters, web, languages, or external I/O
 grep -r "from.*adapters\|import.*adapters" src/langmine/domain/    # must be EMPTY
 grep -r "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/  # must be EMPTY
+grep -r "from langmine.languages" src/langmine/domain/      # must be EMPTY
+grep -r "from langmine.languages" src/langmine/web/         # must be EMPTY
 ```
 
 ```bash
@@ -272,6 +284,9 @@ cd src/langmine/web/frontend && npm run build && cd -
 | Full test suite | `pytest tests/ -q` (all tests) |
 | E2E tests | `npx playwright test` (42 tests) |
 | Cardinal rule | `grep -r "from.*adapters" src/langmine/domain/` → empty |
+| Domain→languages | `grep -r "from langmine.languages" src/langmine/domain/` → empty |
+| Web→languages | `grep -r "from langmine.languages" src/langmine/web/` → empty |
+| Language cross-imports | `grep -r "from langmine.languages" src/langmine/languages/chinese/ \| grep -v chinese` → empty |
 | No adapter→adapter imports | `grep -r "from langmine.adapters" src/langmine/adapters/` → only `__init__.py` |
 | Frequency tiers in domain | `grep "frequency_tier\|frequency_badge" src/langmine/domain/models.py` → found |
 | Web layer uses ports | `grep -r "from langmine.adapters" src/langmine/web/` → none except wiring in `app.py` |

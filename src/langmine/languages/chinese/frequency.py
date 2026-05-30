@@ -17,7 +17,7 @@ from langmine.domain.ports import FrequencySource
 from langmine.domain.models import frequency_tier, frequency_badge
 
 
-_DATA_PATH = Path(__file__).parent.parent.parent.parent / "data" / "SUBTLEX-CH-WF"
+_DATA_PATH = Path(__file__).parent / "data" / "SUBTLEX-CH-WF"
 
 
 class SubtlexChAdapter(FrequencySource):

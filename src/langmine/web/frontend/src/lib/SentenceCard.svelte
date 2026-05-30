@@ -196,20 +196,20 @@
     <span class="status-badge {sentence.status}">{STATUS_LABELS[sentence.status] || sentence.status}</span>
   </div>
 
-  {#if editingField === 'pinyin' || sentence.pinyin}
+  {#if editingField === 'reading' || sentence.reading}
     <div class="editable-field" class:saving>
-      {#if editingField === 'pinyin'}
+      {#if editingField === 'reading'}
         <input
           type="text"
-          class="edit-input pinyin-input"
+          class="edit-input reading-input"
           bind:value={editValue}
-          onkeydown={(e) => handleEditKeydown(e, 'pinyin')}
-          onblur={() => saveEdit('pinyin')}
+          onkeydown={(e) => handleEditKeydown(e, 'reading')}
+          onblur={() => saveEdit('reading')}
           autofocus
         />
       {:else}
-        <span class="pinyin-text" onclick={() => startEdit('pinyin')} title="Click to edit">
-          {sentence.pinyin}
+        <span class="reading-text" onclick={() => startEdit('reading')} title="Click to edit">
+          {sentence.reading}
         </span>
       {/if}
     </div>
@@ -494,14 +494,14 @@
     color: var(--text);
   }
 
-  .pinyin-text {
+  .reading-text {
     font-size: 0.9rem;
     color: var(--accent-green);
     margin-bottom: 4px;
     font-style: italic;
     cursor: pointer;
   }
-  .pinyin-text:hover {
+  .reading-text:hover {
     text-decoration: underline;
     text-decoration-style: dotted;
   }
@@ -528,7 +528,7 @@
     font-size: inherit;
     font-family: inherit;
   }
-  .pinyin-input {
+  .reading-input {
     font-size: 0.9rem;
     font-style: italic;
     color: var(--accent-green);

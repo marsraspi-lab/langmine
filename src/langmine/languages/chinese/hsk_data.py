@@ -16,9 +16,9 @@ def _load() -> dict[str, int]:
     if _HSK is not None:
         return _HSK
 
-    # hsk_data.py → langmine/ → src/ → project root → data/hsk/
+    # hsk_data.py → chinese/ → languages/ → langmine/ → src/ → project root → data/hsk/
     path = (
-        Path(__file__).resolve().parent.parent.parent
+        Path(__file__).resolve().parent.parent.parent.parent.parent
         / "data" / "hsk" / "hsk_levels.json"
     )
     with open(path, encoding="utf-8") as f:
