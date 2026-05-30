@@ -1,14 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { MainPage, CurationPage, SettingsPage, VocabPage } from './pages.js';
+import { MainPage, CurationPage, SettingsPage, VocabPage, ReadingPage } from './pages.js';
 
 test.describe('LangMine SPA', () => {
-  let main, curation, settings, vocab;
+  let main, curation, settings, vocab, reading;
 
   test.beforeEach(async ({ page }) => {
     main      = new MainPage(page);
     curation  = new CurationPage(page);
     settings  = new SettingsPage(page);
     vocab     = new VocabPage(page);
+    reading   = new ReadingPage(page);
   });
 
   // ── Basic page load ──────────────────────────────────────────────────
@@ -310,5 +311,69 @@ test.describe('LangMine SPA', () => {
     expect(word.token).toBeDefined();
     expect(word.status).toBeDefined();
     expect(['known', 'learning', 'unknown']).toContain(word.status);
+  });
+
+  // ── M10: Reading mode ─────────────────────────────────────────────────
+
+  test('reading mode shows all sentences as continuous text', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    await reading.expectLoaded();
+    await reading.expectSentenceCount(3);
+    await reading.expectToolbarInfo('3 sentences');
+  });
+
+  test('reading mode shows word highlighting', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    await reading.expectWordHighlighting();
+  });
+
+  test('clicking a word opens popover with status buttons', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    await reading.clickWord('一般');
+    await reading.expectPopoverVisible();
+    await expect(reading.popoverWord).toContainText('一般');
+    await expect(reading.popoverBtn('Mark known')).toBeVisible();
+    await expect(reading.popoverBtn('Mark learning')).toBeVisible();
+    await expect(reading.popoverBtn('Mark unknown')).toBeVisible();
+  });
+
+  test('Escape closes word popover', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    await reading.clickWord('一般');
+    await reading.expectPopoverVisible();
+    await reading.pressKey('Escape');
+    await reading.expectPopoverHidden();
+  });
+
+  test('? toggles keyboard shortcuts bar', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    await reading.pressKey('?');
+    await reading.expectShortcutsVisible();
+    await reading.pressKey('?');
+    await expect(reading.shortcutsBar).not.toBeVisible();
+  });
+
+  test('T toggles translation visibility', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+    // Translation hidden by default
+    await reading.expectTranslationHidden();
+    // Toggle on
+    await reading.pressKey('t');
+    await reading.expectTranslationVisible();
+    // Toggle off
+    await reading.pressKey('t');
+    await reading.expectTranslationHidden();
   });
 });
