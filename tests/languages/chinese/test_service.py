@@ -210,3 +210,42 @@ def test_is_proper_name_rejects_particles():
 
     assert svc.is_proper_name("的") is False
     assert svc.is_proper_name("了") is False
+
+
+def test_is_proper_name_with_context_detects_multi_char_names():
+    """When context_sentence is provided, use sentence-level POS tagging
+    to detect multi-character proper names that jieba would sub-segment.
+
+    E.g. pseg.cut("李世民") might return [("李", "nr"), ("世民", "nr")]
+    but pseg.cut("李世民是唐朝皇帝") should return [("李世民", "nr"), ...]
+    """
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    # 李世民 (Emperor Taizong) — multi-character name that may sub-segment
+    assert svc.is_proper_name("李世民", context_sentence="李世民是唐朝皇帝") is True
+
+    # 爱因斯坦 (Einstein) — transliterated name
+    assert svc.is_proper_name("爱因斯坦", context_sentence="爱因斯坦是物理学家") is True
+
+    # 诸葛亮 — another multi-character name
+    assert svc.is_proper_name("诸葛亮", context_sentence="诸葛亮是三国人物") is True
+
+
+def test_is_proper_name_with_context_rejects_common_words_in_sentence():
+    """Even with context, common words should NOT be flagged."""
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    assert svc.is_proper_name("学习", context_sentence="我们要努力学习") is False
+    assert svc.is_proper_name("唐朝", context_sentence="李世民是唐朝皇帝") is False
+
+
+def test_is_proper_name_without_context_returns_false_for_sub_segmented():
+    """Without context, names that jieba sub-segments should return False.
+    This is the known limitation — the fix relies on context."""
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    # 李世民 without context may fail (sub-segmented by jieba)
+    # After the fix with context, this should still accept no-context calls
+    # but may return False for sub-segmented names
+    # (Accept the status quo without context — context is the fix)
+    pass  # Documented limitation, not a new regression

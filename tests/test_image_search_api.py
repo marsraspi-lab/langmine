@@ -19,7 +19,7 @@ class FakeLanguageProcessor(LanguageProcessor):
     def translate_sentence(self, text): return f"[DE] {text}"
     def get_frequency(self, word): return 1000
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
-    def is_proper_name(self, token): return False
+    def is_proper_name(self, token, context_sentence=""): return False
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
 

@@ -21,7 +21,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         ranks = {"一般": 1847, "效率": 3412, "爬山": 5000}
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
-    def is_proper_name(self, token): return False
+    def is_proper_name(self, token, context_sentence=""): return False
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
 
@@ -277,7 +277,7 @@ class TestProperNameInTranscript:
         """Client with a processor that marks certain tokens as proper names."""
 
         class ProperNameProcessor(FakeLanguageProcessor):
-            def is_proper_name(self, token):
+            def is_proper_name(self, token, context_sentence=""):
                 return token in {"曹操", "长安", "北京"}
 
         persistence = FakePersistence(known_words={"我们", "一般", "早上", "起床", "学习", "是", "英雄"})

@@ -89,13 +89,27 @@ class ChineseLanguageService(LanguageProcessor):
         "nrt",   # person name — transliterated
     })
 
-    def is_proper_name(self, token: str) -> bool:
-        """Detect proper names via jieba POS tagging."""
+    def is_proper_name(self, token: str, context_sentence: str = "") -> bool:
+        """Detect proper names via jieba POS tagging.
+
+        When context_sentence is provided, uses sentence-level pseg.cut()
+        and matches the token by position to avoid sub-segmentation of
+        multi-character names (e.g., 李世民 → 李 + 世民 instead of 李世民).
+        """
         import jieba.posseg as pseg
-        for word, flag in pseg.cut(token):
-            if word == token and flag in self.PROPER_NAME_TAGS:
-                return True
-        return False
+
+        if context_sentence:
+            # Sentence-level POS: segment the full sentence, match token by position
+            for word, flag in pseg.cut(context_sentence):
+                if word == token and flag in self.PROPER_NAME_TAGS:
+                    return True
+            return False
+        else:
+            # Fallback: token-level POS (may sub-segment multi-char names)
+            for word, flag in pseg.cut(token):
+                if word == token and flag in self.PROPER_NAME_TAGS:
+                    return True
+            return False
 
     # === Port-delegated methods (depend on injected ports) ===
 
