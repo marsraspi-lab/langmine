@@ -86,6 +86,9 @@ class FakePersistence(Persistence):
     def video_exists(self, youtube_id: str) -> bool:
         return any(v.youtube_id == youtube_id for v in self._videos)
 
+    def delete_video(self, video_id: int) -> bool:
+        return False  # not found in fake
+
     # Sentences
     def save_sentences(self, sentences: list[Sentence]) -> None:
         for s in sentences:

@@ -167,6 +167,13 @@ class Persistence(ABC):
     def list_videos(self, language_code: str = "") -> list[Video]: ...
     @abstractmethod
     def video_exists(self, youtube_id: str) -> bool: ...
+    @abstractmethod
+    def delete_video(self, video_id: int) -> bool:
+        """Delete a video and all related data (sentences, events).
+
+        Returns True if a video was deleted, False if not found.
+        """
+        ...
 
     # Sentences
     @abstractmethod

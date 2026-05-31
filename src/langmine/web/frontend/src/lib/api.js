@@ -45,6 +45,8 @@ async function put(path, body) {
 
 export const api = {
   listVideos: () => get('/videos'),
+  deleteVideo: (id) => fetch(BASE + `/videos/${id}`, { method: 'DELETE' })
+    .then(async res => ({ ok: res.ok, status: res.status, data: await res.json() })),
   mineVideo: (url, file = null) => {
     if (file) {
       // Multipart form data with transcript file

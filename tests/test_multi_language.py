@@ -58,6 +58,7 @@ class TestLanguageIsolation:
             def get_video(self, yt_id): pass
             def list_videos(self, language_code=None): return []
             def video_exists(self, yt_id): return False
+            def delete_video(self, video_id): return False
             def save_sentences(self, ss): pass
             def get_sentences_by_video(self, vid, status=None, language_code=None): return []
             def update_sentence(self, s): pass
@@ -123,6 +124,7 @@ class TestLanguageIsolation:
             def get_video(self, yt_id): pass
             def list_videos(self, language_code=None): return []
             def video_exists(self, yt_id): return False
+            def delete_video(self, video_id): return False
             def save_sentences(self, ss): pass
             def get_sentences_by_video(self, vid, status=None, language_code=None): return []
             def update_sentence(self, s): pass

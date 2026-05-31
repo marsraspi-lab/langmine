@@ -81,6 +81,22 @@ export async function loadVideos() {
   videos.set(data.videos);
 }
 
+export async function deleteVideo(id) {
+  const { ok, data } = await api.deleteVideo(id);
+  if (!ok) {
+    addToast(data?.error || 'Failed to delete video', 'error');
+    return false;
+  }
+  addToast('Video deleted', 'success', 2000);
+  // If the deleted video is currently selected, deselect it
+  if ($selectedVideoId === id) {
+    selectedVideoId.set(null);
+    sentences.set([]);
+  }
+  await loadVideos();
+  return true;
+}
+
 export async function selectVideo(id) {
   selectedVideoId.set(id);
   currentFilter.set('all');

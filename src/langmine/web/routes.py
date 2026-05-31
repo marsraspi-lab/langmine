@@ -60,6 +60,15 @@ def register_routes(app: Flask):
             ]
         })
 
+    @app.route("/api/videos/<int:video_id>", methods=["DELETE"])
+    def delete_video_route(video_id: int):
+        """Delete a video and all its sentences."""
+        persistence = _get_persistence()
+        deleted = persistence.delete_video(video_id)
+        if not deleted:
+            return jsonify({"error": "Video not found"}), 404
+        return jsonify({"ok": True})
+
     @app.route("/api/videos/mine", methods=["POST"])
     def mine_video():
         """Mine a YouTube video: transcript → merge → classify → persist.
@@ -385,11 +394,13 @@ def register_routes(app: Flask):
         if sentence is None:
             return jsonify({"error": "Sentence not found"}), 404
 
-        if not sentence.audio_clip_path or not os.path.exists(sentence.audio_clip_path):
+        if not sentence.audio_clip_path or not os.path.exists(
+            os.path.expanduser(sentence.audio_clip_path)
+        ):
             return jsonify({"error": "Audio file not found"}), 404
 
         return send_file(
-            sentence.audio_clip_path,
+            os.path.expanduser(sentence.audio_clip_path),
             mimetype="audio/mpeg",
             as_attachment=False,
         )
@@ -402,11 +413,13 @@ def register_routes(app: Flask):
         if sentence is None:
             return jsonify({"error": "Sentence not found"}), 404
 
-        if not sentence.screenshot_path or not os.path.exists(sentence.screenshot_path):
+        if not sentence.screenshot_path or not os.path.exists(
+            os.path.expanduser(sentence.screenshot_path)
+        ):
             return jsonify({"error": "Screenshot not found"}), 404
 
         return send_file(
-            sentence.screenshot_path,
+            os.path.expanduser(sentence.screenshot_path),
             mimetype="image/jpeg",
             as_attachment=False,
         )

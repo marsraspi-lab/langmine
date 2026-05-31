@@ -75,6 +75,43 @@ class SQLitePersistence(Persistence):
         ).fetchone()
         return row is not None
 
+    def delete_video(self, video_id: int) -> bool:
+        """Delete a video and all related data (cascading delete).
+
+        Deletes: sentences, events, vocab entries for this video's words,
+        and the video itself. Returns True if a video was deleted.
+        """
+        # Verify the video exists
+        row = self.conn.execute(
+            "SELECT id FROM videos WHERE id = ?", (video_id,)
+        ).fetchone()
+        if row is None:
+            return False
+
+        # Delete events for this video and its sentences
+        self.conn.execute(
+            "DELETE FROM events WHERE entity_type = 'video' AND entity_id = ?",
+            (video_id,),
+        )
+        self.conn.execute(
+            "DELETE FROM events WHERE entity_type = 'sentence' AND entity_id IN "
+            "(SELECT id FROM sentences WHERE video_id = ?)",
+            (video_id,),
+        )
+
+        # Delete sentences
+        self.conn.execute(
+            "DELETE FROM sentences WHERE video_id = ?", (video_id,)
+        )
+
+        # Delete the video
+        self.conn.execute(
+            "DELETE FROM videos WHERE id = ?", (video_id,)
+        )
+
+        self.conn.commit()
+        return True
+
     # === Sentences ===
 
     def save_sentences(self, sentences: list[Sentence]) -> None:

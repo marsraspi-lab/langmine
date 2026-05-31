@@ -1,6 +1,6 @@
 <script>
   import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo,
-    exportStatus, exporting, exportAnki } from './stores.js';
+    exportStatus, exporting, exportAnki, deleteVideo } from './stores.js';
   import { previewVideo } from './api.js';
   import PreviewPanel from './PreviewPanel.svelte';
 
@@ -105,22 +105,29 @@
       <div class="empty-videos">No videos yet. Paste a YouTube URL above.</div>
     {:else}
       {#each $videos as video (video.id)}
-        <button
-          class="video-item"
-          class:active={$selectedVideoId === video.id}
-          onclick={() => selectVideo(video.id)}
-        >
-          <div class="video-title">{video.title || video.youtube_id}</div>
-          <div class="video-meta">
-            {video.total_sentences} sentences
-            {#if video.i1_count > 0}
-              <span class="count-i1">🔥{video.i1_count}</span>
-            {/if}
-            {#if video.kept_count > 0}
-              <span class="count-kept">✅{video.kept_count}</span>
-            {/if}
-          </div>
-        </button>
+        <div class="video-row">
+          <button
+            class="video-item"
+            class:active={$selectedVideoId === video.id}
+            onclick={() => selectVideo(video.id)}
+          >
+            <div class="video-title">{video.title || video.youtube_id}</div>
+            <div class="video-meta">
+              {video.total_sentences} sentences
+              {#if video.i1_count > 0}
+                <span class="count-i1">🔥{video.i1_count}</span>
+              {/if}
+              {#if video.kept_count > 0}
+                <span class="count-kept">✅{video.kept_count}</span>
+              {/if}
+            </div>
+          </button>
+          <button
+            class="delete-video-btn"
+            onclick={(e) => { e.stopPropagation(); deleteVideo(video.id); }}
+            title="Delete video"
+          >🗑️</button>
+        </div>
       {/each}
     {/if}
   </nav>
@@ -296,6 +303,33 @@
   .video-item.active {
     background: rgba(233, 69, 96, 0.15);
     border-left: 3px solid var(--accent);
+  }
+  .video-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border);
+  }
+  .video-row .video-item {
+    border-bottom: none;
+    flex: 1;
+  }
+  .delete-video-btn {
+    flex-shrink: 0;
+    width: 36px;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+  .video-row:hover .delete-video-btn {
+    opacity: 0.6;
+  }
+  .delete-video-btn:hover {
+    opacity: 1 !important;
+    color: var(--accent);
   }
   .video-title {
     font-size: 0.85rem;
