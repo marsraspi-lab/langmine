@@ -10,7 +10,7 @@ readme = "PLAN.md"
 requires-python = ">=3.11"
 dependencies = [
     "yt-dlp",
-    "youtube-transcript-api",
+    # Transcripts via yt-dlp --write-sub (no separate library needed)
     "jieba",
     "pypinyin",
     "flask",

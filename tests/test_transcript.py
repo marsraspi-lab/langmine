@@ -2,30 +2,176 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
+import tempfile
+from pathlib import Path
 
 from langmine.transcript import (
     fetch_transcript,
     merge_sentences,
     TranscriptChunk,
+    _parse_srt,
 )
 
 
+def _make_srt(chunks: list[tuple[str, int, int]]) -> str:
+    """Build an SRT string from (text, start_ms, duration_ms) tuples.
+
+    Subtitles are rendered in order with no gaps (end = start + duration).
+    """
+    lines = []
+    for i, (text, start_ms, duration_ms) in enumerate(chunks, 1):
+        end_ms = start_ms + duration_ms
+
+        def _fmt(ms):
+            h = ms // 3_600_000
+            m = (ms % 3_600_000) // 60_000
+            s = (ms % 60_000) // 1_000
+            rem = ms % 1_000
+            return f"{h:02d}:{m:02d}:{s:02d},{rem:03d}"
+
+        lines.append(str(i))
+        lines.append(f"{_fmt(start_ms)} --> {_fmt(end_ms)}")
+        lines.append(text)
+        lines.append("")
+    return "\n".join(lines)
+
+
+class FakeCompletedProcess:
+    """Mimics subprocess.CompletedProcess for successful yt-dlp runs."""
+
+    def __init__(self, srt_content: str | None = None):
+        self.returncode = 0
+        self.stdout = ""
+        self.stderr = ""
+        self._srt = srt_content
+
+    def write_srt(self, tmpdir: str, video_id: str) -> None:
+        """Write the fake SRT file to the temp dir, as yt-dlp would."""
+        if self._srt:
+            path = Path(tmpdir) / f"{video_id}.en.srt"
+            path.write_text(self._srt, encoding="utf-8")
+
+
+class TestParseSrt:
+    """Tests for _parse_srt, the SRT→TranscriptChunk parser."""
+
+    def test_parse_basic_srt(self):
+        srt = _make_srt([
+            ("Hello world", 0, 1000),
+            ("Second line", 2000, 1500),
+        ])
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
+            f.write(srt)
+            srt_path = f.name
+
+        try:
+            chunks = _parse_srt(Path(srt_path))
+            assert len(chunks) == 2
+            assert chunks[0].text == "Hello world"
+            assert chunks[0].start_ms == 0
+            assert chunks[0].duration_ms == 1000
+            assert chunks[1].text == "Second line"
+            assert chunks[1].start_ms == 2000
+            assert chunks[1].duration_ms == 1500
+        finally:
+            Path(srt_path).unlink()
+
+    def test_parse_multiline_subtitle(self):
+        srt = (
+            "1\n"
+            "00:00:01,000 --> 00:00:04,000\n"
+            "Line one\n"
+            "Line two\n\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
+            f.write(srt)
+            srt_path = f.name
+
+        try:
+            chunks = _parse_srt(Path(srt_path))
+            assert len(chunks) == 1
+            assert chunks[0].text == "Line one Line two"
+        finally:
+            Path(srt_path).unlink()
+
+    def test_parse_empty_srt(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
+            f.write("")
+            srt_path = f.name
+
+        try:
+            chunks = _parse_srt(Path(srt_path))
+            assert chunks == []
+        finally:
+            Path(srt_path).unlink()
+
+    def test_parse_handles_dots_in_timestamp(self):
+        """Some SRT variants use dots (00:00:01.000) instead of commas."""
+        srt = (
+            "1\n"
+            "00:00:01.000 --> 00:00:04.500\n"
+            "Hello\n\n"
+        )
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
+            f.write(srt)
+            srt_path = f.name
+
+        try:
+            chunks = _parse_srt(Path(srt_path))
+            assert len(chunks) == 1
+            assert chunks[0].start_ms == 1000
+            assert chunks[0].duration_ms == 3500
+        finally:
+            Path(srt_path).unlink()
+
+
 class TestFetchTranscript:
-    """Tests for fetching subtitle chunks from YouTube."""
+    """Tests for fetching subtitle chunks from YouTube via yt-dlp."""
+
+    def _mock_ytdlp_run(self, srt_content: str | None = None):
+        """Create a mock subprocess.run that writes an SRT file and returns success."""
+        srt = srt_content
+
+        def _run_side_effect(*args, **kwargs):
+            # Extract -o template: args is (cmd_list, ...)
+            cmd = args[0]
+            out_tmpl = None
+            for i, arg in enumerate(cmd):
+                if arg == "-o" and i + 1 < len(cmd):
+                    out_tmpl = cmd[i + 1]
+                    break
+
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = ""
+            result.stderr = ""
+
+            if srt and out_tmpl:
+                # out_tmpl looks like /tmp/xxx/%(id)s.%(ext)s
+                tmpl_dir = Path(out_tmpl).parent
+                # Find video_id from URL in cmd
+                import re as _re
+                for arg in cmd:
+                    m = _re.search(r"v=([A-Za-z0-9_-]{11})", arg)
+                    if m:
+                        video_id = m.group(1)
+                        srt_path = tmpl_dir / f"{video_id}.en.srt"
+                        srt_path.write_text(srt, encoding="utf-8")
+                        break
+
+            return result
+
+        return _run_side_effect
 
     def test_fetch_returns_list_of_chunks(self):
         """fetch_transcript should return a list of TranscriptChunk objects."""
-        from unittest.mock import patch, MagicMock
+        srt = _make_srt([
+            ("我们", 1000, 2000),
+            ("一般", 3500, 1500),
+            ("早上", 5500, 2000),
+        ])
 
-        mock_chunks = []
-        for text, start, dur in [("我们", 1.0, 2.0), ("一般", 3.5, 1.5), ("早上", 5.5, 2.0)]:
-            m = MagicMock()
-            m.text = text
-            m.start = start
-            m.duration = dur
-            mock_chunks.append(m)
-
-        with patch("youtube_transcript_api.YouTubeTranscriptApi.fetch", return_value=mock_chunks):
+        with patch("subprocess.run", side_effect=self._mock_ytdlp_run(srt)):
             chunks = fetch_transcript("dQw4w9WgXcQ")
 
         assert isinstance(chunks, list)
@@ -38,27 +184,71 @@ class TestFetchTranscript:
             assert chunk.text.strip() != ""
 
     def test_fetch_raises_on_invalid_url(self):
-        """fetch_transcript should raise ValueError for an invalid/nonexistent video."""
+        """fetch_transcript should raise ValueError for video IDs < 11 chars."""
         with pytest.raises((ValueError, Exception)):
-            fetch_transcript("invalid_video_id_xyz")
+            fetch_transcript("xyz")
+
+    def test_fetch_raises_on_video_unavailable(self):
+        """fetch_transcript raises ValueError when yt-dlp returns 'Video unavailable'."""
+        m = MagicMock()
+        m.returncode = 1
+        m.stderr = "ERROR: Video unavailable"
+        m.stdout = ""
+        with patch("subprocess.run", return_value=m):
+            with pytest.raises(ValueError, match="unavailable"):
+                fetch_transcript("dQw4w9WgXcQ")
+
+    def test_fetch_raises_on_no_subtitles(self):
+        """fetch_transcript raises ValueError when no SRT file is found."""
+        m = MagicMock()
+        m.returncode = 0  # yt-dlp exits 0 but writes no SRT
+        m.stderr = ""
+        m.stdout = ""
+        with patch("subprocess.run", return_value=m):
+            with pytest.raises(ValueError, match="No transcript available"):
+                fetch_transcript("dQw4w9WgXcQ")
+
+    def test_fetch_raises_on_ip_block(self):
+        """fetch_transcript detects HTTP 429 / blocking from stderr."""
+        m = MagicMock()
+        m.returncode = 1
+        m.stderr = "HTTP Error 429: Too Many Requests"
+        m.stdout = ""
+        with patch("subprocess.run", return_value=m):
+            with pytest.raises(ValueError, match="blocking requests"):
+                fetch_transcript("dQw4w9WgXcQ")
 
     def test_chunks_have_increasing_timestamps(self):
         """Chunks should be returned in chronological order."""
-        from unittest.mock import patch, MagicMock
+        srt = _make_srt([
+            ("我们", 1000, 2000),
+            ("一般", 3500, 1500),
+            ("早上", 5500, 2000),
+        ])
 
-        mock_chunks = []
-        for text, start, dur in [("我们", 1.0, 2.0), ("一般", 3.5, 1.5), ("早上", 5.5, 2.0)]:
-            m = MagicMock()
-            m.text = text
-            m.start = start
-            m.duration = dur
-            mock_chunks.append(m)
-
-        with patch("youtube_transcript_api.YouTubeTranscriptApi.fetch", return_value=mock_chunks):
+        with patch("subprocess.run", side_effect=self._mock_ytdlp_run(srt)):
             chunks = fetch_transcript("dQw4w9WgXcQ")
 
         for i in range(1, len(chunks)):
             assert chunks[i].start_ms >= chunks[i - 1].start_ms
+
+    def test_language_codes_passed_to_ytdlp(self):
+        """Verify that language_codes influences the --sub-lang argument."""
+        srt = _make_srt([("Hola", 1000, 2000)])
+
+        captured_cmd = []
+
+        def capture_run(*args, **kwargs):
+            captured_cmd.append(args[0])
+            return self._mock_ytdlp_run(srt)(*args, **kwargs)
+
+        with patch("subprocess.run", side_effect=capture_run):
+            fetch_transcript("dQw4w9WgXcQ", language_codes=["es"])
+
+        # yt-dlp cmd should include --sub-lang es
+        assert "--sub-lang" in captured_cmd[0]
+        idx = captured_cmd[0].index("--sub-lang")
+        assert captured_cmd[0][idx + 1] == "es"
 
 
 class TestMergeSentences:

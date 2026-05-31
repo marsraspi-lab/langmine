@@ -5,7 +5,7 @@ from langmine.transcript import fetch_transcript
 
 
 class YouTubeTranscriptAdapter(TranscriptSource):
-    """Fetches subtitles from YouTube via youtube-transcript-api."""
+    """Fetches subtitles from YouTube via yt-dlp --write-sub."""
 
     def __init__(self, user_agent: str = "", language_codes: list[str] | None = None):
         self._user_agent = user_agent
