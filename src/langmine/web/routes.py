@@ -683,8 +683,6 @@ def register_routes(app: Flask):
                 action="marked_known", new_value=word,
                 language_code=lang,
             )
-            # Cascade: reclassify sentences where this word was the i+1 target
-            _cascade_word_known(persistence, word, processor)
         elif new_status == "ignored":
             persistence.mark_word_ignored(word)
             persistence.log_event(
@@ -692,8 +690,6 @@ def register_routes(app: Flask):
                 action="marked_ignored", new_value=word,
                 language_code=lang,
             )
-            # Cascade: reclassify sentences where this word was the i+1 target
-            _cascade_word_known(persistence, word, processor)
         else:
             persistence.mark_word_learning(word)
             persistence.log_event(
