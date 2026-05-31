@@ -126,6 +126,13 @@ def register_routes(app: Flask):
             # Find the video we just created
             video = persistence.get_video(video_id)
 
+            if video and video.id:
+                persistence.log_event(
+                    entity_type="video", entity_id=video.id,
+                    action="mined", new_value=video_id,
+                    language_code=config.source_language,
+                )
+
             return jsonify({
                 "video_id": video.id if video else None,
                 "youtube_id": video_id,
@@ -284,6 +291,7 @@ def register_routes(app: Flask):
 
         # --- Status update (existing behavior) ---
         if "status" in data:
+            old_status = sentence.status
             status = data["status"]
             if status not in VALID_SENTENCE_STATUSES:
                 return jsonify({
@@ -293,6 +301,13 @@ def register_routes(app: Flask):
             # If keeping, mark unknown word as "learning"
             if status == "kept" and sentence.unknown_word:
                 persistence.mark_word_learning(sentence.unknown_word)
+
+            # Log the status change event
+            persistence.log_event(
+                entity_type="sentence", entity_id=sentence.id,
+                action=status, old_value=old_status, new_value=status,
+                language_code=sentence.language_code,
+            )
 
         # --- Field edits ---
         edited = False
@@ -307,6 +322,16 @@ def register_routes(app: Flask):
 
         if edited or "status" in data:
             persistence.update_sentence(sentence)
+
+        # Log field edits separately (only if edited without status change)
+        if edited and "status" not in data:
+            persistence.log_event(
+                entity_type="sentence", entity_id=sentence.id,
+                action="edited", new_value=",".join(
+                    f for f in EDITABLE_FIELDS if f in data
+                ),
+                language_code=sentence.language_code,
+            )
 
         return jsonify({
             "sentence": _sentence_to_dict(sentence, persistence),
@@ -330,6 +355,12 @@ def register_routes(app: Flask):
 
         word = sentence.unknown_word
         persistence.mark_word_known(word)
+
+        persistence.log_event(
+            entity_type="word", entity_id=sentence.id,
+            action="marked_known", new_value=word,
+            language_code=sentence.language_code,
+        )
 
         # Re-classify: with the word now known, this sentence should be i0
         sentence.status = "i0"
@@ -452,6 +483,12 @@ def register_routes(app: Flask):
         sentence.annotation_json = json.dumps(annotation)
         persistence.update_sentence(sentence)
 
+        persistence.log_event(
+            entity_type="sentence", entity_id=sentence.id,
+            action="annotation_edited", new_value=str(index),
+            language_code=sentence.language_code,
+        )
+
         return jsonify({"ok": True, "annotation": annotation})
 
     # === Vocab API ===
@@ -509,10 +546,20 @@ def register_routes(app: Flask):
 
         if new_status == "known":
             persistence.mark_word_known(word)
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_known", new_value=word,
+                language_code=lang,
+            )
             # Cascade: reclassify sentences where this word was the i+1 target
             _cascade_word_known(persistence, word)
         else:
             persistence.mark_word_learning(word)
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_learning", new_value=word,
+                language_code=lang,
+            )
 
         return jsonify({
             "word": word,
@@ -636,9 +683,15 @@ def register_routes(app: Flask):
             )
 
             # Mark exported sentences
+            lang = _get_language_code()
             for s in sentences:
                 s.status = "exported"
                 persistence.update_sentence(s)
+                persistence.log_event(
+                    entity_type="sentence", entity_id=s.id or 0,
+                    action="exported", old_value="kept", new_value="exported",
+                    language_code=lang,
+                )
 
             return jsonify(result)
         except ConnectionError as e:
@@ -780,6 +833,8 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
         "status": sentence.status,
         "has_audio": bool(sentence.audio_clip_path),
         "has_screenshot": bool(sentence.screenshot_path),
+        "created_at": sentence.created_at,
+        "updated_at": sentence.updated_at,
     }
 
     # Compute frequency badge from rank
@@ -852,6 +907,8 @@ def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
         "frequency_badge": frequency_badge(rank),
         "status": word.status,
         "sentence_count": sentence_count,
+        "created_at": word.created_at,
+        "updated_at": word.updated_at,
     }
 
 
@@ -889,6 +946,11 @@ def _cascade_word_known(persistence: Persistence, word: str) -> None:
         if s.unknown_word == word and s.status == "i1":
             s.status = "i0"
             persistence.update_sentence(s)
+            persistence.log_event(
+                entity_type="sentence", entity_id=s.id or 0,
+                action="i0", old_value="i1", new_value="i0",
+                language_code=s.language_code,
+            )
             affected_videos.add(s.video_id)
 
     # Re-run classifier on stashed sentences for affected videos

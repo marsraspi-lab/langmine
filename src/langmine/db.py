@@ -3,7 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS sentences (
     screenshot_path TEXT,
     screenshot_enabled INTEGER DEFAULT 1,
     status TEXT DEFAULT 'new',
-    language_code TEXT NOT NULL DEFAULT 'zh'
+    language_code TEXT NOT NULL DEFAULT 'zh',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS vocab (
@@ -51,6 +53,19 @@ CREATE TABLE IF NOT EXISTS vocab (
     hsk_level INTEGER,
     frequency_rank INTEGER,
     status TEXT DEFAULT 'known',
+    language_code TEXT NOT NULL DEFAULT 'zh',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,
+    entity_id INTEGER NOT NULL,
+    action TEXT NOT NULL,
+    old_value TEXT DEFAULT '',
+    new_value TEXT DEFAULT '',
+    timestamp TEXT DEFAULT (datetime('now')),
     language_code TEXT NOT NULL DEFAULT 'zh'
 );
 """
@@ -80,8 +95,66 @@ class Database:
         """Create tables and run migrations."""
         self._conn.executescript(SCHEMA_SQL)
         self._conn.execute(
-            "INSERT OR IGNORE INTO schema_version (version) VALUES (?)",
+            "INSERT INTO schema_version (version) "
+            "SELECT ? WHERE NOT EXISTS (SELECT 1 FROM schema_version)",
             (SCHEMA_VERSION,),
+        )
+
+        # Run migrations
+        current = self._conn.execute(
+            "SELECT MAX(version) FROM schema_version"
+        ).fetchone()[0] or 1
+
+        if current < 2:
+            # v1 → v2: added language_code column
+            try:
+                self._conn.execute(
+                    "ALTER TABLE videos ADD COLUMN language_code TEXT NOT NULL DEFAULT 'zh'"
+                )
+            except sqlite3.OperationalError:
+                pass  # Column may already exist from CREATE TABLE
+            try:
+                self._conn.execute(
+                    "ALTER TABLE sentences ADD COLUMN language_code TEXT NOT NULL DEFAULT 'zh'"
+                )
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self._conn.execute(
+                    "ALTER TABLE vocab ADD COLUMN language_code TEXT NOT NULL DEFAULT 'zh'"
+                )
+            except sqlite3.OperationalError:
+                pass
+
+        if current < 3:
+            # v2 → v3: added created_at + updated_at columns
+            for col, table in [("created_at", "sentences"), ("updated_at", "sentences"),
+                               ("created_at", "vocab"), ("updated_at", "vocab")]:
+                try:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN {col} TEXT DEFAULT (datetime('now'))"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column may already exist from CREATE TABLE
+
+        if current < 4:
+            # v3 → v4: added events table
+            self._conn.execute(
+                """CREATE TABLE IF NOT EXISTS events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_id INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    old_value TEXT DEFAULT '',
+                    new_value TEXT DEFAULT '',
+                    timestamp TEXT DEFAULT (datetime('now')),
+                    language_code TEXT NOT NULL DEFAULT 'zh'
+                )"""
+            )
+
+        self._conn.execute(
+            "UPDATE schema_version SET version = ? WHERE version < ?",
+            (SCHEMA_VERSION, SCHEMA_VERSION),
         )
         self._conn.commit()
 

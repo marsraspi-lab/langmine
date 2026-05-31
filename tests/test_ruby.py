@@ -265,6 +265,18 @@ class FakeRbPersistence(Persistence):
     def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
     def list_vocab(self, **kw): return [], 0
     def get_sentences_by_word(self, w): return []
+
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        pass
+
     def get_stash_candidates(self, limit=20): return []
     def get_sentences_by_status(self, status): return []
     def reclassify_stashed(self, vid): return 0

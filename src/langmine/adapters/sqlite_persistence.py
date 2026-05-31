@@ -5,10 +5,11 @@ Swap for FileSystemPersistence, PostgresPersistence, or InMemoryPersistence
 without changing any domain code.
 """
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 from langmine.domain.ports import Persistence
-from langmine.domain.models import Video, Sentence, VocabWord
+from langmine.domain.models import Video, Sentence, VocabWord, Event
 from langmine.db import Database
 
 
@@ -77,32 +78,35 @@ class SQLitePersistence(Persistence):
     # === Sentences ===
 
     def save_sentences(self, sentences: list[Sentence]) -> None:
+        now = datetime.now(timezone.utc).isoformat()
         for s in sentences:
             if s.id:
                 self.conn.execute(
                     """UPDATE sentences SET status=?, translation_de=?,
                        reading=?, text_segmented=?, unknown_word=?,
-                       screenshot_enabled=?
+                       screenshot_enabled=?, updated_at=?
                        WHERE id=?""",
                     (s.status, s.translation_de, s.reading,
                      s.text_segmented, s.unknown_word,
-                     int(s.screenshot_enabled), s.id),
+                     int(s.screenshot_enabled), now, s.id),
                 )
             else:
+                s.created_at = now
+                s.updated_at = now
                 cursor = self.conn.execute(
                     """INSERT INTO sentences
                        (video_id, start_ms, end_ms, text, text_segmented,
                         non_words_json, reading, translation_de, unknown_word,
                         unknown_word_rank, known_synonyms_json,
                         audio_clip_path, screenshot_path, screenshot_enabled,
-                        status, language_code)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        status, language_code, created_at, updated_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (s.video_id, s.start_ms, s.end_ms, s.text,
                      s.text_segmented, s.non_words_json, s.reading,
                      s.translation_de, s.unknown_word, s.unknown_word_rank,
                      s.known_synonyms_json, s.audio_clip_path,
                      s.screenshot_path, int(s.screenshot_enabled), s.status,
-                     s.language_code),
+                     s.language_code, now, now),
                 )
                 s.id = cursor.lastrowid
         self.conn.commit()
@@ -135,13 +139,14 @@ class SQLitePersistence(Persistence):
     def update_sentence(self, sentence: Sentence) -> None:
         if not sentence.id:
             raise ValueError("Cannot update sentence without id")
+        now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             """UPDATE sentences SET status=?, translation_de=?,
                reading=?, text_segmented=?, unknown_word=?,
-               screenshot_enabled=? WHERE id=?""",
+               screenshot_enabled=?, updated_at=? WHERE id=?""",
             (sentence.status, sentence.translation_de, sentence.reading,
              sentence.text_segmented, sentence.unknown_word,
-             int(sentence.screenshot_enabled), sentence.id),
+             int(sentence.screenshot_enabled), now, sentence.id),
         )
         self.conn.commit()
 
@@ -163,16 +168,40 @@ class SQLitePersistence(Persistence):
     # === Vocab ===
 
     def save_vocab_word(self, word: VocabWord) -> None:
-        self.conn.execute(
-            """INSERT OR REPLACE INTO vocab
-               (word_simplified, word_traditional, reading, definition_de,
-                hsk_level, frequency_rank, status, language_code)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (word.word_simplified, word.word_traditional, word.reading,
-             word.definition_de, word.hsk_level, word.frequency_rank,
-             word.status, word.language_code),
-        )
-        self.conn.commit()
+        now = datetime.now(timezone.utc).isoformat()
+        existing = self.get_vocab_word(word.word_simplified)
+        if existing:
+            word.created_at = existing.created_at  # preserve original creation time
+            self.conn.execute(
+                """UPDATE vocab SET word_traditional=?, reading=?, definition_de=?,
+                   hsk_level=?, frequency_rank=?, status=?, language_code=?,
+                   updated_at=?
+                   WHERE word_simplified=?""",
+                (word.word_traditional, word.reading, word.definition_de,
+                 word.hsk_level, word.frequency_rank, word.status,
+                 word.language_code, now, word.word_simplified),
+            )
+            self.conn.commit()
+        else:
+            word.created_at = now
+            word.updated_at = now
+            self.conn.execute(
+                """INSERT INTO vocab
+                   (word_simplified, word_traditional, reading, definition_de,
+                    hsk_level, frequency_rank, status, language_code,
+                    created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (word.word_simplified, word.word_traditional, word.reading,
+                 word.definition_de, word.hsk_level, word.frequency_rank,
+                 word.status, word.language_code, now, now),
+            )
+            self.conn.commit()
+            # Log first-encountered event
+            self.log_event(
+                entity_type="word", entity_id=word.id or 0,
+                action="first_encountered", new_value=word.word_simplified,
+                language_code=word.language_code,
+            )
 
     def get_vocab_word(self, word_simplified: str) -> VocabWord | None:
         row = self.conn.execute(
@@ -192,16 +221,18 @@ class SQLitePersistence(Persistence):
         return {r[0] for r in rows}
 
     def mark_word_known(self, word_simplified: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
-            "UPDATE vocab SET status = 'known' WHERE word_simplified = ?",
-            (word_simplified,),
+            "UPDATE vocab SET status = 'known', updated_at = ? WHERE word_simplified = ?",
+            (now, word_simplified),
         )
         self.conn.commit()
 
     def mark_word_learning(self, word_simplified: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
-            "UPDATE vocab SET status = 'learning' WHERE word_simplified = ?",
-            (word_simplified,),
+            "UPDATE vocab SET status = 'learning', updated_at = ? WHERE word_simplified = ?",
+            (now, word_simplified),
         )
         self.conn.commit()
 
@@ -273,6 +304,28 @@ class SQLitePersistence(Persistence):
         ).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
+    # === Events ===
+
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            """INSERT INTO events
+               (entity_type, entity_id, action, old_value, new_value,
+                timestamp, language_code)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (entity_type, entity_id, action, old_value, new_value,
+             now, language_code),
+        )
+        self.conn.commit()
+
     # === Row mappers ===
 
     def _row_to_video(self, row) -> Video:
@@ -307,6 +360,8 @@ class SQLitePersistence(Persistence):
             screenshot_enabled=bool(row["screenshot_enabled"]),
             status=row["status"] or "new",
             language_code=row["language_code"] or "",
+            created_at=row["created_at"] or "",
+            updated_at=row["updated_at"] or "",
         )
 
     def _row_to_vocab(self, row) -> VocabWord:
@@ -320,4 +375,6 @@ class SQLitePersistence(Persistence):
             frequency_rank=row["frequency_rank"],
             status=row["status"] or "known",
             language_code=row["language_code"] or "",
+            created_at=row["created_at"] or "",
+            updated_at=row["updated_at"] or "",
         )

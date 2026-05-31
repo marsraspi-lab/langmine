@@ -76,6 +76,8 @@ class Sentence:
     annotation_json: str = ""          # Character-level annotations (ruby for CJK, IPA, etc.)
     status: str = "new"            # i1 | i0 | stashed | kept | deleted | exported
     language_code: str = ""        # "zh", "es", "ko", etc.
+    created_at: str = ""           # ISO 8601 — when sentence was first extracted
+    updated_at: str = ""           # ISO 8601 — when status last changed
 
     # Set by persistence layer
     id: int | None = None
@@ -93,6 +95,27 @@ class VocabWord:
     frequency_rank: int | None = None  # from SUBTLEX-CH
     status: str = "known"             # known | learning
     language_code: str = ""           # "zh", "es", "ko", etc.
+    created_at: str = ""              # ISO 8601 — when word was first added
+    updated_at: str = ""              # ISO 8601 — when status last changed
+
+    # Set by persistence layer
+    id: int | None = None
+
+
+@dataclass
+class Event:
+    """An immutable record of a state-changing action for timeline visualization.
+
+    Events are append-only — never updated or deleted.
+    """
+
+    entity_type: str      # "video" | "sentence" | "word"
+    entity_id: int        # FK to videos.id / sentences.id / vocab.id
+    action: str           # "mined" | "classified_i1" | "kept" | "deleted" | ...
+    old_value: str = ""   # previous status (or empty if not applicable)
+    new_value: str = ""   # new status (or key detail)
+    timestamp: str = ""   # ISO 8601 — set by persistence layer
+    language_code: str = ""
 
     # Set by persistence layer
     id: int | None = None

@@ -87,6 +87,18 @@ class FakePersistence(Persistence):
         return words[:per_page], len(words)
     def get_sentences_by_word(self, word):
         return [s for s in self._sentences if s.unknown_word == word or word in s.text]
+
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        pass
+
     def get_stash_candidates(self, limit=20):
         return [s for s in self._sentences if s.status == "stashed"][:limit]
     def get_sentences_by_status(self, status, language_code: str = ""):

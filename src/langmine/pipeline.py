@@ -179,6 +179,15 @@ def process_video(
     # 5. Persist classified sentences
     persistence.save_sentences(sentences)
 
+    # 5b. Log classification events for timeline
+    for s in sentences:
+        action = f"classified_{s.status}"
+        persistence.log_event(
+            entity_type="sentence", entity_id=s.id or 0,
+            action=action, new_value=s.status,
+            language_code=s.language_code,
+        )
+
     # 5. Build summary
     i1_candidates = [s for s in sentences if s.status == "i1"]
     i0_count = sum(1 for s in sentences if s.status == "i0")

@@ -223,6 +223,23 @@ class Persistence(ABC):
         """
         ...
 
+    @abstractmethod
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        """Append an immutable event to the timeline log.
+
+        Events are append-only — never updated or deleted.
+        Used for timeline visualization and vocab progress tracking.
+        """
+        ...
+
 
 class Translator(ABC):
     """Port for sentence-level machine translation.
