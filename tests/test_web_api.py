@@ -44,6 +44,8 @@ class FakeLanguageProcessor(LanguageProcessor):
     def is_non_word(self, token: str) -> bool:
         return token in {"的", "了", "吗", "啊", "呢", "吧"}
 
+    def is_proper_name(self, token): return False
+
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
 
@@ -547,3 +549,23 @@ class TestLanguagesEndpoint:
         zh = [l for l in data["languages"] if l["code"] == "zh"]
         assert len(zh) == 1
         assert zh[0]["name"] in ("中文", "Chinese")  # either is fine
+
+
+class TestDismissProperName:
+    """PATCH /api/vocab/<word> with proper_name=false marks word as learning."""
+
+    def test_dismiss_proper_name_marks_learning(self, client, persistence):
+        """Dismissing a proper name should mark the word as learning."""
+        resp = client.patch(
+            "/api/vocab/%E6%9B%B9%E6%93%8D",  # 曹操 URL-encoded
+            json={"proper_name": False},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["status"] == "learning"
+
+        # Verify word is now marked learning in persistence
+        word = persistence.get_vocab_word("曹操")
+        assert word is not None
+        assert word.status == "learning"

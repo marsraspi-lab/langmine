@@ -81,6 +81,22 @@ class ChineseLanguageService(LanguageProcessor):
 
         return False
 
+    # Proper name POS tags (jieba posseg)
+    PROPER_NAME_TAGS = frozenset({
+        "nr",    # person name (e.g., 曹操, 刘备)
+        "ns",    # place name (e.g., 北京, 长安)
+        "nrfg",  # person name — given name
+        "nrt",   # person name — transliterated
+    })
+
+    def is_proper_name(self, token: str) -> bool:
+        """Detect proper names via jieba POS tagging."""
+        import jieba.posseg as pseg
+        for word, flag in pseg.cut(token):
+            if word == token and flag in self.PROPER_NAME_TAGS:
+                return True
+        return False
+
     # === Port-delegated methods (depend on injected ports) ===
 
     def lookup_word(self, word: str) -> dict | None:

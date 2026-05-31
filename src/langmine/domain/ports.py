@@ -72,6 +72,14 @@ class LanguageProcessor(ABC):
         (particles, numbers, names, etc.)."""
 
     @abstractmethod
+    def is_proper_name(self, token: str) -> bool:
+        """True if token is a proper name (person, place, etc.).
+
+        Proper names should be visually distinguished in the
+        transcript and excluded from i+1 unknown counting.
+        """
+
+    @abstractmethod
     def find_known_synonyms(
         self, word: str, known_words: set[str]
     ) -> list[str]:

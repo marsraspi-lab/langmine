@@ -57,6 +57,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         ranks = {"一般": 1847, "效率": 3412, "爬山": 5000, "管理": 2100}
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
+    def is_proper_name(self, token): return False
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
 
