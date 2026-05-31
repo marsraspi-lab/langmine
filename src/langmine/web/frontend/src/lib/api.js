@@ -64,6 +64,7 @@ export const api = {
   getStats: () => get('/stats'),
   getConfig: () => get('/config'),
   updateConfig: (config) => put('/config', config),
+  listLanguages: () => get('/languages'),
   exportAnki: (videoId, forceUpdateModel, cardType = 'basic') =>
     post('/export/anki', {
       ...(videoId ? { video_id: videoId } : { all_kept: true }),

@@ -2,19 +2,27 @@
   import { onMount } from 'svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import CardList from './lib/CardList.svelte';
-  import { loadVideos, selectedVideoId, toasts, removeToast, theme, toggleTheme, currentView, loadConfig } from './lib/stores.js';
+  import { loadVideos, selectedVideoId, toasts, removeToast, theme, toggleTheme, currentView, loadConfig, languages, currentLanguage, loadLanguages, selectLanguage } from './lib/stores.js';
   import SettingsPage from './lib/SettingsPage.svelte';
   import VocabPage from './lib/VocabPage.svelte';
 
   onMount(() => {
     loadVideos();
     loadConfig();
+    loadLanguages();
   });
 </script>
 
 <div class="app-layout">
   <header class="top-bar">
     <span class="brand">⛏️ LangMine</span>
+    <div class="lang-selector">
+      <select value={$currentLanguage} onchange={(e) => selectLanguage(e.target.value)}>
+        {#each $languages as lang (lang.code)}
+          <option value={lang.code}>{lang.name}</option>
+        {/each}
+      </select>
+    </div>
     <div class="top-actions">
       <button class="nav-btn" class:active={$currentView === 'curation'} onclick={() => currentView.set('curation')}>
         📹 Curation
@@ -83,6 +91,18 @@
     font-weight: 700;
     font-size: 1.1rem;
     color: var(--accent);
+  }
+  .lang-selector select {
+    padding: 4px 10px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .lang-selector select:hover {
+    border-color: var(--accent);
   }
   .top-actions {
     display: flex;

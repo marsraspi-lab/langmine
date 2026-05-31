@@ -162,14 +162,18 @@ test.describe('LangMine SPA', () => {
   test('Stash tab shows stashed sentences', async () => {
     await main.goto();
     await main.selectFirstVideo();
+    // Wait for any sentences to appear (initial load completed)
+    await expect(curation.chineseText.first()).toBeVisible({ timeout: 5000 });
     await curation.clickFilter('Stashed');
-    await expect(curation.statusBadge('stashed').first()).toBeVisible();
+    await expect(curation.statusBadge('stashed').first()).toBeVisible({ timeout: 5000 });
     await expect(curation.chineseText.first()).toContainText('效率');
   });
 
   test('Stash tab shows empty state when none', async () => {
     await main.goto();
     await main.selectFirstVideo();
+    // Wait for initial load before switching filters
+    await expect(curation.chineseText.first()).toBeVisible({ timeout: 5000 });
     await curation.clickFilter('Deleted');
     await curation.expectEmptyState('No deleted sentences');
   });
@@ -271,7 +275,7 @@ test.describe('LangMine SPA', () => {
     const response = await page.request.get('/api/config');
     expect(response.status()).toBe(200);
     const data = await response.json();
-    expect(data.deck_name).toBeDefined();
+    expect(data.anki_connect_url).toBeDefined();
     expect(data.source_language).toBeDefined();
     expect(data.max_cards_per_video).toBeDefined();
   });

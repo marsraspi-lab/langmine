@@ -2,9 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.1.0 — M0–M14 + decouple Chinese (PR #9). 217 pytest + 42 E2E. All tests pass.
-
----
+**Status:** v1.2.0 — M0–M15 (multi-language support). 200 pytest + 42 E2E. All tests pass.
 
 ## Requirements
 
@@ -66,10 +64,10 @@ for Mac/Windows provides `host.docker.internal` automatically).
 ```bash
 git clone https://github.com/marsraspi-lab/langmine.git
 cd langmine
-docker build --build-arg VERSION=1.1.0 -t langmine:1.1.0 .
+docker build --build-arg VERSION=1.2.0 -t langmine:1.2.0 .
 docker run -p 8080:8080 -v ~/.langmine:/root/.langmine \
   --add-host=host.docker.internal:host-gateway \
-  langmine:1.1.0
+  langmine:1.2.0
 ```
 
 ---
@@ -110,7 +108,7 @@ langmine serve                  # → http://127.0.0.1:8080
 langmine serve --port 9000      # custom port
 ```
 
-The web UI lets you browse mined sentences, edit readings/translations/segmentation inline, keep or delete sentences, mark words as known, and configure settings.
+The web UI lets you browse mined sentences, edit readings/translations/segmentation inline, keep or delete sentences, mark words as known, and configure settings. Use the **language selector** in the top bar to switch between languages — each language has its own isolated vocabulary, sentences, and videos.
 
 ### Export to Anki
 
@@ -121,11 +119,11 @@ langmine export --all-kept
 # Export from a specific video
 langmine export --video-id 1
 
-# Force-update card templates (after editing config.yaml)
+# Force-update card templates
 langmine export --all-kept --force-update-model
 ```
 
-Or use the **📦 Export to Anki** button in the sidebar. Check "⚡ Update card templates" to push template changes from `config.yaml`.
+Or use the **📦 Export to Anki** button in the sidebar. Check "⚡ Update card templates" to push template changes from the language extension (`languages/<lang>/anki/`).
 
 Anki must be running with the AnkiConnect addon installed.
 
@@ -133,7 +131,7 @@ Anki must be running with the AnkiConnect addon installed.
 
 ```bash
 langmine --help
-langmine --version                  # e.g. "langmine 1.1.0"
+langmine --version                  # e.g. "langmine 1.2.0"
 langmine mine --help
 langmine serve --help
 langmine export --help
@@ -148,34 +146,10 @@ On first run, LangMine creates `~/.langmine/config.yaml`. All values can also be
 ```yaml
 anki:
   anki_connect_url: "http://host.docker.internal:8765"
-  deck_name: "Chinese::Sentence Mining"
-  note_type: "LangMine Sentence"
-
-  # Card styling and templates (edit these to customize flashcards)
-  card_css: |
-    .card { font-family: Arial, sans-serif; font-size: 20px; }
-    .chinese { font-size: 28px; margin: 20px 0; }
-    .reading { color: #2e7d32; font-style: italic; }
-    .translation { font-size: 22px; }
-    .word { color: #e53935; font-size: 18px; }
-    .screenshot { margin-top: 16px; }
-
-  card_front_template: |
-    <div class="chinese">{{sentence_zh}}</div>
-    {{#audio}}{{audio}}{{/audio}}
-
-  card_back_template: |
-    <div class="chinese">{{sentence_zh}}</div>
-    {{#audio}}{{audio}}{{/audio}}
-    <hr id="answer">
-    <div class="reading">{{sentence_reading}}</div>
-    <div class="translation">{{translation_de}}</div>
-    {{#unknown_word}}<div class="word">🆕 {{unknown_word}}</div>{{/unknown_word}}
-    {{#screenshot}}<div class="screenshot">{{screenshot}}</div>{{/screenshot}}
 
 languages:
-  source: "zh"
-  target: "de"
+  source: "zh"        # language code for mining — use the top-bar selector in web UI
+  target: "de"        # translation target language
 
 nlp:
   translation_api: "google"
@@ -187,9 +161,6 @@ mining:
   max_cards_per_video: 20     # i+1 candidates per video
   max_stash_cards: 20         # stash re-scan candidates
 
-vocab:
-  # No generic vocab config needed — language packages manage their own bootstrapping
-
 storage:
   data_dir: "~/.langmine/data"   # audio clips, screenshots, downloads
 
@@ -197,7 +168,33 @@ network:
   user_agent: ""                # custom User-Agent (e.g. "Mozilla/5.0 ...")
 ```
 
+**Anki card templates** (`deck_name`, `note_type`, CSS, front/back HTML) are **no longer in config.yaml**. They live as files per language under `languages/<lang>/anki/`. To customize card appearance, edit the HTML/CSS files in the language directory, check "⚡ Update card templates", and export.
+
 See **[docs/TEMPLATES.md](docs/TEMPLATES.md)** for card template customization — available fields, Mustache conditionals, and Anki-side editing.
+
+---
+
+## Multi-Language Support
+
+LangMine supports multiple source languages. Each language has its own:
+
+- **Data isolation** — sentences, videos, and vocabulary are partitioned by `language_code` in the database. Switching languages filters data — nothing is purged.
+- **NLP pipeline** — segmentation, phonetics, dictionary, and frequency adapters live in `languages/<lang>/`.
+- **Anki templates** — card HTML/CSS live in `languages/<lang>/anki/{basic,cloze}/`.
+
+### Changing language
+
+Use the **dropdown selector** in the web UI top bar. The switch calls `PUT /api/config` with `source_language`, then reloads all data scoped to the new language.
+
+GET `/api/languages` returns available language codes and display names.
+
+### Currently supported
+
+| Code | Language | Directory |
+|------|----------|-----------|
+| `zh` | 中文 (Chinese) | `languages/chinese/` |
+
+Planned: `es` (Spanish), `ko` (Korean), `ru` (Russian).
 
 ---
 
@@ -213,6 +210,7 @@ YouTube URL → transcript → merge subtitle chunks into sentences
              → stash i+2+ sentences for later
              → curate in browser (keep/delete/I-know-this, edit reading/translation/segmentation)
              → dark/light theme toggle
+             → switch language from top bar (isolated data per language)
              → export to Anki via AnkiConnect (cards with audio + screenshots)
 ```
 
@@ -237,47 +235,90 @@ src/langmine/
 │   └── anki_connect.py         # AnkiConnect behind AnkiExporter port
 ├── languages/
 │   └── chinese/
+│       ├── __init__.py         # MANIFEST + get_anki_templates() + exports
 │       ├── service.py          # ChineseLanguageService (segment, reading, classify)
 │       ├── dictionary.py       # CcCedictAdapter (CC-CEDICT, 125K entries)
 │       ├── frequency.py        # SubtlexChAdapter + JiebaFrequencyAdapter
-│       ├── hsk.py              # HSK proficiency levels
+│       ├── hsk_data.py         # HSK proficiency levels
+│       ├── anki/               # Card templates as files
+│       │   ├── basic/{front.html, back.html, css.css}
+│       │   └── cloze/{front.html, back.html, css.css}
 │       └── data/               # CC-CEDICT dictionary + SUBTLEX corpus
 ├── language_factory.py   # Single switch point for language loading
 ├── web/
 │   ├── app.py            # Flask app factory (port injection)
-│   ├── routes.py         # REST API endpoints
+│   ├── routes.py         # REST API endpoints (GET /api/languages, etc.)
 │   ├── static/           # Built Svelte output (served by Flask)
-│   └── frontend/         # Svelte 5 + Vite source (language-agnostic)
+│   └── frontend/         # Svelte 5 + Vite source (language-agnostic + selector)
 ├── pipeline.py           # End-to-end mining (accepts ports)
 ├── cli.py                # CLI entry point (mine, serve, export)
-├── config.py             # YAML config with defaults
+├── config.py             # YAML config with defaults (templates removed)
 ├── audio.py              # yt-dlp/ffmpeg helpers (uses project binaries)
 └── bin/                  # Static ffmpeg/ffprobe (downloaded via setup script)
 ```
 
 The cardinal rule: `domain/` never imports from `adapters/` or `web/`. Similarly, `domain/` and `web/` never import from `languages/` — only `language_factory.py` touches language packages.
 
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/videos` | List videos (filtered by `language_code`) |
+| `GET /api/videos/<id>/sentences` | Sentences for a video |
+| `GET /api/videos/<id>/transcript` | Full reading-mode transcript |
+| `PATCH /api/sentences/<id>` | Update sentence status/fields |
+| `PATCH /api/sentences/<id>/iknowthis` | Mark word as known |
+| `GET /api/stats` | Vocabulary stats |
+| `GET /api/vocab` | Vocab listing |
+| `GET /api/config` | Current config (no Anki templates) |
+| `PUT /api/config` | Update config |
+| `GET /api/languages` | Available languages `[{code, name}]` |
+| `GET /api/version` | Installed version |
+| `POST /api/videos/mine` | Mine a YouTube video |
+| `POST /api/export/anki` | Export sentences to Anki |
+
 ### Adding a Language
 
-Create `languages/<code>/` with 4 files:
+Create `languages/<code>/` with 5 files + template directory:
 
 ```
 languages/spanish/
-├── __init__.py           # Package init
+├── __init__.py           # MANIFEST dict + get_anki_templates() + exports
 ├── service.py            # SpanishLanguageService(LanguageProcessor)
 ├── dictionary.py         # SpanishDict adapter (Dictionary port)
-└── frequency.py          # SUBTLEX-ES adapter (FrequencySource port)
+├── frequency.py          # SUBTLEX-ES adapter (FrequencySource port)
+└── anki/
+    ├── basic/{front.html, back.html, css.css}
+    └── cloze/{front.html, back.html, css.css}
+```
+
+The `__init__.py` must expose:
+```python
+MANIFEST = {
+    "name": "Español",
+    "deck_name": "Spanish::Sentence Mining",
+    "note_type": "LangMine Spanish Sentence",
+    "cloze_note_type": "LangMine Spanish Cloze",
+}
+
+def get_anki_templates():
+    """Load card templates from anki/ directory."""
+    ...
 ```
 
 Then add to `language_factory.py`:
-
 ```python
 case "es":
     from langmine.languages.spanish import SpanishLanguageService, SpanishDict, SubtlexEsAdapter
     return SpanishLanguageService(SpanishDict(), GoogleTranslateAdapter(), SubtlexEsAdapter())
 ```
 
-No changes needed in `domain/`, `web/`, `adapters/`, `pipeline.py`, or `cli.py` — the factory handles everything. The Svelte frontend is fully language-agnostic — it renders whatever JSON the API returns.
+Also add to the `LANGUAGES` list in `language_factory.py`:
+```python
+{"code": "es", "name": "Spanish"},
+```
+
+No changes needed in `domain/`, `web/`, `adapters/`, `pipeline.py`, or `cli.py` — the factory handles everything. The Svelte frontend is fully language-agnostic — it renders whatever JSON the API returns. The language selector auto-populates from `GET /api/languages`.
 
 ### Frequency tiers
 
@@ -310,8 +351,9 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M12 | Image Search | ✅ — image search for visual context on cards |
 | M13 | Difficulty Preview | ✅ — pre-mine difficulty check for a video |
 | M14 | Ruby Annotations | ✅ — tone-colored pinyin ruby text above characters |
+| M15 | Multi-Language Support | ✅ — data isolation, language selector, per-language Anki templates |
 
-> **Plan:** `.hermes/plans/2026-05-29-m10-m14-reading-cloze-image-preview-ruby.md`
+> **Plan:** `.hermes/plans/2026-05-30-decouple-chinese.md`
 
 ---
 

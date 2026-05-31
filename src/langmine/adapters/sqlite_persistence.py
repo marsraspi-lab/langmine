@@ -22,6 +22,12 @@ class SQLitePersistence(Persistence):
     def conn(self):
         return self._db.conn
 
+    def _lang_filter(self, language_code: str) -> tuple[str, list]:
+        """Return (WHERE_clause_suffix, param_list) for language filtering."""
+        if language_code:
+            return (" AND language_code = ?", [language_code])
+        return ("", [])
+
     # === Videos ===
 
     def save_video(self, video: Video) -> None:
@@ -37,10 +43,11 @@ class SQLitePersistence(Persistence):
             cursor = self.conn.execute(
                 """INSERT OR REPLACE INTO videos
                    (youtube_id, title, channel, duration_sec,
-                    transcript_json, audio_path)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                    transcript_json, audio_path, language_code)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (video.youtube_id, video.title, video.channel,
-                 video.duration_sec, video.transcript_json, video.audio_path),
+                 video.duration_sec, video.transcript_json, video.audio_path,
+                 video.language_code),
             )
             video.id = cursor.lastrowid
         self.conn.commit()
@@ -53,9 +60,11 @@ class SQLitePersistence(Persistence):
             return None
         return self._row_to_video(row)
 
-    def list_videos(self) -> list[Video]:
+    def list_videos(self, language_code: str = "") -> list[Video]:
+        suffix, params = self._lang_filter(language_code)
         rows = self.conn.execute(
-            "SELECT * FROM videos ORDER BY processed_at DESC"
+            f"SELECT * FROM videos WHERE 1=1{suffix} ORDER BY processed_at DESC",
+            params,
         ).fetchall()
         return [self._row_to_video(r) for r in rows]
 
@@ -86,35 +95,41 @@ class SQLitePersistence(Persistence):
                         non_words_json, reading, translation_de, unknown_word,
                         unknown_word_rank, known_synonyms_json,
                         audio_clip_path, screenshot_path, screenshot_enabled,
-                        status)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        status, language_code)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (s.video_id, s.start_ms, s.end_ms, s.text,
                      s.text_segmented, s.non_words_json, s.reading,
                      s.translation_de, s.unknown_word, s.unknown_word_rank,
                      s.known_synonyms_json, s.audio_clip_path,
-                     s.screenshot_path, int(s.screenshot_enabled), s.status),
+                     s.screenshot_path, int(s.screenshot_enabled), s.status,
+                     s.language_code),
                 )
                 s.id = cursor.lastrowid
         self.conn.commit()
 
     def get_sentences_by_video(
-        self, video_id: int, status: str | None = None
+        self, video_id: int, status: str | None = None, language_code: str = ""
     ) -> list[Sentence]:
         query = "SELECT * FROM sentences WHERE video_id = ?"
-        params: tuple = (video_id,)
+        params: list = [video_id]
         if status:
             query += " AND status = ?"
-            params = (video_id, status)
-        rows = self.conn.execute(query, params).fetchall()
+            params.append(status)
+        if language_code:
+            query += " AND language_code = ?"
+            params.append(language_code)
+        rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
-    def get_stash_candidates(self, limit: int = 20) -> list[Sentence]:
-        rows = self.conn.execute(
-            """SELECT * FROM sentences WHERE status = 'stashed'
-               ORDER BY unknown_word_rank ASC NULLS LAST
-               LIMIT ?""",
-            (limit,),
-        ).fetchall()
+    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]:
+        query = """SELECT * FROM sentences WHERE status = 'stashed'"""
+        params: list = []
+        if language_code:
+            query += " AND language_code = ?"
+            params.append(language_code)
+        query += " ORDER BY unknown_word_rank ASC NULLS LAST LIMIT ?"
+        params.append(limit)
+        rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
     def update_sentence(self, sentence: Sentence) -> None:
@@ -130,10 +145,13 @@ class SQLitePersistence(Persistence):
         )
         self.conn.commit()
 
-    def get_sentences_by_status(self, status: str) -> list[Sentence]:
-        rows = self.conn.execute(
-            "SELECT * FROM sentences WHERE status = ?", (status,)
-        ).fetchall()
+    def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]:
+        query = "SELECT * FROM sentences WHERE status = ?"
+        params: list = [status]
+        if language_code:
+            query += " AND language_code = ?"
+            params.append(language_code)
+        rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
     def reclassify_stashed(self, video_id: int) -> int:
@@ -148,11 +166,11 @@ class SQLitePersistence(Persistence):
         self.conn.execute(
             """INSERT OR REPLACE INTO vocab
                (word_simplified, word_traditional, reading, definition_de,
-                hsk_level, frequency_rank, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                hsk_level, frequency_rank, status, language_code)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (word.word_simplified, word.word_traditional, word.reading,
              word.definition_de, word.hsk_level, word.frequency_rank,
-             word.status),
+             word.status, word.language_code),
         )
         self.conn.commit()
 
@@ -164,10 +182,13 @@ class SQLitePersistence(Persistence):
             return None
         return self._row_to_vocab(row)
 
-    def get_known_words(self) -> set[str]:
-        rows = self.conn.execute(
-            "SELECT word_simplified FROM vocab WHERE status = 'known'"
-        ).fetchall()
+    def get_known_words(self, language_code: str = "") -> set[str]:
+        query = "SELECT word_simplified FROM vocab WHERE status = 'known'"
+        params: list = []
+        if language_code:
+            query += " AND language_code = ?"
+            params.append(language_code)
+        rows = self.conn.execute(query, tuple(params)).fetchall()
         return {r[0] for r in rows}
 
     def mark_word_known(self, word_simplified: str) -> None:
@@ -184,15 +205,16 @@ class SQLitePersistence(Persistence):
         )
         self.conn.commit()
 
-    def get_vocab_stats(self) -> dict:
+    def get_vocab_stats(self, language_code: str = "") -> dict:
+        suffix, params = self._lang_filter(language_code)
         known = self.conn.execute(
-            "SELECT COUNT(*) FROM vocab WHERE status = 'known'"
+            f"SELECT COUNT(*) FROM vocab WHERE status = 'known'{suffix}", params
         ).fetchone()[0]
         learning = self.conn.execute(
-            "SELECT COUNT(*) FROM vocab WHERE status = 'learning'"
+            f"SELECT COUNT(*) FROM vocab WHERE status = 'learning'{suffix}", params
         ).fetchone()[0]
         total = self.conn.execute(
-            "SELECT COUNT(*) FROM vocab"
+            f"SELECT COUNT(*) FROM vocab WHERE 1=1{suffix}", params
         ).fetchone()[0]
         return {"known": known, "learning": learning, "total": total}
 
@@ -203,6 +225,7 @@ class SQLitePersistence(Persistence):
         status: str | None = None,
         search: str | None = None,
         sort: str = "frequency",
+        language_code: str = "",
     ) -> tuple[list[VocabWord], int]:
         where = []
         params: list = []
@@ -213,6 +236,9 @@ class SQLitePersistence(Persistence):
         if search:
             where.append("(word_simplified LIKE ? OR reading LIKE ?)")
             params.extend([f"%{search}%", f"%{search}%"])
+        if language_code:
+            where.append("language_code = ?")
+            params.append(language_code)
 
         where_clause = f"WHERE {' AND '.join(where)}" if where else ""
 
@@ -259,6 +285,7 @@ class SQLitePersistence(Persistence):
             transcript_json=row["transcript_json"] or "",
             audio_path=row["audio_path"] or "",
             processed_at=row["processed_at"],
+            language_code=row["language_code"] or "",
         )
 
     def _row_to_sentence(self, row) -> Sentence:
@@ -279,6 +306,7 @@ class SQLitePersistence(Persistence):
             screenshot_path=row["screenshot_path"] or "",
             screenshot_enabled=bool(row["screenshot_enabled"]),
             status=row["status"] or "new",
+            language_code=row["language_code"] or "",
         )
 
     def _row_to_vocab(self, row) -> VocabWord:
@@ -291,4 +319,5 @@ class SQLitePersistence(Persistence):
             hsk_level=row["hsk_level"],
             frequency_rank=row["frequency_rank"],
             status=row["status"] or "known",
+            language_code=row["language_code"] or "",
         )

@@ -3,7 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS videos (
     duration_sec INTEGER,
     transcript_json TEXT,
     audio_path TEXT,
-    processed_at TEXT DEFAULT (datetime('now'))
+    processed_at TEXT DEFAULT (datetime('now')),
+    language_code TEXT NOT NULL DEFAULT 'zh'
 );
 
 CREATE TABLE IF NOT EXISTS sentences (
@@ -37,7 +38,8 @@ CREATE TABLE IF NOT EXISTS sentences (
     audio_clip_path TEXT,
     screenshot_path TEXT,
     screenshot_enabled INTEGER DEFAULT 1,
-    status TEXT DEFAULT 'new'
+    status TEXT DEFAULT 'new',
+    language_code TEXT NOT NULL DEFAULT 'zh'
 );
 
 CREATE TABLE IF NOT EXISTS vocab (
@@ -48,7 +50,8 @@ CREATE TABLE IF NOT EXISTS vocab (
     definition_de TEXT,
     hsk_level INTEGER,
     frequency_rank INTEGER,
-    status TEXT DEFAULT 'known'
+    status TEXT DEFAULT 'known',
+    language_code TEXT NOT NULL DEFAULT 'zh'
 );
 """
 

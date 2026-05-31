@@ -145,6 +145,9 @@ class Persistence(ABC):
     Domain code never touches SQL directly — only this interface.
 
     Swap SQLite for a filesystem adapter without changing any domain code.
+
+    Query methods accept an optional language_code to scope results.
+    When empty, returns all languages (debug/migration). When set, filters by it.
     """
 
     # Videos
@@ -153,7 +156,7 @@ class Persistence(ABC):
     @abstractmethod
     def get_video(self, youtube_id: str) -> Video | None: ...
     @abstractmethod
-    def list_videos(self) -> list[Video]: ...
+    def list_videos(self, language_code: str = "") -> list[Video]: ...
     @abstractmethod
     def video_exists(self, youtube_id: str) -> bool: ...
 
@@ -161,13 +164,13 @@ class Persistence(ABC):
     @abstractmethod
     def save_sentences(self, sentences: list[Sentence]) -> None: ...
     @abstractmethod
-    def get_sentences_by_video(self, video_id: int, status: str | None = None) -> list[Sentence]: ...
+    def get_sentences_by_video(self, video_id: int, status: str | None = None, language_code: str = "") -> list[Sentence]: ...
     @abstractmethod
-    def get_stash_candidates(self, limit: int = 20) -> list[Sentence]: ...
+    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]: ...
     @abstractmethod
     def update_sentence(self, sentence: Sentence) -> None: ...
     @abstractmethod
-    def get_sentences_by_status(self, status: str) -> list[Sentence]: ...
+    def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]: ...
     @abstractmethod
     def reclassify_stashed(self, video_id: int) -> int:
         """Re-classify stashed sentences after vocab change. Returns count of newly-i+1."""
@@ -179,13 +182,13 @@ class Persistence(ABC):
     @abstractmethod
     def get_vocab_word(self, word_simplified: str) -> VocabWord | None: ...
     @abstractmethod
-    def get_known_words(self) -> set[str]: ...
+    def get_known_words(self, language_code: str = "") -> set[str]: ...
     @abstractmethod
     def mark_word_known(self, word_simplified: str) -> None: ...
     @abstractmethod
     def mark_word_learning(self, word_simplified: str) -> None: ...
     @abstractmethod
-    def get_vocab_stats(self) -> dict: ...
+    def get_vocab_stats(self, language_code: str = "") -> dict: ...
 
     @abstractmethod
     def list_vocab(
@@ -195,6 +198,7 @@ class Persistence(ABC):
         status: str | None = None,
         search: str | None = None,
         sort: str = "frequency",
+        language_code: str = "",
     ) -> tuple[list[VocabWord], int]:
         """Paginated vocabulary list.
 
@@ -202,8 +206,9 @@ class Persistence(ABC):
             page: 1-indexed page number.
             per_page: Items per page (default 200).
             status: Filter by status ('known', 'learning', or None for all).
-            search: Filter by word or pinyin substring.
+            search: Filter by word or reading substring.
             sort: Sort order — 'frequency' (asc), 'hsk' (asc), or 'recent' (desc).
+            language_code: Language filter (e.g. 'zh', 'es'). Empty = all languages.
 
         Returns:
             (list of VocabWord, total_count).

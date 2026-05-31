@@ -1,8 +1,8 @@
 # LangMine — YouTube Sentence Mining Tool
 
-> **Status:** Implemented M0–M14 ✅  
-> **This is the original design document.** The actual implementation followed a different milestone numbering (M0–M14 per README). See [README.md](README.md) for current state and [ACCEPTANCE-CHECKLIST.md](ACCEPTANCE-CHECKLIST.md) for the full feature matrix.  
-> **Target languages:** Chinese (v1) → Spanish, Korean, Russian (future)  
+> **Status:** Implemented M0–M15 (multi-language) ✅  
+> **This is the original design document.** The actual implementation followed a different milestone numbering (M0–M15 per README). See [README.md](README.md) for current state and [ACCEPTANCE-CHECKLIST.md](ACCEPTANCE-CHECKLIST.md) for the full feature matrix.  
+> **Languages:** Chinese (v1.2) — Spanish, Korean, Russian planned via `languages/<lang>/` extensions  
 > **L1:** German  
 > **Form factor:** Local web app (Python backend → browser tab, no Electron)
 

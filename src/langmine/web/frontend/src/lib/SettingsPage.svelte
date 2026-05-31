@@ -50,14 +50,6 @@
         Connect URL
         <input name="anki_connect_url" value={$config.anki_connect_url || ''} />
       </label>
-      <label>
-        Deck Name
-        <input name="deck_name" value={$config.deck_name || ''} />
-      </label>
-      <label>
-        Note Type
-        <input name="note_type" value={$config.note_type || ''} />
-      </label>
     </section>
 
     <section class="settings-section">

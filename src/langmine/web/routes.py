@@ -40,15 +40,22 @@ def register_routes(app: Flask):
             v = "unknown"
         return jsonify({"version": v, "name": "langmine"})
 
+    @app.route("/api/languages")
+    def list_languages():
+        """List available source languages with code and display name."""
+        from langmine.language_factory import get_available_languages
+        return jsonify({"languages": get_available_languages()})
+
     @app.route("/api/videos")
     def list_videos():
         """List all videos with sentence counts by status."""
         persistence = _get_persistence()
-        videos = persistence.list_videos()
+        lang = _get_language_code()
+        videos = persistence.list_videos(language_code=lang)
 
         return jsonify({
             "videos": [
-                _video_with_counts(persistence, v)
+                _video_with_counts(persistence, v, lang)
                 for v in videos
             ]
         })
@@ -235,9 +242,10 @@ def register_routes(app: Flask):
     def get_sentences(video_id: int):
         """Get sentences for a video, optionally filtered by status."""
         persistence = _get_persistence()
+        lang = _get_language_code()
         status = request.args.get("status")
 
-        sentences = persistence.get_sentences_by_video(video_id, status=status)
+        sentences = persistence.get_sentences_by_video(video_id, status=status, language_code=lang)
 
         return jsonify({
             "video_id": video_id,
@@ -249,7 +257,8 @@ def register_routes(app: Flask):
     def get_transcript(video_id: int):
         """Return all sentences in time-order for the reading view."""
         persistence = _get_persistence()
-        sentences = persistence.get_sentences_by_video(video_id)
+        lang = _get_language_code()
+        sentences = persistence.get_sentences_by_video(video_id, language_code=lang)
         # Sort chronologically for reading order
         sentences.sort(key=lambda s: s.start_ms)
         return jsonify({
@@ -451,6 +460,7 @@ def register_routes(app: Flask):
     def list_vocab():
         """Paginated vocabulary list with filtering and sorting."""
         persistence = _get_persistence()
+        lang = _get_language_code()
 
         page = request.args.get("page", 1, type=int)
         per_page = request.args.get("per_page", 200, type=int)
@@ -460,7 +470,7 @@ def register_routes(app: Flask):
 
         words, total = persistence.list_vocab(
             page=page, per_page=per_page, status=status,
-            search=search, sort=sort,
+            search=search, sort=sort, language_code=lang,
         )
 
         return jsonify({
@@ -514,7 +524,8 @@ def register_routes(app: Flask):
     def stats():
         """Return vocabulary stats."""
         persistence = _get_persistence()
-        return jsonify(persistence.get_vocab_stats())
+        lang = _get_language_code()
+        return jsonify(persistence.get_vocab_stats(language_code=lang))
 
     @app.route("/api/config")
     def get_config():
@@ -523,8 +534,6 @@ def register_routes(app: Flask):
         config = load_config()
         return jsonify({
             "anki_connect_url": config.anki_connect_url,
-            "deck_name": config.deck_name,
-            "note_type": config.note_type,
             "source_language": config.source_language,
             "target_language": config.target_language,
             "translation_api": config.translation_api,
@@ -547,13 +556,11 @@ def register_routes(app: Flask):
 
         # Allowed config keys
         ALLOWED = {
-            "anki_connect_url", "deck_name", "note_type",
+            "anki_connect_url",
             "source_language", "target_language", "translation_api",
             "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
             "max_cards_per_video", "max_stash_cards",
             "deepl_api_key",
-            "cloze_note_type", "cloze_card_css",
-            "cloze_card_front_template", "cloze_card_back_template",
             "user_agent",
         }
 
@@ -599,24 +606,27 @@ def register_routes(app: Flask):
             }), 400
 
         try:
-            from langmine.config import load_config
-            config = load_config()
+            from langmine.language_factory import get_anki_templates, get_language_manifest
+
+            lang = _get_language_code()
+            manifest = get_language_manifest(lang)
+            templates = get_anki_templates(lang)
 
             # Select templates based on card type
             if card_type == "cloze":
-                note_type = config.cloze_note_type
-                css = config.cloze_card_css
-                front = config.cloze_card_front_template
-                back = config.cloze_card_back_template
+                note_type = manifest.get("cloze_note_type", "LangMine Cloze")
+                css = templates.get("cloze_css", "")
+                front = templates.get("cloze_front", "")
+                back = templates.get("cloze_back", "")
             else:
-                note_type = config.note_type
-                css = config.card_css
-                front = config.card_front_template
-                back = config.card_back_template
+                note_type = manifest.get("note_type", "LangMine Sentence")
+                css = templates.get("basic_css", "")
+                front = templates.get("basic_front", "")
+                back = templates.get("basic_back", "")
 
             result = exporter.export(
                 sentences=sentences,
-                deck_name=config.deck_name,
+                deck_name=manifest.get("deck_name", "LangMine"),
                 note_type_name=note_type,
                 card_css=css,
                 card_front=front,
@@ -638,6 +648,12 @@ def register_routes(app: Flask):
 
 
 # === Helpers ===
+
+
+def _get_language_code() -> str:
+    """Get the current source language from config."""
+    from langmine.config import load_config
+    return load_config().source_language
 
 
 def _get_persistence() -> Persistence:
@@ -716,9 +732,9 @@ def _find_sentence(persistence: Persistence, sentence_id: int) -> Sentence | Non
     return None
 
 
-def _video_with_counts(persistence: Persistence, video) -> dict:
+def _video_with_counts(persistence: Persistence, video, lang: str = "") -> dict:
     """Build a video dict with sentence counts by status."""
-    sentences = persistence.get_sentences_by_video(video.id)
+    sentences = persistence.get_sentences_by_video(video.id, language_code=lang)
     counts = {
         "total": 0, "i1": 0, "i0": 0, "stashed": 0, "kept": 0, "deleted": 0,
     }

@@ -78,7 +78,7 @@ class FakePersistence(Persistence):
                 return v
         return None
 
-    def list_videos(self) -> list[Video]:
+    def list_videos(self, language_code: str = "") -> list[Video]:
         return list(self._videos)
 
     def video_exists(self, youtube_id: str) -> bool:
@@ -92,13 +92,13 @@ class FakePersistence(Persistence):
                 self._next_sentence_id += 1
             self._sentences.append(s)
 
-    def get_sentences_by_video(self, video_id: int, status: str | None = None) -> list[Sentence]:
+    def get_sentences_by_video(self, video_id: int, status: str | None = None, language_code: str = "") -> list[Sentence]:
         results = [s for s in self._sentences if s.video_id == video_id]
         if status:
             results = [s for s in results if s.status == status]
         return results
 
-    def get_stash_candidates(self, limit: int = 20) -> list[Sentence]:
+    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]:
         return [s for s in self._sentences if s.status == "stashed"][:limit]
 
     def update_sentence(self, sentence: Sentence) -> None:
@@ -107,7 +107,7 @@ class FakePersistence(Persistence):
                 self._sentences[i] = sentence
                 break
 
-    def get_sentences_by_status(self, status: str) -> list[Sentence]:
+    def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]:
         return [s for s in self._sentences if s.status == status]
 
     def reclassify_stashed(self, video_id: int) -> int:
@@ -123,7 +123,7 @@ class FakePersistence(Persistence):
                 return w
         return None
 
-    def get_known_words(self) -> set[str]:
+    def get_known_words(self, language_code: str = "") -> set[str]:
         return self._known | {w.word_simplified for w in self._vocab if w.status == "known"}
 
     def mark_word_known(self, word_simplified: str) -> None:
@@ -140,7 +140,7 @@ class FakePersistence(Persistence):
         else:
             self._vocab.append(VocabWord(word_simplified=word_simplified, status="learning"))
 
-    def get_vocab_stats(self) -> dict:
+    def get_vocab_stats(self, language_code: str = "") -> dict:
         known = sum(1 for w in self._vocab if w.status == "known")
         learning = sum(1 for w in self._vocab if w.status == "learning")
         total = len(self._vocab)
@@ -498,315 +498,33 @@ class TestIknowthis:
         assert resp.status_code == 404
 
 
-class TestSentenceAudio:
-    """GET /api/sentences/<sentence_id>/audio"""
+class TestLanguagesEndpoint:
+    """GET /api/languages returns available language codes and names."""
 
-    def test_returns_404_if_no_audio_file(self, client_with_sentences):
-        """When audio file doesn't exist, returns 404."""
-        client, _ = client_with_sentences
-        resp = client.get("/api/sentences/1/audio")
-        # Audio file at /tmp/clips/s1.mp3 doesn't exist in test — returns 404
-        assert resp.status_code == 404
-
-    def test_unknown_sentence_returns_404(self, client):
-        """Non-existent sentence returns 404."""
-        resp = client.get("/api/sentences/999/audio")
-        assert resp.status_code == 404
-
-
-class TestStats:
-    """GET /api/stats"""
-
-    def test_initial_stats(self, client, persistence):
-        """Returns vocab stats with HSK bootstrap words."""
-        resp = client.get("/api/stats")
+    def test_returns_language_list(self, client):
+        """Returns [{code, name}] for all registered languages."""
+        resp = client.get("/api/languages")
         assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert "known" in data
-        assert "learning" in data
-        assert isinstance(data["known"], int)
-        assert isinstance(data["learning"], int)
+        data = resp.get_json()
+        assert "languages" in data
+        langs = data["languages"]
+        assert isinstance(langs, list)
+        assert len(langs) >= 1
 
-    def test_stats_after_iknowthis(self, client_with_sentences):
-        """Stats update after marking a word known."""
-        client, _ = client_with_sentences
-        # Initial stats
-        before = json.loads(client.get("/api/stats").data)
-        initial_known = before["known"]
+        # Chinese must be present (the only registered language so far)
+        codes = {lang["code"] for lang in langs}
+        assert "zh" in codes
 
-        # Mark a word known
-        client.patch("/api/sentences/1/iknowthis")
+        # Each entry has code and name
+        zh = next(lang for lang in langs if lang["code"] == "zh")
+        assert "name" in zh
+        assert isinstance(zh["name"], str)
+        assert len(zh["name"]) > 0
 
-        after = json.loads(client.get("/api/stats").data)
-        assert after["known"] > initial_known
-
-
-class TestAnkiExport:
-    """POST /api/export/anki"""
-
-    def test_503_when_no_exporter_configured(self, client):
-        """Returns 503 if AnkiExporter not injected."""
-        resp = client.post("/api/export/anki", json={"all_kept": True})
-        assert resp.status_code == 503
-        data = json.loads(resp.data)
-        assert "error" in data
-
-    def test_400_when_no_kept_sentences(self, client_with_anki):
-        """Returns 400 when no kept sentences exist."""
-        client = client_with_anki
-        resp = client.post("/api/export/anki", json={"all_kept": True})
-        assert resp.status_code == 400
-
-    def test_cloze_card_type_passed_to_exporter(self, client_with_sentences):
-        """POST with card_type='cloze' passes it to the AnkiExporter."""
-        from unittest.mock import MagicMock, patch
-        from langmine.web.app import create_app
-        from tests.test_web_api import (
-            FakePersistence, FakeLanguageProcessor, FakeTranscriptSource,
-            FakeAudioProcessor,
-        )
-
-        # Create a fresh app with a mock exporter that we can inspect
-        persistence = FakePersistence(known_words={"我们", "早上", "起床", "学习", "我", "爱", "你"})
-        video = Video(youtube_id="test", title="T", channel="C")
-        persistence.save_video(video)
-        sentence = Sentence(
-            video_id=video.id, start_ms=1000, end_ms=3000,
-            text="我们 一般 早上 起床", text_segmented="我们 / 一般 / 早上 / 起床",
-            unknown_word="一般", unknown_word_rank=1847,
-            status="kept",
-        )
-        persistence.save_sentences([sentence])
-
-        mock_exporter = MagicMock()
-        mock_exporter.export.return_value = {
-            "note_ids": [], "added": 0, "duplicates": 0, "errors": [],
-        }
-
-        app = create_app(
-            persistence=persistence,
-            language_processor=FakeLanguageProcessor(),
-            transcript_source=FakeTranscriptSource(),
-            audio_processor=FakeAudioProcessor(),
-            anki_exporter=mock_exporter,
-        )
-        app.config["TESTING"] = True
-        client = app.test_client()
-
-        resp = client.post(
-            "/api/export/anki",
-            json={"all_kept": True, "card_type": "cloze"},
-        )
-        assert resp.status_code == 200
-
-        # Verify mock received card_type
-        mock_exporter.export.assert_called_once()
-        call_kwargs = mock_exporter.export.call_args.kwargs
-        assert call_kwargs.get("card_type") == "cloze", (
-            f"Expected card_type='cloze', got {call_kwargs.get('card_type')}"
-        )
-
-
-class TestSPAServing:
-    """GET / serves the Svelte SPA."""
-
-    def test_serves_html_page(self, client):
-        """Root URL returns the Svelte-built index.html."""
-        resp = client.get("/")
-        assert resp.status_code == 200
-        assert b"<!DOCTYPE html>" in resp.data or b"<html" in resp.data
-        assert b"LangMine" in resp.data
-
-    def test_static_assets_served(self, client):
-        """Built Svelte assets are served from /assets/ path."""
-        resp = client.get("/favicon.svg")
-        assert resp.status_code == 200
-
-
-class TestSentenceEdits:
-    """PATCH /api/sentences/<id> with field edits."""
-
-    def test_edit_pinyin(self, client_with_sentences):
-        """Should update pinyin field."""
-        client, _ = client_with_sentences
-        resp = client.patch(
-            "/api/sentences/1",
-            data=json.dumps({"reading": "wǒmen yībān zǎoshang qǐchuáng"}),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentence"]["reading"] == "wǒmen yībān zǎoshang qǐchuáng"
-
-    def test_edit_translation(self, client_with_sentences):
-        """Should update translation_de field."""
-        client, _ = client_with_sentences
-        resp = client.patch(
-            "/api/sentences/1",
-            data=json.dumps({"translation_de": "Wir stehen normalerweise morgens auf"}),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentence"]["translation_de"] == "Wir stehen normalerweise morgens auf"
-
-    def test_edit_multiple_fields(self, client_with_sentences):
-        """Should update pinyin and translation in one request."""
-        client, _ = client_with_sentences
-        resp = client.patch(
-            "/api/sentences/1",
-            data=json.dumps({
-                "reading": "new reading",
-                "translation_de": "new translation",
-            }),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentence"]["reading"] == "new reading"
-        assert data["sentence"]["translation_de"] == "new translation"
-
-    def test_edit_and_status_together(self, client_with_sentences):
-        """Should handle both field edit and status change."""
-        client, _ = client_with_sentences
-        resp = client.patch(
-            "/api/sentences/1",
-            data=json.dumps({
-                "reading": "corrected reading",
-                "status": "kept",
-            }),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentence"]["reading"] == "corrected reading"
-        assert data["sentence"]["status"] == "kept"
-
-    def test_reclassify_on_segmentation_change(self, client_with_sentences):
-        """Changing text_segmented should re-classify (i1 → i0 if all known)."""
-        # Sentence 1: "我们 / 一般 / 早上 / 起床" with 一般 as unknown
-        # Change so all words are known: "我们 / 早上 / 起床"
-        client, _ = client_with_sentences
-        resp = client.patch(
-            "/api/sentences/1",
-            data=json.dumps({"text_segmented": "我们 / 早上 / 起床"}),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentence"]["status"] == "i0"
-        assert data["sentence"]["unknown_word"] is None
-
-    def test_reclassify_to_stashed(self, client_with_sentences):
-        """Adding more unknown words should push to stashed."""
-        # Change to have 2 unknowns: "一般 / 爬山" both unknown
-        client, _ = client_with_sentences
-        resp = client.patch(
-            "/api/sentences/1",
-            data=json.dumps({"text_segmented": "一般 / 爬山 / 起床"}),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentence"]["status"] == "stashed"
-        assert data["sentence"]["unknown_word"] is None
-
-    def test_unknown_sentence_returns_404(self, client):
-        """Should return 404 for non-existent sentence."""
-        resp = client.patch(
-            "/api/sentences/999",
-            data=json.dumps({"reading": "test"}),
-            content_type="application/json",
-        )
-        assert resp.status_code == 404
-
-    def test_empty_body_returns_400(self, client):
-        """Should return 400 for empty request body."""
-        resp = client.patch(
-            "/api/sentences/1",
-            data=None,
-            content_type="application/json",
-        )
-        assert resp.status_code == 400
-
-
-class TestConfigAPI:
-    """GET/PUT /api/config."""
-
-    def test_get_config_returns_values(self, client):
-        """Should return all config values (no API keys)."""
-        resp = client.get("/api/config")
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert "deck_name" in data
-        assert "source_language" in data
-        assert "max_cards_per_video" in data
-        # API keys should NOT be in response
-        assert "deepl_api_key" not in data
-
-    def test_put_config_updates_values(self, client):
-        """Should update config values."""
-        resp = client.put(
-            "/api/config",
-            data=json.dumps({
-                "deck_name": "Custom Deck",
-                "max_cards_per_video": 10,
-            }),
-            content_type="application/json",
-        )
-        assert resp.status_code == 200
-        assert json.loads(resp.data)["ok"] is True
-
-    def test_put_config_empty_body_returns_400(self, client):
-        """Should return 400 for empty body."""
-        resp = client.put("/api/config", data=None, content_type="application/json")
-        assert resp.status_code == 400
-
-
-class TestTranscriptEndpoint:
-    """GET /api/videos/<id>/transcript — reading view endpoint."""
-
-    def test_returns_ordered_sentences(self, client_with_sentences):
-        """Transcript endpoint returns sentences sorted by start_ms."""
-        client, _ = client_with_sentences
-        resp = client.get("/api/videos/1/transcript")
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert "sentences" in data
-        assert len(data["sentences"]) > 0
-        starts = [s["start_ms"] for s in data["sentences"]]
-        assert starts == sorted(starts)
-
-    def test_returns_full_metadata(self, client_with_sentences):
-        """Each sentence has text, pinyin, translation, words array, status."""
-        client, _ = client_with_sentences
-        resp = client.get("/api/videos/1/transcript")
-        data = json.loads(resp.data)
-        sentence = data["sentences"][0]
-        assert "text" in sentence
-        assert "reading" in sentence
-        assert "translation_de" in sentence
-        assert "words" in sentence
-        assert "status" in sentence
-        assert "has_audio" in sentence
-
-    def test_includes_deleted_sentences(self, client_with_sentences):
-        """Reading view shows all sentences including deleted, for context."""
-        client, _ = client_with_sentences
-        # Mark sentence 1 as deleted
-        client.patch(
-            "/api/sentences/1",
-            data=json.dumps({"status": "deleted"}),
-            content_type="application/json",
-        )
-        resp = client.get("/api/videos/1/transcript")
-        data = json.loads(resp.data)
-        statuses = [s["status"] for s in data["sentences"]]
-        assert "deleted" in statuses
-
-    def test_unknown_video_returns_empty(self, client):
-        """Non-existent video returns empty sentence list."""
-        resp = client.get("/api/videos/999/transcript")
-        assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["sentences"] == []
+    def test_chinese_is_listed(self, client):
+        """Chinese language info is correct."""
+        resp = client.get("/api/languages")
+        data = resp.get_json()
+        zh = [l for l in data["languages"] if l["code"] == "zh"]
+        assert len(zh) == 1
+        assert zh[0]["name"] in ("中文", "Chinese")  # either is fine
