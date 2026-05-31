@@ -144,7 +144,7 @@
               {#if showAnnotation && sentence.annotation?.length}
                 <!-- Annotation mode: character-level pinyin with tone colors -->
                 {#each sentence.annotation as entry}
-                  <ruby class="ruby-char">
+                  <ruby class="annotated-char">
                     {entry.char}<rt style="color: {TONE_COLORS[entry.tone] || '#9E9E9E'}">{entry.reading}</rt>
                   </ruby>
                 {/each}
@@ -264,7 +264,7 @@
   {#if showLegend}
     <div class="shortcuts-bar">
       <span><kbd>T</kbd> Translate</span>
-      <span><kbd>R</kbd> Ruby</span>
+      <span><kbd>R</kbd> Annotate</span>
       <span><kbd>S</kbd> / <kbd>Space</kbd> Replay</span>
       <span><kbd>↓→J</kbd> Next</span>
       <span><kbd>↑←K</kbd> Previous</span>

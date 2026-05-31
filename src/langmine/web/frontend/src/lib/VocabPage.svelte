@@ -222,7 +222,7 @@
           <span class="word-status-emoji">{statusEmoji(word.status)}</span>
           <span class="word-text">{word.word}</span>
           {#if word.reading}
-            <span class="word-pinyin">{word.reading}</span>
+            <span class="word-reading">{word.reading}</span>
           {/if}
           <span class="word-badges">
             {#if word.frequency_rank}
@@ -246,7 +246,7 @@
                 <div class="detail-header">
                   <span class="detail-word">{wordDetail.word}</span>
                   {#if wordDetail.reading}
-                    <span class="detail-pinyin">{wordDetail.reading}</span>
+                    <span class="detail-reading">{wordDetail.reading}</span>
                   {/if}
                 </div>
 
@@ -452,7 +452,7 @@
     color: var(--text);
     min-width: 80px;
   }
-  .word-pinyin {
+  .word-reading {
     font-size: 0.85rem;
     color: var(--accent-green);
     font-style: italic;

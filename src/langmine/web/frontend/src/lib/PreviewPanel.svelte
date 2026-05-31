@@ -52,7 +52,7 @@
               {/each}
             </span>
             {#if sentence.reading}
-              <div class="sentence-pinyin">{sentence.reading}</div>
+              <div class="sentence-reading">{sentence.reading}</div>
             {/if}
             {#if sentence.translation_de}
               <div class="sentence-translation">{sentence.translation_de}</div>
