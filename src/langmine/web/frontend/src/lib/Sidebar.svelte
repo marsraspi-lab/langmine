@@ -137,7 +137,13 @@
             class:active={$selectedVideoId === video.id}
             onclick={() => selectVideo(video.id)}
           >
-            <div class="video-title">{video.title || video.youtube_id}</div>
+            <div class="video-title" title="{video.title || video.youtube_id} — {video.youtube_id}">
+              {#if video.title && video.title !== video.youtube_id}
+                {(video.title.length > 35 ? video.title.slice(0, 35) + '…' : video.title)}
+              {:else}
+                {video.youtube_id}
+              {/if}
+            </div>
             <div class="video-meta">
               {video.total_sentences} sentences
               {#if video.i1_count > 0}

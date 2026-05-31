@@ -59,7 +59,8 @@ export const api = {
     } else {
       body = JSON.stringify({ url });
     }
-    const headers = file ? {} : { 'Content-Type': 'application/json' };
+    const headers = { 'Accept': 'text/event-stream' };
+    if (!file) headers['Content-Type'] = 'application/json';
     const res = await fetch(BASE + '/videos/mine', { method: 'POST', headers, body });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: `${res.status}` }));

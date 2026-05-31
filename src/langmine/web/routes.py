@@ -76,18 +76,13 @@ def register_routes(app: Flask):
         Accepts JSON with 'url' or multipart/form-data with 'url' + optional
         transcript file (.srt/.vtt). Streams progress as text/event-stream.
         """
-        from flask import Response, stream_with_context
-        import queue
-        import threading
-        import json as _json
-
         persistence = _get_persistence()
         processor = _get_processor()
         audio = _get_audio_processor()
         transcript = _get_transcript_source()
         is_file_upload = False
 
-        # Parse request (must happen before streaming)
+        # ── Parse request (must happen before streaming) ──────────────────
         if request.content_type and "multipart" in request.content_type:
             url = request.form.get("url", "").strip()
             if not url:
@@ -115,6 +110,59 @@ def register_routes(app: Flask):
 
         from langmine.transcript import _extract_video_id
         video_id = _extract_video_id(url)
+
+        # ── Choose code path ─────────────────────────────────────────────
+        accept = request.headers.get("Accept", "")
+        use_sse = "text/event-stream" in accept
+
+        if not use_sse:
+            # Synchronous path — backward compatible, no threading needed.
+            # Used by test client and non-browser clients.
+            try:
+                from langmine.pipeline import process_video
+                from langmine.config import load_config
+
+                config = load_config()
+                output_dir = config.data_dir
+                os.makedirs(output_dir, exist_ok=True)
+
+                result = process_video(
+                    transcript_source=transcript,
+                    audio_processor=audio,
+                    persistence=persistence,
+                    language_processor=processor,
+                    video_id=video_id,
+                    output_dir=output_dir,
+                    gap_ms=0 if is_file_upload else None,
+                )
+
+                video = persistence.get_video(video_id)
+                if video and video.id:
+                    persistence.log_event(
+                        entity_type="video", entity_id=video.id,
+                        action="mined", new_value=video_id,
+                        language_code=config.source_language,
+                    )
+
+                return jsonify({
+                    "video_id": video.id if video else None,
+                    "youtube_id": video_id,
+                    "i1_candidates": len(result["i1_candidates"]),
+                    "i0_count": result["i0_count"],
+                    "stash_count": result["stash_count"],
+                    "total_sentences": result["total_sentences"],
+                    "i1_count": len(result["i1_candidates"]),
+                })
+            except ValueError as e:
+                return jsonify({"error": str(e)}), 400
+            except Exception as e:
+                return jsonify({"error": f"Mining failed: {e}"}), 500
+
+        # SSE streaming path — live progress for the browser
+        from flask import Response, stream_with_context
+        import queue
+        import threading
+        import json as _json
 
         progress_queue: queue.Queue = queue.Queue()
 
@@ -173,7 +221,6 @@ def register_routes(app: Flask):
                 try:
                     kind, payload = progress_queue.get(timeout=0.2)
                 except queue.Empty:
-                    # Send keepalive comment
                     yield ": keepalive\n\n"
                     continue
 

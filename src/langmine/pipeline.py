@@ -151,11 +151,17 @@ def process_video(
         raise ValueError("No sentences could be extracted from the video.")
 
     # 2. Save video metadata
+    from langmine.audio import get_video_info
+    _progress("Fetching video info…")
+    info = get_video_info(video_id, user_agent=config.user_agent)
     video = Video(
         youtube_id=video_id,
-        title=video_id,  # Title fetched later (M3/M7)
+        title=info["title"] or video_id,
+        channel=info["channel"],
+        duration_sec=int(info["duration_sec"]) if info["duration_sec"].isdigit() else 0,
         language_code=config.source_language,
     )
+    _progress(f"📺 {info['title'] or video_id}")
     persistence.save_video(video)
 
     # 3. Classify sentences
