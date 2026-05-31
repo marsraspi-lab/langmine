@@ -6,7 +6,7 @@
 # This captures all system dependencies discovered while working
 # on this project so the Hermes agent has everything it needs.
 
-FROM debian:trixie-slim
+FROM nikolaik/python-nodejs:python3.14-nodejs26
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Base tools
@@ -14,12 +14,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     git \
     gnupg \
-    python3 \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    nodejs \
-    npm \
     jq \
     # GitHub CLI
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
