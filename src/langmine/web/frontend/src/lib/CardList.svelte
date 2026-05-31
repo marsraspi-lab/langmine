@@ -20,7 +20,8 @@
   async function setFilter(key) {
     currentFilter.set(key);
     // M19: filtering is client-side via curatedSentences derived store.
-    // Only hit the server if we haven't loaded sentences for this video yet.
+    // Load sentences only if empty (first mount for this video).
+    // selectVideo() in stores.js already loads them on video change.
     if (!$curatedSentences.length) {
       loading = true;
       try {
@@ -29,11 +30,6 @@
       } finally {
         loading = false;
       }
-    } else {
-      // Re-fetch sentences on tab switch to pick up any server-side
-      // reclassifications (e.g. stashed promoted to i+1 after marking known).
-      // Load silently — no loading spinner to avoid flicker.
-      await loadSentences(videoId, 'all');
     }
   }
 
