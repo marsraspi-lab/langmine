@@ -15,15 +15,25 @@
 
   let loading = $state(false);
 
+  let initialLoaded = $state(false);
+
   async function setFilter(key) {
     currentFilter.set(key);
-    // "all" means no server-side filter — load all sentences
-    // Other filters are applied client-side via curatedSentences
-    loading = true;
-    try {
+    // M19: filtering is client-side via curatedSentences derived store.
+    // Only hit the server if we haven't loaded sentences for this video yet.
+    if (!$curatedSentences.length) {
+      loading = true;
+      try {
+        await loadSentences(videoId, 'all');
+        initialLoaded = true;
+      } finally {
+        loading = false;
+      }
+    } else {
+      // Re-fetch sentences on tab switch to pick up any server-side
+      // reclassifications (e.g. stashed promoted to i+1 after marking known).
+      // Load silently — no loading spinner to avoid flicker.
       await loadSentences(videoId, 'all');
-    } finally {
-      loading = false;
     }
   }
 
