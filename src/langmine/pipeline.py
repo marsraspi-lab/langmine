@@ -25,7 +25,7 @@ def mine_one_sentence(
     gap_ms: int | None = None,
     pad_before_ms: int | None = None,
     pad_after_ms: int | None = None,
-    progress_callback: callable | None = None,
+    progress_callback=None,
 ) -> dict:
     """Extract the first sentence from a video using injected ports.
 
@@ -86,7 +86,7 @@ def extract_one_sentence(
     gap_ms: int | None = None,
     pad_before_ms: int | None = None,
     pad_after_ms: int | None = None,
-    progress_callback: callable | None = None,
+    progress_callback=None,
 ) -> dict:
     """Convenience wrapper: mine with default YouTube + yt-dlp adapters.
 
@@ -117,7 +117,7 @@ def process_video(
     gap_ms: int | None = None,
     pad_before_ms: int | None = None,
     pad_after_ms: int | None = None,
-    progress_callback: callable | None = None,
+    progress_callback=None,
 ) -> dict:
     """Mine and classify all sentences from a video.
 
@@ -128,10 +128,9 @@ def process_video(
         Dict with: i1_candidates (list[Sentence]), i0_count, stash_count,
         total_sentences, video_id.
     """
-    def _progress(msg: str) -> None:
+    def _progress(msg):
         if progress_callback:
             progress_callback(msg)
-
     config = load_config()
 
     if max_cards is None:
