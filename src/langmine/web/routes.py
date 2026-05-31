@@ -294,7 +294,7 @@ def register_routes(app: Flask):
             for token in tokens:
                 if processor.is_non_word(token):
                     status = "non-word"
-                elif processor.is_proper_name(token):
+                elif processor.is_proper_name(token, context_sentence=m.text):
                     status = "proper-name"
                     # Proper names are not content words — do NOT increment counters
                 elif token in known_words:
@@ -1015,7 +1015,9 @@ def _words_array(sentence: Sentence, persistence: Persistence,
             status = "known"
 
         # Proper name detection (known/ignored takes priority)
-        if status not in ("known", "ignored") and processor and processor.is_proper_name(token):
+        if status not in ("known", "ignored") and processor and processor.is_proper_name(
+            token, context_sentence=sentence.text
+        ):
             status = "proper-name"
 
         result.append({

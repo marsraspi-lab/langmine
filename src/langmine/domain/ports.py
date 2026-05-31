@@ -72,8 +72,12 @@ class LanguageProcessor(ABC):
         (particles, numbers, names, etc.)."""
 
     @abstractmethod
-    def is_proper_name(self, token: str) -> bool:
+    def is_proper_name(self, token: str, context_sentence: str = "") -> bool:
         """True if token is a proper name (person, place, etc.).
+
+        When context_sentence is provided, implementations SHOULD use
+        sentence-level POS tagging on the full sentence to avoid
+        sub-segmentation of multi-character names.
 
         Proper names should be visually distinguished in the
         transcript and excluded from i+1 unknown counting.

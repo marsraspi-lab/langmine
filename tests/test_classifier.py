@@ -40,7 +40,7 @@ class FakeLanguageProcessor(LanguageProcessor):
     def is_non_word(self, token: str) -> bool:
         return token in {"的", "了", "吗", "123", "七点"}
 
-    def is_proper_name(self, token): return False
+    def is_proper_name(self, token, context_sentence=""): return False
 
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
