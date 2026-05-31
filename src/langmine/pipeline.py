@@ -143,7 +143,6 @@ def process_video(
     _progress("Fetching transcript…")
     chunks = transcript_source.fetch(video_id)
     merged = merge_sentences(chunks, gap_ms=gap_ms)
-    _progress(f"Found {len(chunks)} chunks → {len(merged)} sentences")
 
     if not merged:
         raise ValueError("No sentences could be extracted from the video.")
@@ -170,6 +169,20 @@ def process_video(
 
     # 4. Enrich with NLP (pinyin, translation, definitions)
     classifier.enrich(sentences)
+
+    # 4b. Capture screenshots for non-trivial sentences
+    screenshot_dir = f"{output_dir}/screenshots"
+    for i, s in enumerate(sentences):
+        if s.screenshot_enabled and s.status != "i0":
+            try:
+                s.screenshot_path = audio_processor.capture_frame(
+                    video_id=video_id,
+                    timestamp_ms=s.start_ms,
+                    output_dir=screenshot_dir,
+                    sentence_id=str(i + 1).zfill(4),
+                ) or ""
+            except Exception:
+                s.screenshot_path = ""
 
     # 5. Persist classified sentences
     persistence.save_sentences(sentences)
