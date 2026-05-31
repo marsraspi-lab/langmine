@@ -87,8 +87,9 @@ class Database:
     def __init__(self, db_path: str | Path):
         if self._conn is not None:
             return
-        self._conn = sqlite3.connect(str(db_path))
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
         self._ensure_schema()
 
     def _ensure_schema(self):
