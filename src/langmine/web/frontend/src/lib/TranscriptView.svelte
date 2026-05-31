@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { updateVocabWord } from './api.js';
+  import { updateVocabWord, dismissProperName } from './api.js';
   import { addToast, currentView, vocabSearchQuery } from './stores.js';
   import ImagePicker from './ImagePicker.svelte';
 
@@ -53,6 +53,17 @@
       if (activeWord) activeWord.word.status = newStatus;
       await loadTranscript();
       addToast(`"${token}" → ${newStatus}`, 'success');
+    } catch (err) {
+      addToast(`Failed: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleDismissProperName(token) {
+    try {
+      await dismissProperName(token);
+      await loadTranscript();
+      closePopover();
+      addToast(`"${token}" is not a proper name`, 'success');
     } catch (err) {
       addToast(`Failed: ${err.message}`, 'error');
     }
@@ -221,6 +232,12 @@
           onclick={() => setWordStatus(activeWord.word.token, 'unknown')}
           disabled={activeWord.word.status === 'unknown'}
         >❓ Mark unknown</button>
+        {#if activeWord.word.status === 'proper-name'}
+          <button
+            class="popover-btn"
+            onclick={() => handleDismissProperName(activeWord.word.token)}
+          >❌ Not a proper name</button>
+        {/if}
         <button
           class="popover-btn"
           onclick={() => showImagePicker = true}
@@ -372,6 +389,20 @@
     color: var(--accent, #e94560);
     border-bottom: 2px dotted var(--accent, #e94560);
   }
+  .word-proper-name {
+    color: var(--text-secondary, #9e9e9e);
+    font-style: italic;
+  }
+  .word-proper-name::before {
+    content: "[";
+    color: var(--text-secondary, #9e9e9e);
+    opacity: 0.5;
+  }
+  .word-proper-name::after {
+    content: "]";
+    color: var(--text-secondary, #9e9e9e);
+    opacity: 0.5;
+  }
 
   .play-btn {
     background: none;
@@ -490,6 +521,7 @@
   .status-badge-inline.word-learning { background: rgba(255, 167, 38, 0.2); }
   .status-badge-inline.word-ignored { background: rgba(150, 150, 150, 0.2); }
   .status-badge-inline.word-unknown { background: rgba(233, 69, 96, 0.2); }
+  .status-badge-inline.word-proper-name { background: rgba(158, 158, 158, 0.15); color: #9e9e9e; }
   .popover-actions {
     display: flex;
     flex-direction: column;

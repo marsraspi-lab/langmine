@@ -27,6 +27,9 @@ class DummyProcessor(LanguageProcessor):
     def is_non_word(self, token: str) -> bool:
         return token in {"the", "a", "is"}
 
+    def is_proper_name(self, token: str) -> bool:
+        return token[0].isupper() if token else False
+
     def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         return []
 

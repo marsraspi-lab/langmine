@@ -35,6 +35,9 @@ class FakeChineseProcessor(LanguageProcessor):
     def is_non_word(self, token: str) -> bool:
         return token in {"的", "了", "吗"}
 
+    def is_proper_name(self, token: str) -> bool:
+        return False
+
     def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         return []
 

@@ -177,3 +177,36 @@ def test_no_network_calls_in_pure_methods():
     assert len(svc.segment("你好世界")) >= 2
     assert len(svc.get_reading("你好")) > 0
     assert svc.is_non_word("的") is True
+
+
+def test_is_proper_name_detects_person_names():
+    """Proper names like historical figures should be detected via jieba POS."""
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    assert svc.is_proper_name("曹操") is True
+    assert svc.is_proper_name("刘备") is True
+
+
+def test_is_proper_name_detects_place_names():
+    """Place names should be detected via jieba POS."""
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    assert svc.is_proper_name("北京") is True
+    assert svc.is_proper_name("长安") is True
+
+
+def test_is_proper_name_rejects_common_words():
+    """Common content words should NOT be flagged as proper names."""
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    assert svc.is_proper_name("学习") is False
+    assert svc.is_proper_name("我们") is False
+    assert svc.is_proper_name("早上") is False
+
+
+def test_is_proper_name_rejects_particles():
+    """Particles should NOT be flagged as proper names."""
+    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+
+    assert svc.is_proper_name("的") is False
+    assert svc.is_proper_name("了") is False

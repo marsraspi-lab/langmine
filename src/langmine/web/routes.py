@@ -200,6 +200,9 @@ def register_routes(app: Flask):
             for token in tokens:
                 if processor.is_non_word(token):
                     status = "non-word"
+                elif processor.is_proper_name(token):
+                    status = "proper-name"
+                    # Proper names are not content words — do NOT increment counters
                 elif token in known_words:
                     status = "known"
                     total_content_words += 1
@@ -257,7 +260,7 @@ def register_routes(app: Flask):
         return jsonify({
             "video_id": video_id,
             "filter_status": status,
-            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
+            "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
         })
 
     @app.route("/api/videos/<int:video_id>/transcript")
@@ -270,7 +273,7 @@ def register_routes(app: Flask):
         sentences.sort(key=lambda s: s.start_ms)
         return jsonify({
             "video_id": video_id,
-            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
+            "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
         })
 
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
@@ -334,7 +337,7 @@ def register_routes(app: Flask):
             )
 
         return jsonify({
-            "sentence": _sentence_to_dict(sentence, persistence),
+            "sentence": _sentence_to_dict(sentence, persistence, processor=_get_processor()),
         })
 
     @app.route("/api/sentences/<int:sentence_id>/iknowthis", methods=["PATCH"])
@@ -368,7 +371,7 @@ def register_routes(app: Flask):
 
         return jsonify({
             "word_marked": word,
-            "sentence": _sentence_to_dict(sentence, persistence),
+            "sentence": _sentence_to_dict(sentence, persistence, processor=_get_processor()),
         })
 
     @app.route("/api/sentences/<int:sentence_id>/audio")
@@ -527,7 +530,7 @@ def register_routes(app: Flask):
 
         return jsonify({
             "word": _vocab_to_dict(vocab, persistence) if vocab else _unknown_word_dict(word, persistence),
-            "sentences": [_sentence_to_dict(s, persistence) for s in sentences],
+            "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
         })
 
     @app.route("/api/vocab/<word>", methods=["PATCH"])
@@ -538,7 +541,21 @@ def register_routes(app: Flask):
         lang = _get_language_code()
 
         data = request.get_json(silent=True)
-        if not data or "status" not in data:
+        if not data:
+            return jsonify({"error": "Missing request body"}), 400
+
+        # Handle "dismiss proper name" action
+        if data.get("proper_name") is False:
+            persistence.mark_word_learning(word)
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="dismissed_proper_name",
+                old_value="proper-name", new_value="learning",
+                language_code=lang,
+            )
+            return jsonify({"word": word, "status": "learning", "ok": True})
+
+        if "status" not in data:
             return jsonify({"error": "Missing 'status' field"}), 400
 
         new_status = data["status"]
@@ -821,7 +838,8 @@ def _video_with_counts(persistence: Persistence, video, lang: str = "") -> dict:
     }
 
 
-def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None) -> dict:
+def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None,
+                      processor: LanguageProcessor | None = None) -> dict:
     """Convert a Sentence domain model to a JSON-safe dict.
 
     When persistence is provided, enriches with per-word status metadata
@@ -858,12 +876,13 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
 
     # Enrich with per-word metadata for highlighting
     if persistence is not None:
-        result["words"] = _words_array(sentence, persistence)
+        result["words"] = _words_array(sentence, persistence, processor)
 
     return result
 
 
-def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
+def _words_array(sentence: Sentence, persistence: Persistence,
+                processor: LanguageProcessor | None = None) -> list[dict]:
     """Build the words[] array for a sentence with status/metadata per token."""
     from langmine.language_factory import get_proficiency_level as get_hsk_level
 
@@ -884,6 +903,10 @@ def _words_array(sentence: Sentence, persistence: Persistence) -> list[dict]:
             frequency_rank = vocab.frequency_rank
         elif token in known_words:
             status = "known"
+
+        # Proper name detection (known/ignored takes priority)
+        if status not in ("known", "ignored") and processor and processor.is_proper_name(token):
+            status = "proper-name"
 
         result.append({
             "token": token,

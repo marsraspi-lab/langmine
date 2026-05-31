@@ -21,6 +21,7 @@ class FakeLanguageProcessor(LanguageProcessor):
         ranks = {"一般": 1847, "效率": 3412, "爬山": 5000}
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
+    def is_proper_name(self, token): return False
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
 
@@ -264,3 +265,56 @@ class TestTranscriptEndpoint:
         statuses = {s["status"] for s in data["sentences"]}
         assert "deleted" in statuses, "Transcript should include deleted sentences"
         assert len(data["sentences"]) == 3
+
+
+class TestProperNameInTranscript:
+    """Proper names should appear with status=proper-name in transcript."""
+
+    @pytest.fixture
+    def proper_name_client(self):
+        """Client with a processor that marks certain tokens as proper names."""
+
+        class ProperNameProcessor(FakeLanguageProcessor):
+            def is_proper_name(self, token):
+                return token in {"曹操", "长安", "北京"}
+
+        persistence = FakePersistence(known_words={"我们", "一般", "早上", "起床", "学习", "是", "英雄"})
+        video = Video(youtube_id="proper-test", title="Test", channel="TC")
+        persistence.save_video(video)
+
+        # Seed a sentence with a proper name in text_segmented
+        from langmine.web.app import create_app
+        app = create_app(
+            persistence=persistence,
+            language_processor=ProperNameProcessor(),
+            transcript_source=FakeTranscriptSource(),
+            audio_processor=FakeAudioProcessor(),
+        )
+        app.config["TESTING"] = True
+        return app.test_client(), persistence, video
+
+    def test_proper_name_token_has_proper_name_status(self, proper_name_client):
+        """Tokens detected as proper names should have status='proper-name'."""
+        client, persistence, video = proper_name_client
+
+        # Seed a sentence with 曹操 in the text
+        sentence = Sentence(
+            video_id=video.id, start_ms=1000, end_ms=3000,
+            text="曹操 是 英雄",
+            text_segmented="曹操 / 是 / 英雄",
+            reading="cáo cāo shì yīng xióng",
+            translation_de="Cao Cao ist ein Held",
+            status="i1",
+        )
+        persistence.save_sentences([sentence])
+
+        resp = client.get(f"/api/videos/{video.id}/transcript")
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+
+        words = data["sentences"][0]["words"]
+        statuses_by_token = {w["token"]: w["status"] for w in words}
+        assert statuses_by_token.get("曹操") == "proper-name", \
+            f"Expected 曹操=proper-name, got {statuses_by_token}"
+        assert statuses_by_token.get("是") == "known", \
+            f"Expected 是=known (in known set), got {statuses_by_token}"
