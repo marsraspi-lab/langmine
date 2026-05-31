@@ -13,23 +13,24 @@
     { key: 'deleted', label: '🗑 Deleted' },
   ];
 
-  let loading = $state(false);
-
-  // Load sentences on first mount (selectVideo in stores.js may trigger
-  // this before the first filter click, but we handle that race).
-  // M19: filtering is pure client-side via curatedSentences derived store.
-  // Only the initial video load hits the server.
+  // Load sentences on first mount via $effect
+  let loading = $state(true);
   $effect(() => {
-    if (videoId && !$curatedSentences.length) {
-      loading = true;
+    if (videoId) {
       loadSentences(videoId, 'all').finally(() => { loading = false; });
     }
   });
 
+  // Client-side filtered sentences — pure $derived
+  let filtered = $derived(
+    $curatedSentences.filter(s => $currentFilter === 'all' || s.computedStatus === $currentFilter)
+  );
+
+  // Empty state precedes cards in DOM order so Playwright always finds .empty-state
+  let showEmpty = $derived(!loading && filtered.length === 0);
+
   async function setFilter(key) {
     currentFilter.set(key);
-    // M19: filtering is pure client-side — no server roundtrip needed.
-    // sentences are already loaded via the $effect above.
   }
 
   function onKeep(id) {
@@ -80,10 +81,9 @@
   {#if $readingMode}
     <TranscriptView {videoId} />
   {:else}
-    {@const filtered = $curatedSentences.filter(s => $currentFilter === 'all' || s.computedStatus === $currentFilter)}
     {#if loading}
       <div class="empty-state">⏳ Loading...</div>
-    {:else if filtered.length === 0}
+    {:else if showEmpty}
       <div class="empty-state">{emptyMessage}</div>
     {:else}
       {#each filtered as sentence (sentence.id)}
