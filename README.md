@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.3.0 — M0–M16 (event timeline). 190 pytest + 42 E2E. All tests pass.
+**Status:** v1.4.0 — M0–M17 (ignore word status). 200 pytest + 42 E2E. All tests pass.
 
 ## Requirements
 
@@ -108,7 +108,7 @@ langmine serve                  # → http://127.0.0.1:8080
 langmine serve --port 9000      # custom port
 ```
 
-The web UI lets you browse mined sentences, edit readings/translations/segmentation inline, keep or delete sentences, mark words as known, and configure settings. Use the **language selector** in the top bar to switch between languages — each language has its own isolated vocabulary, sentences, and videos.
+The web UI lets you browse mined sentences, edit readings/translations/segmentation inline, keep or delete sentences, mark words as known, learning, or ignored, and configure settings. Ignored words (proper names, noise) are excluded from the i+1 unknown count, and words marked ignored trigger automatic stash reclassification — sentences with only one remaining unknown word are promoted to i+1. Use the **language selector** in the top bar to switch between languages — each language has its own isolated vocabulary, sentences, and videos.
 
 ### Export to Anki
 
@@ -208,7 +208,9 @@ YouTube URL → transcript → merge subtitle chunks into sentences
                 translation, frequency ranking)
              → i+1 filter (one unknown word = learnable)
              → stash i+2+ sentences for later
-             → curate in browser (keep/delete/I-know-this, edit reading/translation/segmentation)
+             → curate in browser (keep/delete/I-know-this, mark known/learning/ignored,
+                edit reading/translation/segmentation)
+             → ignored words trigger stash reclassification (promote i+1 candidates)
              → dark/light theme toggle
              → switch language from top bar (isolated data per language)
              → export to Anki via AnkiConnect (cards with audio + screenshots)
@@ -269,7 +271,9 @@ The cardinal rule: `domain/` never imports from `adapters/` or `web/`. Similarly
 | `PATCH /api/sentences/<id>` | Update sentence status/fields |
 | `PATCH /api/sentences/<id>/iknowthis` | Mark word as known |
 | `GET /api/stats` | Vocabulary stats |
-| `GET /api/vocab` | Vocab listing |
+| `GET /api/vocab` | Vocab listing (filter by status: known/learning/ignored) |
+| `GET /api/vocab/<word>` | Single word detail with example sentences |
+| `PATCH /api/vocab/<word>` | Update word status (known/learning/ignored/unknown) |
 | `GET /api/config` | Current config (no Anki templates) |
 | `PUT /api/config` | Update config |
 | `GET /api/languages` | Available languages `[{code, name}]` |
@@ -353,8 +357,9 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M14 | Ruby Annotations | ✅ — tone-colored pinyin ruby text above characters |
 | M15 | Multi-Language Support | ✅ — data isolation, language selector, per-language Anki templates |
 | M16 | Event Timeline | ✅ — append-only event log, 11 event types, created_at/updated_at timestamps |
+| M17 | Ignore Word Status | ✅ — 🚫 mark words as ignored, auto-reclassify stash, 200 pytest + 42 E2E |
 
-> **Plan:** `.hermes/plans/2026-05-30-decouple-chinese.md`
+> **Plan:** `.hermes/plans/proper-name-brackets.md` (next: proper name [square brackets])
 
 ---
 
