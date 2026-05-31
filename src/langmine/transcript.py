@@ -1,26 +1,24 @@
 """Transcript fetching and sentence merging for YouTube videos."""
 
-from youtube_transcript_api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import (
-    TranscriptsDisabled, NoTranscriptFound, VideoUnavailable,
-    IpBlocked, RequestBlocked, YouTubeRequestFailed,
-)
+import re
+import subprocess
+import tempfile
+from pathlib import Path
 
 from langmine.domain.ports import TranscriptChunk, MergedSentence
 
 
 def fetch_transcript(video_id_or_url: str, user_agent: str = "",
                      language_codes: list[str] | None = None) -> list[TranscriptChunk]:
-    """Fetch subtitle chunks for a YouTube video.
+    """Fetch subtitle chunks for a YouTube video via yt-dlp.
+
+    Downloads subtitles as SRT, then parses them into TranscriptChunk objects.
 
     Args:
         video_id_or_url: YouTube video ID (11 chars) or full URL.
-        user_agent: Optional custom User-Agent header. If empty, uses
-            youtube-transcript-api's default.
+        user_agent: Optional custom User-Agent for yt-dlp.
         language_codes: Optional list of language codes to prefer (e.g.,
-            ['zh-Hans', 'zh']). Passed to api.fetch() as the languages
-            parameter. When provided, auto-generated transcripts in these
-            languages are included in the search.
+            ['zh-Hans', 'zh']). First matching code is used as --sub-lang.
 
     Returns:
         List of transcript chunks with text and timing.
@@ -29,52 +27,171 @@ def fetch_transcript(video_id_or_url: str, user_agent: str = "",
         ValueError: If the video ID is invalid or transcript unavailable.
     """
     video_id = _extract_video_id(video_id_or_url)
+    url = f"https://www.youtube.com/watch?v={video_id}"
 
-    kwargs = {}
-    if user_agent:
-        import requests as _requests
-        session = _requests.Session()
-        session.headers.update({"User-Agent": user_agent})
-        kwargs["http_client"] = session
+    # Determine subtitle language
+    sub_lang = _pick_sub_lang(language_codes)
 
-    try:
-        api = YouTubeTranscriptApi(**kwargs)
-        if language_codes:
-            transcript = api.fetch(video_id, languages=language_codes)
-        else:
-            transcript = api.fetch(video_id)
-    except (TranscriptsDisabled, NoTranscriptFound) as e:
-        raise ValueError(
-            f"No transcript available for video '{video_id}'. "
-            f"The video may not have subtitles or they may be disabled."
-        ) from e
-    except VideoUnavailable as e:
-        raise ValueError(
-            f"Video '{video_id}' is unavailable or private."
-        ) from e
-    except IpBlocked as e:
-        raise ValueError(
-            f"YouTube is blocking requests from this IP address. "
-            f"Options:\n"
-            f"  • Wait a few hours — blocks are usually temporary\n"
-            f"  • Use a VPN or different network\n"
-            f"  • Set a custom User-Agent in Settings (network.user_agent)\n"
-            f"  • Use a transcript file (.srt/.vtt) via the upload option"
-        ) from e
-    except (RequestBlocked, YouTubeRequestFailed) as e:
-        raise ValueError(
-            f"YouTube rejected the transcript request (likely rate-limiting). "
-            f"Try again in a few minutes, or use a custom User-Agent in Settings."
-        ) from e
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_tmpl = str(Path(tmpdir) / "%(id)s.%(ext)s")
+        cmd = [
+            "yt-dlp",
+            "--write-sub",
+            "--sub-lang", sub_lang,
+            "--sub-format", "srt",
+            "--skip-download",
+            "--no-playlist",
+            "--no-warnings",
+            "-o", out_tmpl,
+        ]
+        if user_agent:
+            cmd.insert(1, "--user-agent")
+            cmd.insert(2, user_agent)
+        cmd.append(url)
 
-    return [
-        TranscriptChunk(
-            text=entry.text,
-            start_ms=entry.start * 1000,
-            duration_ms=entry.duration * 1000,
-        )
-        for entry in transcript
-    ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        stderr = result.stderr.lower() if result.stderr else ""
+
+        if result.returncode != 0:
+            if "video unavailable" in stderr or "private video" in stderr:
+                raise ValueError(
+                    f"Video '{video_id}' is unavailable or private."
+                )
+            elif "429" in stderr or "blocked" in stderr:
+                raise ValueError(
+                    f"YouTube is blocking requests from this IP address. "
+                    f"Options:\n"
+                    f"  • Wait a few hours — blocks are usually temporary\n"
+                    f"  • Use a VPN or different network\n"
+                    f"  • Set a custom User-Agent in Settings (network.user_agent)\n"
+                    f"  • Use a transcript file (.srt/.vtt) via the upload option"
+                )
+            else:
+                raise ValueError(
+                    f"No transcript available for video '{video_id}'. "
+                    f"The video may not have subtitles or they may be disabled."
+                )
+
+        # Find the downloaded SRT file
+        srt_files = list(Path(tmpdir).glob(f"{video_id}*.srt"))
+        if not srt_files:
+            # yt-dlp might name the file differently if --sub-lang produced
+            # a suffix like video_id.en.srt — try a broader glob
+            srt_files = list(Path(tmpdir).glob("*.srt"))
+
+        if not srt_files:
+            raise ValueError(
+                f"No transcript available for video '{video_id}'. "
+                f"The video may not have subtitles or they may be disabled."
+            )
+
+        return _parse_srt(srt_files[0])
+
+
+def _pick_sub_lang(language_codes: list[str] | None) -> str:
+    """Map language codes to yt-dlp --sub-lang field.
+
+    Falls back to 'en' if no codes provided or none are mappable.
+    """
+    if not language_codes:
+        return "en"
+
+    # yt-dlp uses ISO 639-1 or ISO 639-2 codes, sometimes with region suffix.
+    # Common mappings from what youtube-transcript-api uses:
+    lang_map = {
+        "zh-Hans": "zh-Hans",
+        "zh-Hant": "zh-Hant",
+        "zh-CN": "zh-Hans",
+        "zh-TW": "zh-Hant",
+        "zh": "zh",
+        "en": "en",
+        "es": "es",
+        "ko": "ko",
+        "ru": "ru",
+        "ja": "ja",
+        "fr": "fr",
+        "de": "de",
+        "pt": "pt",
+        "it": "it",
+        "ar": "ar",
+        "hi": "hi",
+        "th": "th",
+        "vi": "vi",
+        "tr": "tr",
+    }
+    for code in language_codes:
+        mapped = lang_map.get(code)
+        if mapped:
+            return mapped
+    return language_codes[0] if language_codes else "en"
+
+
+def _parse_srt(path: Path) -> list[TranscriptChunk]:
+    """Parse an SRT file into TranscriptChunk objects.
+
+    SRT format:
+        1
+        00:00:01,000 --> 00:00:04,000
+        First subtitle text
+
+        2
+        00:00:05,000 --> 00:00:08,000
+        Second subtitle text
+    """
+    content = path.read_text(encoding="utf-8")
+    chunks: list[TranscriptChunk] = []
+
+    # Split on blank lines (one or more)
+    blocks = re.split(r"\n\s*\n", content.strip())
+    if not blocks:
+        return chunks
+
+    timestamp_re = re.compile(
+        r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*"
+        r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})"
+    )
+
+    for block in blocks:
+        lines = block.strip().split("\n")
+        if len(lines) < 2:
+            continue
+
+        # First line is block number (may be absent in some SRT variants)
+        # Check each non-empty line for a timestamp
+        ts_line = None
+        ts_idx = None
+        for i, line in enumerate(lines):
+            if timestamp_re.search(line):
+                ts_line = line
+                ts_idx = i
+                break
+
+        if ts_line is None:
+            continue
+
+        match = timestamp_re.search(ts_line)
+        if not match:
+            continue
+
+        h1, m1, s1, ms1, h2, m2, s2, ms2 = map(int, match.groups())
+        start_ms = (h1 * 3600 + m1 * 60 + s1) * 1000 + ms1
+        end_ms = (h2 * 3600 + m2 * 60 + s2) * 1000 + ms2
+        duration_ms = max(end_ms - start_ms, 1)  # guard against zero duration
+
+        # Text is everything after the timestamp line
+        text_lines = lines[ts_idx + 1:]
+        text = " ".join(line.strip() for line in text_lines if line.strip())
+
+        if not text:
+            continue
+
+        chunks.append(TranscriptChunk(
+            text=text,
+            start_ms=float(start_ms),
+            duration_ms=float(duration_ms),
+        ))
+
+    return chunks
 
 
 def merge_sentences(
@@ -137,8 +254,6 @@ def merge_sentences(
 
 def _extract_video_id(url_or_id: str) -> str:
     """Extract an 11-character YouTube video ID from a URL or raw ID."""
-    import re
-
     # Already a raw video ID (11 alphanumeric + _- chars)
     if re.match(r"^[A-Za-z0-9_-]{11}$", url_or_id):
         return url_or_id
