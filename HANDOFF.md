@@ -1,12 +1,12 @@
-# Handoff — 2026-05-31 (Multi-Language Data Isolation + Anki Template Extraction)
+# Handoff — 2026-05-31 (Event Timeline)
 
 ## Where We Are
 
-**Multi-language support complete.** Ready for review/merge into `main`.
+**Event timeline complete.** Merged to `main` (PR #11).
 
-- **`main`:** v1.1.0 tag (`6f80bdd`) — M0–M14 + decouple Chinese. 217 pytest + 42 E2E.
-- **Working tree:** 200 pytest pass. All changes uncommitted.
-- **Status:** v1.2.0 material — multi-language data isolation, `/api/languages` endpoint, frontend language selector, Anki templates as files in language extension.
+- **`main`:** v1.3.0 — M0–M16 (event timeline). 190 pytest + 42 E2E.
+- **What's new:** Append-only `events` table tracking 11 event types (mined, classified, kept, deleted, exported, edited, annotation_edited, cascade i0, first_encountered, marked_learning, marked_known). `created_at`/`updated_at` on Sentence and VocabWord. `log_event()` domain port.
+- **Status:** v1.3.0 material — timeline data collection infrastructure complete, visualization TBD.
 
 ## What Changed
 
