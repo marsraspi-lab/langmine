@@ -9,13 +9,18 @@ from youtube_transcript_api._errors import (
 from langmine.domain.ports import TranscriptChunk, MergedSentence
 
 
-def fetch_transcript(video_id_or_url: str, user_agent: str = "") -> list[TranscriptChunk]:
+def fetch_transcript(video_id_or_url: str, user_agent: str = "",
+                     language_codes: list[str] | None = None) -> list[TranscriptChunk]:
     """Fetch subtitle chunks for a YouTube video.
 
     Args:
         video_id_or_url: YouTube video ID (11 chars) or full URL.
         user_agent: Optional custom User-Agent header. If empty, uses
             youtube-transcript-api's default.
+        language_codes: Optional list of language codes to prefer (e.g.,
+            ['zh-Hans', 'zh']). Passed to api.fetch() as the languages
+            parameter. When provided, auto-generated transcripts in these
+            languages are included in the search.
 
     Returns:
         List of transcript chunks with text and timing.
@@ -34,7 +39,10 @@ def fetch_transcript(video_id_or_url: str, user_agent: str = "") -> list[Transcr
 
     try:
         api = YouTubeTranscriptApi(**kwargs)
-        transcript = api.fetch(video_id)
+        if language_codes:
+            transcript = api.fetch(video_id, languages=language_codes)
+        else:
+            transcript = api.fetch(video_id)
     except (TranscriptsDisabled, NoTranscriptFound) as e:
         raise ValueError(
             f"No transcript available for video '{video_id}'. "

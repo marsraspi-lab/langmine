@@ -78,9 +78,12 @@ def _cmd_mine(args):
         SQLitePersistence,
     )
     from langmine.pipeline import process_video
-    from langmine.language_factory import create_language_processor
+    from langmine.language_factory import create_language_processor, get_transcript_languages
 
-    transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
+    transcript = YouTubeTranscriptAdapter(
+        user_agent=config.user_agent,
+        language_codes=get_transcript_languages(config.source_language),
+    )
     audio = YtdlpAudioAdapter(user_agent=config.user_agent)
 
     # Override with uploaded transcript file if provided
@@ -143,12 +146,15 @@ def _cmd_serve(args):
         GoogleTranslateAdapter,
         AnkiConnectAdapter,
     )
-    from langmine.language_factory import create_language_processor
+    from langmine.language_factory import create_language_processor, get_transcript_languages
 
     config = load_config()
     persistence = SQLitePersistence()
     processor = create_language_processor(config)
-    transcript = YouTubeTranscriptAdapter(user_agent=config.user_agent)
+    transcript = YouTubeTranscriptAdapter(
+        user_agent=config.user_agent,
+        language_codes=get_transcript_languages(config.source_language),
+    )
     audio = YtdlpAudioAdapter(user_agent=config.user_agent)
 
     app = create_app(

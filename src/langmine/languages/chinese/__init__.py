@@ -25,6 +25,11 @@ MANIFEST = {
     "cloze_note_type": "LangMine Cloze",
 }
 
+# YouTube transcript language codes to try, in preference order.
+# youtube-transcript-api will try each until it finds a transcript
+# (including auto-generated). The first match wins.
+TRANSCRIPT_LANGUAGES = ["zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh"]
+
 
 def get_anki_templates() -> dict:
     """Load Anki card templates from the language's anki/ directory.

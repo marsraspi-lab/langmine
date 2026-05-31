@@ -150,3 +150,16 @@ def get_language_manifest(lang_code: str) -> dict:
             return MANIFEST
         case _:
             return {}
+
+
+def get_transcript_languages(lang_code: str) -> list[str]:
+    """Return preferred YouTube transcript language codes for a language.
+
+    Returns empty list for unimplemented languages (library default behavior).
+    """
+    match lang_code:
+        case "zh":
+            from langmine.languages.chinese import TRANSCRIPT_LANGUAGES
+            return TRANSCRIPT_LANGUAGES
+        case _:
+            return []
