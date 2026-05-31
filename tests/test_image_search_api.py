@@ -69,6 +69,18 @@ class FakePersistence(Persistence):
     def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
         return [], 0
     def get_sentences_by_word(self, word): return []
+
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        pass
+
     def get_stash_candidates(self, limit=20): return []
     def get_sentences_by_status(self, status, language_code: str = ""): return []
     def reclassify_stashed(self, vid): return 0

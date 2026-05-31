@@ -160,6 +160,17 @@ class InMemoryPersistence(Persistence):
         return [s for s in self.sentences.values()
                 if s.unknown_word == word or word in s.text]
 
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        pass
+
 
 def test_in_memory_persistence_roundtrip():
     """Save and retrieve a video through the Persistence port."""

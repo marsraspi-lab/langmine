@@ -69,6 +69,18 @@ class TestLanguageIsolation:
             def get_vocab_stats(self, language_code=None): return {"known": 0, "learning": 0, "total": 0}
             def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code=None): return [], 0
             def get_sentences_by_word(self, word): return []
+
+            def log_event(
+                self,
+                entity_type: str,
+                entity_id: int,
+                action: str,
+                old_value: str = "",
+                new_value: str = "",
+                language_code: str = "",
+            ) -> None:
+                pass
+
             def get_stash_candidates(self, limit=20, language_code=None): return []
 
         p = FakePersistence()
@@ -116,6 +128,18 @@ class TestLanguageIsolation:
             def mark_word_learning(self, w): pass
             def get_vocab_stats(self, language_code=None): return {"known": 0, "learning": 0, "total": 0}
             def get_sentences_by_word(self, word): return []
+
+            def log_event(
+                self,
+                entity_type: str,
+                entity_id: int,
+                action: str,
+                old_value: str = "",
+                new_value: str = "",
+                language_code: str = "",
+            ) -> None:
+                pass
+
             def get_stash_candidates(self, limit=20, language_code=None): return []
 
         p = FakePersistence()

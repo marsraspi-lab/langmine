@@ -113,6 +113,18 @@ class FakePersistence(Persistence):
     def get_sentences_by_word(self, word):
         return []
 
+
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        pass
+
     def get_stash_candidates(self, limit=20):
         return []
 
