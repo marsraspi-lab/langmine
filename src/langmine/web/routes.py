@@ -348,6 +348,8 @@ def register_routes(app: Flask):
         persistence = _get_persistence()
         lang = _get_language_code()
         status = request.args.get("status")
+        if status == "all":
+            status = None  # "all" means no filter — every sentence visible
 
         sentences = persistence.get_sentences_by_video(video_id, status=status, language_code=lang)
 

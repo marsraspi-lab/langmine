@@ -1,7 +1,7 @@
 <script>
   import SentenceCard from './SentenceCard.svelte';
   import TranscriptView from './TranscriptView.svelte';
-  import { sentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordKnown } from './stores.js';
+  import { sentences, curatedSentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordStatus } from './stores.js';
 
   let { videoId } = $props();
 
@@ -17,9 +17,11 @@
 
   async function setFilter(key) {
     currentFilter.set(key);
+    // "all" means no server-side filter — load all sentences
+    // Other filters are applied client-side via curatedSentences
     loading = true;
     try {
-      await loadSentences(videoId, key);
+      await loadSentences(videoId, 'all');
     } finally {
       loading = false;
     }
@@ -32,7 +34,7 @@
     deleteSentence(id);
   }
   function onIknowthis(id) {
-    markWordKnown(id);
+    // No longer server-side only — handled via markWordStatus in popover
   }
 
   function toggleReadingMode() {
@@ -72,14 +74,17 @@
 <div class="cards-container">
   {#if $readingMode}
     <TranscriptView {videoId} />
-  {:else if loading}
-    <div class="empty-state">⏳ Loading...</div>
-  {:else if $sentences.length === 0}
-    <div class="empty-state">{emptyMessage}</div>
   {:else}
-    {#each $sentences as sentence (sentence.id)}
-      <SentenceCard {sentence} onkeep={onKeep} ondelete={onDelete} oniknowthis={onIknowthis} />
-    {/each}
+    {@const filtered = $curatedSentences.filter(s => $currentFilter === 'all' || s.computedStatus === $currentFilter)}
+    {#if loading}
+      <div class="empty-state">⏳ Loading...</div>
+    {:else if filtered.length === 0}
+      <div class="empty-state">{emptyMessage}</div>
+    {:else}
+      {#each filtered as sentence (sentence.id)}
+        <SentenceCard {sentence} onkeep={onKeep} ondelete={onDelete} wordStatuses={sentence.wordStatuses} />
+      {/each}
+    {/if}
   {/if}
 </div>
 

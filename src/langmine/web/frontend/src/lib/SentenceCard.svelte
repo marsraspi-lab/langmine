@@ -1,11 +1,11 @@
 <script>
   import { fly } from 'svelte/transition';
-  import { updateSentenceField } from './stores.js';
+  import { updateSentenceField, markWordStatus } from './stores.js';
   import { updateVocabWord } from './api.js';
   import { currentView, vocabSearchQuery } from './stores.js';
 
   /** @type {{ sentence: Object, onkeep: Function, ondelete: Function, oniknowthis: Function }} */
-  let { sentence, onkeep = () => {}, ondelete = () => {}, oniknowthis = () => {} } = $props();
+  let { sentence, onkeep = () => {}, ondelete = () => {}, wordStatuses = {} } = $props();
 
   const STATUS_LABELS = {
     i1: 'i+1',
@@ -56,16 +56,21 @@
   let activeWordIdx = $state(null);
   let togglingWord = $state(null);
 
-  // Build derived words array with computed status
+  // Build derived words array from client-side wordStatuses (M19)
   let displayWords = $derived(
-    sentence.words
-      ? sentence.words.map((w) => ({
+    wordStatuses && Object.keys(wordStatuses).length > 0
+      ? Object.entries(wordStatuses).map(([token, status]) => ({
+          token,
+          status,
+          frequency_rank: null,
+          hsk_level: null,
+        }))
+      : (sentence.words || []).map((w) => ({
           token: w.token,
           status: w.status || 'unknown',
           frequency_rank: w.frequency_rank,
           hsk_level: w.hsk_level,
         }))
-      : []
   );
 
   function freqBadge(rank) {
@@ -102,41 +107,20 @@
       wordObj.status === 'unknown' ? 'learning' :
       wordObj.status === 'learning' ? 'known' :
       'unknown';
-
     togglingWord = idx;
     try {
-      const result = await updateVocabWord(wordObj.token, nextStatus);
-      if (result.ok || result.status) {
-        // Update local state
-        wordObj.status = nextStatus;
-        // Also update in the parent sentence.words array if present
-        if (sentence.words && sentence.words[idx]) {
-          sentence.words[idx].status = nextStatus;
-        }
-      }
-    } catch (err) {
-      console.error('Failed to toggle word status:', err);
+      await markWordStatus(wordObj.token, nextStatus);
     } finally {
       togglingWord = null;
     }
   }
 
-  async function setWordStatus(wordObj, idx, newStatus) {
+  function handleWordStatusClick(wordObj, idx, newStatus) {
     togglingWord = idx;
-    try {
-      const result = await updateVocabWord(wordObj.token, newStatus);
-      if (result.ok || result.status) {
-        wordObj.status = newStatus;
-        if (sentence.words && sentence.words[idx]) {
-          sentence.words[idx].status = newStatus;
-        }
-      }
-    } catch (err) {
-      console.error('Failed to set word status:', err);
-    } finally {
+    markWordStatus(wordObj.token, newStatus).finally(() => {
       togglingWord = null;
-      closePopover();
-    }
+    });
+    closePopover();
   }
 
   function handleWordClick(wordObj, idx) {
@@ -263,21 +247,21 @@
       <div class="popover-actions">
         <button
           class="popover-btn btn-mark-known"
-          onclick={() => setWordStatus(word, activeWordIdx, 'known')}
+          onclick={() => handleWordStatusClick(word, activeWordIdx, 'known')}
           disabled={togglingWord === activeWordIdx || word.status === 'known'}
         >
           ✅ Mark known
         </button>
         <button
           class="popover-btn btn-mark-learning"
-          onclick={() => setWordStatus(word, activeWordIdx, 'learning')}
+          onclick={() => handleWordStatusClick(word, activeWordIdx, 'learning')}
           disabled={togglingWord === activeWordIdx || word.status === 'learning'}
         >
           📚 Mark learning
         </button>
         <button
           class="popover-btn btn-mark-ignored"
-          onclick={() => setWordStatus(word, activeWordIdx, 'ignored')}
+          onclick={() => handleWordStatusClick(word, activeWordIdx, 'ignored')}
           disabled={togglingWord === activeWordIdx || word.status === 'ignored'}
         >
           🚫 Ignore
@@ -317,11 +301,6 @@
     {:else}
       <button class="btn-delete" onclick={confirmDelete}>
         🔴 Delete
-      </button>
-    {/if}
-    {#if sentence.unknown_word}
-      <button class="btn-iknow" onclick={() => oniknowthis(sentence.id)}>
-        📖 I Know This
       </button>
     {/if}
   </div>

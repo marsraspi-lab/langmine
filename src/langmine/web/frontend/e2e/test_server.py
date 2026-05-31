@@ -263,6 +263,12 @@ vocab_words = [
               hsk_level=1, frequency_rank=100, status="known"),
     VocabWord(word_simplified="早上", reading="zǎoshang", definition_de="Morgen",
               hsk_level=1, frequency_rank=800, status="known"),
+    VocabWord(word_simplified="起床", reading="qǐchuáng", definition_de="aufstehen",
+              hsk_level=2, frequency_rank=1500, status="known"),
+    VocabWord(word_simplified="我", reading="wǒ", definition_de="ich",
+              hsk_level=1, frequency_rank=10, status="known"),
+    VocabWord(word_simplified="爱", reading="ài", definition_de="lieben",
+              hsk_level=1, frequency_rank=300, status="known"),
 ]
 for w in vocab_words:
     persistence.save_vocab_word(w)

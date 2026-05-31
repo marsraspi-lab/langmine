@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { updateVocabWord, dismissProperName } from './api.js';
-  import { addToast, currentView, vocabSearchQuery } from './stores.js';
+  import { dismissProperName } from './api.js';
+  import { addToast, currentView, vocabSearchQuery, markWordStatus } from './stores.js';
   import ImagePicker from './ImagePicker.svelte';
 
   let { videoId } = $props();
@@ -47,15 +47,9 @@
     }
   }
 
-  async function setWordStatus(token, newStatus) {
-    try {
-      await updateVocabWord(token, newStatus);
-      if (activeWord) activeWord.word.status = newStatus;
-      await loadTranscript();
-      addToast(`"${token}" → ${newStatus}`, 'success');
-    } catch (err) {
-      addToast(`Failed: ${err.message}`, 'error');
-    }
+  function handleWordStatus(token, newStatus) {
+    markWordStatus(token, newStatus);
+    addToast(`"${token}" → ${newStatus}`, 'success');
   }
 
   async function handleDismissProperName(token) {
@@ -214,22 +208,22 @@
       <div class="popover-actions">
         <button
           class="popover-btn"
-          onclick={() => setWordStatus(activeWord.word.token, 'known')}
+          onclick={() => handleWordStatus(activeWord.word.token, 'known')}
           disabled={activeWord.word.status === 'known'}
         >✅ Mark known</button>
         <button
           class="popover-btn"
-          onclick={() => setWordStatus(activeWord.word.token, 'learning')}
+          onclick={() => handleWordStatus(activeWord.word.token, 'learning')}
           disabled={activeWord.word.status === 'learning'}
         >📚 Mark learning</button>
         <button
           class="popover-btn"
-          onclick={() => setWordStatus(activeWord.word.token, 'ignored')}
+          onclick={() => handleWordStatus(activeWord.word.token, 'ignored')}
           disabled={activeWord.word.status === 'ignored'}
         >🚫 Ignore</button>
         <button
           class="popover-btn"
-          onclick={() => setWordStatus(activeWord.word.token, 'unknown')}
+          onclick={() => handleWordStatus(activeWord.word.token, 'unknown')}
           disabled={activeWord.word.status === 'unknown'}
         >❓ Mark unknown</button>
         {#if activeWord.word.status === 'proper-name'}

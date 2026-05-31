@@ -142,11 +142,13 @@ test.describe('LangMine SPA', () => {
     await curation.expectFirstBadge('deleted');
   });
 
-  test('I Know This marks word as known and reclassifies', async () => {
+  test('mark word known from popover updates display instantly', async () => {
     await main.goto();
     await main.selectFirstVideo();
-    await curation.clickFirstIKnowThis();
-    await curation.expectFirstBadge('known');
+    await curation.clickFirstLearningWord();
+    await curation.clickMarkKnown();
+    // Word should now show known styling (popover-triggering word was already .word-learning)
+    await expect(curation.firstCard.wordKnown().first()).toBeVisible({ timeout: 5000 });
   });
 
   // ── Mine form ────────────────────────────────────────────────────────

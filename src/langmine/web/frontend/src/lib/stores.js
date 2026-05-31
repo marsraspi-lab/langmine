@@ -137,6 +137,44 @@ export async function loadSentences(videoId, filter) {
   sentences.set(data.sentences);
 }
 
+// === Client-side sentence curation (M19) ===
+
+/** Curated sentences with client-computed i+1/i0/stashed status
+ *  and per-word status hashmaps for instant highlighting.
+ *  Preserves user-action statuses: deleted, kept. */
+export const curatedSentences = derived(
+  [sentences, knownWords, learningWords, ignoredWords],
+  ([$sentences, $knownWords, $learningWords, $ignoredWords]) => {
+    return $sentences.map(s => {
+      const tokens = (s.text_segmented || '').split(' / ').filter(Boolean);
+      const unknown = tokens.filter(w =>
+        !$knownWords.has(w) && !$ignoredWords.has(w)
+      );
+      const count = unknown.length;
+      // User-action statuses (deleted, kept) take priority over computed
+      let computed = count === 0 ? 'i0'
+        : count === 1 ? 'i1'
+        : count === 2 ? 'i2'
+        : count === 3 ? 'i3'
+        : 'stashed';
+      if (s.status === 'deleted' || s.status === 'kept' || s.status === 'exported') {
+        computed = s.status;
+      }
+      return {
+        ...s,
+        computedStatus: computed,
+        wordStatuses: Object.fromEntries(tokens.map(w => [
+          w,
+          $knownWords.has(w) ? 'known'
+            : $ignoredWords.has(w) ? 'ignored'
+            : $learningWords.has(w) ? 'learning'
+            : 'unknown'
+        ])),
+      };
+    });
+  }
+);
+
 export async function mineVideo(url, file = null) {
   mining.set(true);
   mineStatus.set('⏳ Mining...');
