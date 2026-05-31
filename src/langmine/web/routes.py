@@ -535,6 +535,7 @@ def register_routes(app: Flask):
         """Update a word's status and cascade reclassification."""
         persistence = _get_persistence()
         processor = _get_processor()
+        lang = _get_language_code()
 
         data = request.get_json(silent=True)
         if not data or "status" not in data:
