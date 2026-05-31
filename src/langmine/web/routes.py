@@ -74,6 +74,7 @@ def register_routes(app: Flask):
 
         # Determine which transcript source to use
         transcript = _get_transcript_source()
+        is_file_upload = False
 
         # Handle multipart form data (with optional file upload)
         if request.content_type and "multipart" in request.content_type:
@@ -95,6 +96,7 @@ def register_routes(app: Flask):
                     if not chunks:
                         return jsonify({"error": "No subtitle entries found in uploaded file"}), 400
                     transcript = InlineTranscriptSource(chunks)
+                    is_file_upload = True
         else:
             # JSON body (backward compatible)
             data = request.get_json(silent=True)
@@ -121,6 +123,7 @@ def register_routes(app: Flask):
                 language_processor=processor,
                 video_id=video_id,
                 output_dir=output_dir,
+                gap_ms=0 if is_file_upload else None,
             )
 
             # Find the video we just created
