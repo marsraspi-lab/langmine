@@ -188,6 +188,9 @@ class Persistence(ABC):
     @abstractmethod
     def mark_word_learning(self, word_simplified: str) -> None: ...
     @abstractmethod
+    def mark_word_ignored(self, word_simplified: str) -> None: ...
+
+    @abstractmethod
     def get_vocab_stats(self, language_code: str = "") -> dict: ...
 
     @abstractmethod

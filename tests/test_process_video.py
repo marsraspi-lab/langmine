@@ -67,11 +67,12 @@ class FakeAudio(AudioProcessor):
 class FakePersistence(Persistence):
     def __init__(self, known_words: set[str] | None = None):
         self._known = known_words or set()
+        self._ignored = set()
         self.videos: dict = {}
         self.sentences: list[Sentence] = []
 
     def get_known_words(self) -> set[str]:
-        return self._known
+        return self._known | self._ignored
 
     def save_video(self, video):
         if video.id is None:
@@ -106,6 +107,9 @@ class FakePersistence(Persistence):
     def get_sentences_by_word(self, word):
         return [s for s in self.sentences
                 if s.unknown_word == word or word in s.text]
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        self._ignored.add(word_simplified)
 
     def log_event(
         self,

@@ -128,7 +128,7 @@ class InMemoryPersistence(Persistence):
         return self.vocab.get(word_simplified)
 
     def get_known_words(self) -> set[str]:
-        return {w for w, v in self.vocab.items() if v.status == "known"}
+        return {w for w, v in self.vocab.items() if v.status in ("known", "ignored")}
 
     def mark_word_known(self, word_simplified: str) -> None:
         if word_simplified in self.vocab:
@@ -137,6 +137,12 @@ class InMemoryPersistence(Persistence):
     def mark_word_learning(self, word_simplified: str) -> None:
         if word_simplified in self.vocab:
             self.vocab[word_simplified].status = "learning"
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        if word_simplified in self.vocab:
+            self.vocab[word_simplified].status = "ignored"
+        else:
+            self.vocab[word_simplified] = VocabWord(word_simplified=word_simplified, status="ignored")
 
     def get_vocab_stats(self) -> dict:
         known = sum(1 for v in self.vocab.values() if v.status == "known")

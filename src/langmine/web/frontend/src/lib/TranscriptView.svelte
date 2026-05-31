@@ -213,6 +213,11 @@
         >📚 Mark learning</button>
         <button
           class="popover-btn"
+          onclick={() => setWordStatus(activeWord.word.token, 'ignored')}
+          disabled={activeWord.word.status === 'ignored'}
+        >🚫 Ignore</button>
+        <button
+          class="popover-btn"
           onclick={() => setWordStatus(activeWord.word.token, 'unknown')}
           disabled={activeWord.word.status === 'unknown'}
         >❓ Mark unknown</button>
@@ -483,6 +488,7 @@
   }
   .status-badge-inline.word-known { background: rgba(78, 204, 163, 0.2); }
   .status-badge-inline.word-learning { background: rgba(255, 167, 38, 0.2); }
+  .status-badge-inline.word-ignored { background: rgba(150, 150, 150, 0.2); }
   .status-badge-inline.word-unknown { background: rgba(233, 69, 96, 0.2); }
   .popover-actions {
     display: flex;

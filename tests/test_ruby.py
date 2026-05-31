@@ -61,9 +61,10 @@ class FakePersistence:
 
     def __init__(self, known_words=None):
         self._known = known_words or set()
+        self._ignored = set()
 
     def get_known_words(self):
-        return self._known
+        return self._known | self._ignored
 
 
 # === Tests: Ruby generation ===
@@ -233,6 +234,7 @@ class FakeRbProcessor(LanguageProcessor):
 
 class FakeRbPersistence(Persistence):
     def __init__(self):
+        self._ignored = set()
         self._videos = []
         self._sentences = []
         self._next_vid = 1
@@ -257,7 +259,7 @@ class FakeRbPersistence(Persistence):
     def update_sentence(self, s):
         for i, existing in enumerate(self._sentences):
             if existing.id == s.id: self._sentences[i] = s; break
-    def get_known_words(self): return set()
+    def get_known_words(self): return self._ignored
     def get_vocab_word(self, w): return None
     def save_vocab_word(self, w): pass
     def mark_word_known(self, w): pass
@@ -265,6 +267,9 @@ class FakeRbPersistence(Persistence):
     def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
     def list_vocab(self, **kw): return [], 0
     def get_sentences_by_word(self, w): return []
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        self._ignored.add(word_simplified)
 
     def log_event(
         self,

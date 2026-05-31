@@ -50,7 +50,7 @@ class TestLanguageIsolation:
                 return {
                     w.word_simplified
                     for w in self._vocab.values()
-                    if w.status == "known" and (language_code is None or w.language_code == language_code)
+                    if w.status in ("known", "ignored") and (language_code is None or w.language_code == language_code)
                 }
 
             # stubs
@@ -69,6 +69,12 @@ class TestLanguageIsolation:
             def get_vocab_stats(self, language_code=None): return {"known": 0, "learning": 0, "total": 0}
             def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code=None): return [], 0
             def get_sentences_by_word(self, word): return []
+
+            def mark_word_ignored(self, word_simplified: str) -> None:
+                if word_simplified in self._vocab:
+                    self._vocab[word_simplified].status = "ignored"
+                else:
+                    self._vocab[word_simplified] = VocabWord(word_simplified=word_simplified, status="ignored")
 
             def log_event(
                 self,
@@ -128,6 +134,9 @@ class TestLanguageIsolation:
             def mark_word_learning(self, w): pass
             def get_vocab_stats(self, language_code=None): return {"known": 0, "learning": 0, "total": 0}
             def get_sentences_by_word(self, word): return []
+
+            def mark_word_ignored(self, word_simplified: str) -> None:
+                pass
 
             def log_event(
                 self,
