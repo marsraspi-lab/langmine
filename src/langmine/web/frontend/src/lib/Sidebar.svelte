@@ -9,6 +9,7 @@
   let clozeMode = $state(false);
   /** @type {File|null} */
   let transcriptFile = $state(null);
+  let dragOver = $state(false);
 
   // Preview state
   let previewLoading = $state(false);
@@ -35,6 +36,26 @@
 
   function handleFileChange(e) {
     transcriptFile = e.target.files[0] || null;
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    dragOver = true;
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    dragOver = false;
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    dragOver = false;
+    const file = e.dataTransfer.files[0];
+    if (file && (file.name.endsWith('.srt') || file.name.endsWith('.vtt'))) {
+      transcriptFile = file;
+    }
   }
 
   async function handlePreview() {
@@ -66,7 +87,12 @@
     <h1>⛏️ LangMine</h1>
   </div>
 
-  <div class="mine-form">
+  <div class="mine-form"
+       class:drag-over={dragOver}
+       ondragover={handleDragOver}
+       ondragleave={handleDragLeave}
+       ondrop={handleDrop}
+  >
     <input
       type="text"
       placeholder="YouTube URL..."
@@ -186,6 +212,13 @@
   .mine-form {
     padding: 16px 20px;
     border-bottom: 1px solid var(--border);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .mine-form.drag-over {
+    background: rgba(233, 69, 96, 0.08);
+    border-color: var(--accent);
+    outline: 2px dashed var(--accent);
+    outline-offset: -6px;
   }
   .mine-form input {
     width: 100%;
