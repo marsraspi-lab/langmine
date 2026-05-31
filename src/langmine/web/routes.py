@@ -618,6 +618,20 @@ def register_routes(app: Flask):
             "per_page": per_page,
         })
 
+    @app.route("/api/vocab/statuses")
+    def vocab_statuses():
+        """Return all vocab words grouped by status for client hashmap init."""
+        persistence = _get_persistence()
+        lang = _get_language_code()
+        all_words, _ = persistence.list_vocab(
+            page=1, per_page=99999, language_code=lang
+        )
+        result: dict[str, list[str]] = {"known": [], "learning": [], "ignored": []}
+        for word in all_words:
+            if word.status in result:
+                result[word.status].append(word.word_simplified)
+        return jsonify(result)
+
     @app.route("/api/vocab/<word>")
     def get_vocab_word(word: str):
         """Full detail for a single word: definitions, sentences, stats."""
