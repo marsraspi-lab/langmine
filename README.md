@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.4.0 — M0–M17 (ignore word status). 200 pytest + 42 E2E. All tests pass.
+**Status:** v1.5.0 — M0–M18 (proper name brackets). 206 pytest + 42 E2E. All tests pass.
 
 ## Requirements
 
@@ -358,8 +358,9 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M15 | Multi-Language Support | ✅ — data isolation, language selector, per-language Anki templates |
 | M16 | Event Timeline | ✅ — append-only event log, 11 event types, created_at/updated_at timestamps |
 | M17 | Ignore Word Status | ✅ — 🚫 mark words as ignored, auto-reclassify stash, 200 pytest + 42 E2E |
+| M18 | Proper Name Brackets | ✅ — [square brackets] on proper names, jieba POS detection, dismissable |
 
-> **Plan:** `.hermes/plans/proper-name-brackets.md` (next: proper name [square brackets])
+> **Plan:** no next plan yet — all milestones through M18 are shipped.
 
 ---
 

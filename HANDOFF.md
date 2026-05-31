@@ -1,50 +1,42 @@
-# Handoff — 2026-05-31 (Event Timeline)
+# Handoff — 2026-05-31 (Proper Name Brackets)
 
 ## Where We Are
 
-**Event timeline complete.** Merged to `main` (PR #11).
+**Proper name brackets complete.** Merged to `main` (PR #13).
 
-- **`main`:** v1.3.0 — M0–M16 (event timeline). 190 pytest + 42 E2E.
-- **What's new:** Append-only `events` table tracking 11 event types (mined, classified, kept, deleted, exported, edited, annotation_edited, cascade i0, first_encountered, marked_learning, marked_known). `created_at`/`updated_at` on Sentence and VocabWord. `log_event()` domain port.
-- **Status:** v1.3.0 material — timeline data collection infrastructure complete, visualization TBD.
+- **`main`:** v1.5.0 — M0–M18 (proper name brackets). 206 pytest + 42 E2E.
+- **What's new:** `LanguageProcessor.is_proper_name()` port method. Chinese implementation using jieba posseg (detects person names `nr`, place names `ns`). Transcript API and preview endpoint assign `status="proper-name"` — excluded from i+1 unknown counting. Frontend renders `[brackets]` via CSS `::before`/`::after`. "Not a proper name" popover action dismisses via `PATCH /api/vocab/{word}` with `{proper_name: false}`.
+- **Status:** v1.5.0 material — all 18 milestones complete.
 
-## What Changed
+## What Changed (M18)
 
-### Data Isolation
-- `language_code TEXT NOT NULL DEFAULT 'zh'` column added to `videos`, `sentences`, `vocab` tables (DB schema v2).
-- `Sentence`, `Video`, `VocabWord` models have `language_code: str` field.
-- `SQLitePersistence` filters all SELECTs by `language_code`; INSERTs include it.
-- `_get_language_code()` helper in `routes.py` reads `config.source_language`.
-- **No migration needed** — delete `~/.langmine/langmine.db` to recreate with new schema (no production users).
+### New Port Method
+- `LanguageProcessor.is_proper_name(token) -> bool` — detected via jieba posseg in Chinese
+- Proper name POS tags: `nr` (person), `ns` (place), `nrfg` (given name), `nrt` (transliterated)
 
-### New API Endpoint
-- `GET /api/languages` — returns `{"languages": [{"code": "zh", "name": "中文"}]}`.
-- Factory function `get_available_languages()` drives it.
+### Transcript & Preview
+- `_words_array()` checks `is_proper_name()` and assigns `status="proper-name"`
+- Preview endpoint token classification includes proper-name check
+- Proper names excluded from i+1 unknown counting (like non-words)
+- Known/ignored words take priority over proper-name detection
 
-### Frontend Language Selector
-- `<select>` dropdown in `App.svelte` top bar — shows available languages from `/api/languages`.
-- On change: `PUT /api/config` with `source_language`, then reloads videos and sentences.
-- New stores: `languages` (writable), `currentLanguage` (writable).
-- New actions: `loadLanguages()`, `selectLanguage(code)`.
+### New API Behavior
+- `PATCH /api/vocab/{word}` accepts `{"proper_name": false}` → marks word as `learning`
+- Logs `dismissed_proper_name` event
 
-### Anki Templates Moved to Language Extension
-- Card templates extracted from `config.yaml` / `Config` class → files under `languages/chinese/anki/`:
-  - `basic/{front.html, back.html, css.css}`
-  - `cloze/{front.html, back.html, css.css}`
-- Language manifest (`languages/chinese/__init__.py`) declares `MANIFEST` with `name`, `deck_name`, `note_type`, `cloze_note_type`.
-- Factory functions: `get_anki_templates(lang)` and `get_language_manifest(lang)`.
-- `POST /api/export/anki` now reads templates from factory instead of config.
+### Frontend
+- CSS `::before`/`::after` brackets on `.word-proper-name` (faded gray)
+- "❌ Not a proper name" button in word popover (visible when status is proper-name)
+- `dismissProperName()` in `api.js`
 
-### Config Surface Cleaned
-- `GET /api/config` no longer returns `deck_name` or `note_type`.
-- `PUT /api/config` `ALLOWED` set no longer accepts template fields (`cloze_note_type`, `cloze_card_css`, etc.).
-- SettingsPage (Svelte) removed Deck Name / Note Type inputs.
+### Infrastructure
+- `sandbox/Dockerfile`: `libasound2` → `libasound2t64` (Debian trixie rename)
+- `pyproject.toml` bumped to 1.5.0
 
 ### Tests
-- `tests/test_multi_language.py` — 5 tests: `language_code` on models + isolation.
-- `tests/test_web_api.py::TestLanguagesEndpoint` — 2 tests for `/api/languages`.
-- `tests/test_config.py::TestConfigApiAllowed` — no longer expects cloze fields in ALLOWED.
-- All FakePersistence classes in tests accept `language_code` kwargs.
+- `tests/languages/chinese/test_service.py` — 4 tests: person/place detection, common word/particle rejection
+- `tests/test_web_transcript.py::TestProperNameInTranscript` — 1 test: transcript proper-name status
+- `tests/test_web_api.py::TestDismissProperName` — 1 test: dismiss API flow
 
 ## Architecture Rules (unchanged)
 
