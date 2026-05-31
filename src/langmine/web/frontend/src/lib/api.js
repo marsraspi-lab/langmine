@@ -47,16 +47,39 @@ export const api = {
   listVideos: () => get('/videos'),
   deleteVideo: (id) => fetch(BASE + `/videos/${id}`, { method: 'DELETE' })
     .then(async res => ({ ok: res.ok, status: res.status, data: await res.json() })),
-  mineVideo: (url, file = null) => {
+  /** Stream mine progress via SSE. Returns an async generator yielding
+   *  {status: "message"} for progress, then the final result object. */
+  mineVideoStream: async function* (url, file = null) {
+    let body;
     if (file) {
-      // Multipart form data with transcript file
       const formData = new FormData();
       formData.append('url', url);
       formData.append('file', file);
-      return fetch(BASE + '/videos/mine', { method: 'POST', body: formData })
-        .then(async res => ({ ok: res.ok, status: res.status, data: await res.json() }));
+      body = formData;
+    } else {
+      body = JSON.stringify({ url });
     }
-    return post('/videos/mine', { url });
+    const headers = file ? {} : { 'Content-Type': 'application/json' };
+    const res = await fetch(BASE + '/videos/mine', { method: 'POST', headers, body });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: `${res.status}` }));
+      throw new Error(err.error || `Mine failed (${res.status})`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          yield JSON.parse(line.slice(6));
+        }
+      }
+    }
   },
   getSentences: (videoId, status) =>
     get(`/videos/${videoId}/sentences${status && status !== 'all' ? `?status=${status}` : ''}`),

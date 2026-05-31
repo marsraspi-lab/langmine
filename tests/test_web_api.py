@@ -379,9 +379,14 @@ class TestMineVideo:
             content_type="application/json",
         )
         assert resp.status_code == 200
-        data = json.loads(resp.data)
-        assert data["youtube_id"] == "testVid1234"
-        assert data["total_sentences"] > 0
+
+        # Parse SSE response: extract last data: line
+        data = {}
+        for line in resp.data.decode().split("\n"):
+            if line.startswith("data: "):
+                data = json.loads(line[6:])
+        assert data.get("youtube_id") == "testVid1234"
+        assert data.get("total_sentences", 0) > 0
         assert "i1_count" in data
         assert "stash_count" in data
 

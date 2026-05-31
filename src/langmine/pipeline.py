@@ -115,16 +115,25 @@ def process_video(
     gap_ms: int | None = None,
     pad_before_ms: int | None = None,
     pad_after_ms: int | None = None,
+    progress_callback: callable | None = None,
 ) -> dict:
     """Mine and classify all sentences from a video.
 
     Full pipeline: transcript → merge → classify → persist.
     Uses injected ports — no direct YouTube/ffmpeg/SQLite dependencies.
 
+    Args:
+        progress_callback: Optional callable(str) for progress updates.
+            Called at each pipeline stage with a human-readable message.
+
     Returns:
         Dict with: i1_candidates (list[Sentence]), i0_count, stash_count,
         total_sentences, video_id.
     """
+    def _progress(msg: str) -> None:
+        if progress_callback:
+            progress_callback(msg)
+
     config = load_config()
 
     if max_cards is None:
@@ -133,8 +142,10 @@ def process_video(
         gap_ms = config.sentence_gap_ms
 
     # 1. Fetch and merge transcript
+    _progress("Fetching transcript…")
     chunks = transcript_source.fetch(video_id)
     merged = merge_sentences(chunks, gap_ms=gap_ms)
+    _progress(f"Found {len(chunks)} chunks → {len(merged)} sentences")
 
     if not merged:
         raise ValueError("No sentences could be extracted from the video.")
@@ -148,6 +159,7 @@ def process_video(
     persistence.save_video(video)
 
     # 3. Classify sentences
+    _progress("Classifying sentences…")
     classifier = SentenceClassifier(language_processor, persistence)
     sentences = classifier.classify(
         video_id=video.id,
@@ -159,24 +171,32 @@ def process_video(
     for s in sentences:
         s.language_code = config.source_language
 
+    i1 = sum(1 for s in sentences if s.status == "i1")
+    i0 = sum(1 for s in sentences if s.status == "i0")
+    stashed = sum(1 for s in sentences if s.status == "stashed")
+    _progress(f"Classified: {i1} i+1, {i0} i+0, {stashed} stashed")
+
     # 4. Enrich with NLP (pinyin, translation, definitions)
+    _progress("Enriching with translations & readings…")
     classifier.enrich(sentences)
 
     # 4b. Capture screenshots for non-trivial sentences
     screenshot_dir = f"{output_dir}/screenshots"
-    for i, s in enumerate(sentences):
-        if s.screenshot_enabled and s.status != "i0":
-            try:
-                s.screenshot_path = audio_processor.capture_frame(
-                    video_id=video_id,
-                    timestamp_ms=s.start_ms,
-                    output_dir=screenshot_dir,
-                    sentence_id=str(i + 1).zfill(4),
-                ) or ""
-            except Exception:
-                s.screenshot_path = ""
+    to_screenshot = [s for s in sentences if s.screenshot_enabled and s.status != "i0"]
+    for i, s in enumerate(to_screenshot):
+        _progress(f"Screenshots ({i + 1}/{len(to_screenshot)})…")
+        try:
+            s.screenshot_path = audio_processor.capture_frame(
+                video_id=video_id,
+                timestamp_ms=s.start_ms,
+                output_dir=screenshot_dir,
+                sentence_id=str(i + 1).zfill(4),
+            ) or ""
+        except Exception:
+            s.screenshot_path = ""
 
     # 5. Persist classified sentences
+    _progress("Saving to database…")
     persistence.save_sentences(sentences)
 
     # 5b. Log classification events for timeline

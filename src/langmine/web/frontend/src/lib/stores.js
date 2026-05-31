@@ -113,9 +113,16 @@ export async function mineVideo(url, file = null) {
   mining.set(true);
   mineStatus.set('⏳ Mining...');
   try {
-    const { ok, data } = await api.mineVideo(url, file);
-    if (!ok) {
-      mineStatus.set(`❌ ${data.error || 'Failed'}`);
+    let data;
+    for await (const event of api.mineVideoStream(url, file)) {
+      if (event.status) {
+        mineStatus.set(`⏳ ${event.status}`);
+      } else {
+        data = event;  // final result
+      }
+    }
+    if (!data) {
+      mineStatus.set('❌ No result');
       return null;
     }
     mineStatus.set(`✅ ${data.total_sentences} sentences, ${data.i1_count} i+1`);

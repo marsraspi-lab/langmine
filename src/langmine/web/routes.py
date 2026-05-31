@@ -71,26 +71,27 @@ def register_routes(app: Flask):
 
     @app.route("/api/videos/mine", methods=["POST"])
     def mine_video():
-        """Mine a YouTube video: transcript → merge → classify → persist.
+        """Mine a YouTube video with SSE progress streaming.
 
         Accepts JSON with 'url' or multipart/form-data with 'url' + optional
-        transcript file (.srt/.vtt). When a transcript file is provided, it
-        is used directly instead of calling youtube-transcript-api.
+        transcript file (.srt/.vtt). Streams progress as text/event-stream.
         """
+        from flask import Response, stream_with_context
+        import queue
+        import threading
+        import json as _json
+
         persistence = _get_persistence()
         processor = _get_processor()
         audio = _get_audio_processor()
-
-        # Determine which transcript source to use
         transcript = _get_transcript_source()
         is_file_upload = False
 
-        # Handle multipart form data (with optional file upload)
+        # Parse request (must happen before streaming)
         if request.content_type and "multipart" in request.content_type:
             url = request.form.get("url", "").strip()
             if not url:
                 return jsonify({"error": "Missing 'url' field"}), 400
-
             file = request.files.get("file")
             if file and file.filename:
                 InlineTranscriptSource = current_app.config.get(
@@ -107,58 +108,92 @@ def register_routes(app: Flask):
                     transcript = InlineTranscriptSource(chunks)
                     is_file_upload = True
         else:
-            # JSON body (backward compatible)
             data = request.get_json(silent=True)
             if not data or "url" not in data:
                 return jsonify({"error": "Missing 'url' field"}), 400
             url = data["url"]
 
-        # Extract video ID (simple extraction, same as transcript module)
         from langmine.transcript import _extract_video_id
         video_id = _extract_video_id(url)
 
-        try:
-            from langmine.pipeline import process_video
-            from langmine.config import load_config
+        progress_queue: queue.Queue = queue.Queue()
 
-            config = load_config()
-            output_dir = config.data_dir
-            os.makedirs(output_dir, exist_ok=True)
+        def _do_mine():
+            """Run mining in a thread, pushing progress to the queue."""
+            try:
+                from langmine.pipeline import process_video
+                from langmine.config import load_config
 
-            result = process_video(
-                transcript_source=transcript,
-                audio_processor=audio,
-                persistence=persistence,
-                language_processor=processor,
-                video_id=video_id,
-                output_dir=output_dir,
-                gap_ms=0 if is_file_upload else None,
-            )
+                config = load_config()
+                output_dir = config.data_dir
+                os.makedirs(output_dir, exist_ok=True)
 
-            # Find the video we just created
-            video = persistence.get_video(video_id)
+                def _on_progress(msg: str):
+                    progress_queue.put(("progress", msg))
 
-            if video and video.id:
-                persistence.log_event(
-                    entity_type="video", entity_id=video.id,
-                    action="mined", new_value=video_id,
-                    language_code=config.source_language,
+                result = process_video(
+                    transcript_source=transcript,
+                    audio_processor=audio,
+                    persistence=persistence,
+                    language_processor=processor,
+                    video_id=video_id,
+                    output_dir=output_dir,
+                    gap_ms=0 if is_file_upload else None,
+                    progress_callback=_on_progress,
                 )
 
-            return jsonify({
-                "video_id": video.id if video else None,
-                "youtube_id": video_id,
-                "i1_candidates": len(result["i1_candidates"]),
-                "i0_count": result["i0_count"],
-                "stash_count": result["stash_count"],
-                "total_sentences": result["total_sentences"],
-                "i1_count": len(result["i1_candidates"]),
-            })
+                video = persistence.get_video(video_id)
+                if video and video.id:
+                    persistence.log_event(
+                        entity_type="video", entity_id=video.id,
+                        action="mined", new_value=video_id,
+                        language_code=config.source_language,
+                    )
 
-        except ValueError as e:
-            return jsonify({"error": str(e)}), 400
-        except Exception as e:
-            return jsonify({"error": f"Mining failed: {e}"}), 500
+                progress_queue.put(("done", {
+                    "video_id": video.id if video else None,
+                    "youtube_id": video_id,
+                    "i1_candidates": len(result["i1_candidates"]),
+                    "i0_count": result["i0_count"],
+                    "stash_count": result["stash_count"],
+                    "total_sentences": result["total_sentences"],
+                    "i1_count": len(result["i1_candidates"]),
+                }))
+            except ValueError as e:
+                progress_queue.put(("error", str(e)))
+            except Exception as e:
+                progress_queue.put(("error", f"Mining failed: {e}"))
+
+        def _sse_stream():
+            """SSE generator: yield progress events + final result."""
+            thread = threading.Thread(target=_do_mine, daemon=True)
+            thread.start()
+
+            while True:
+                try:
+                    kind, payload = progress_queue.get(timeout=0.2)
+                except queue.Empty:
+                    # Send keepalive comment
+                    yield ": keepalive\n\n"
+                    continue
+
+                if kind == "progress":
+                    yield f"data: {_json.dumps({'status': payload})}\n\n"
+                elif kind == "done":
+                    yield f"data: {_json.dumps(payload)}\n\n"
+                    return
+                elif kind == "error":
+                    yield f"data: {_json.dumps({'error': payload})}\n\n"
+                    return
+
+        return Response(
+            stream_with_context(_sse_stream()),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @app.route("/api/videos/preview", methods=["POST"])
     def preview_video():
