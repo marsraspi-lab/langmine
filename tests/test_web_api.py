@@ -160,7 +160,8 @@ class FakePersistence(Persistence):
         return {"known": known, "learning": learning, "ignored": ignored, "total": total}
 
     def list_vocab(
-        self, page=1, per_page=200, status=None, search=None, sort="frequency"
+        self, page=1, per_page=200, status=None, search=None, sort="frequency",
+        language_code="",
     ):
         words = list(self._vocab)
         if status:

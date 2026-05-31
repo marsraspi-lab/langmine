@@ -348,6 +348,8 @@ def register_routes(app: Flask):
         persistence = _get_persistence()
         lang = _get_language_code()
         status = request.args.get("status")
+        if status == "all":
+            status = None  # "all" means no filter — every sentence visible
 
         sentences = persistence.get_sentences_by_video(video_id, status=status, language_code=lang)
 
@@ -618,6 +620,20 @@ def register_routes(app: Flask):
             "per_page": per_page,
         })
 
+    @app.route("/api/vocab/statuses")
+    def vocab_statuses():
+        """Return all vocab words grouped by status for client hashmap init."""
+        persistence = _get_persistence()
+        lang = _get_language_code()
+        all_words, _ = persistence.list_vocab(
+            page=1, per_page=99999, language_code=lang
+        )
+        result: dict[str, list[str]] = {"known": [], "learning": [], "ignored": []}
+        for word in all_words:
+            if word.status in result:
+                result[word.status].append(word.word_simplified)
+        return jsonify(result)
+
     @app.route("/api/vocab/<word>")
     def get_vocab_word(word: str):
         """Full detail for a single word: definitions, sentences, stats."""
@@ -667,8 +683,6 @@ def register_routes(app: Flask):
                 action="marked_known", new_value=word,
                 language_code=lang,
             )
-            # Cascade: reclassify sentences where this word was the i+1 target
-            _cascade_word_known(persistence, word, processor)
         elif new_status == "ignored":
             persistence.mark_word_ignored(word)
             persistence.log_event(
@@ -676,8 +690,6 @@ def register_routes(app: Flask):
                 action="marked_ignored", new_value=word,
                 language_code=lang,
             )
-            # Cascade: reclassify sentences where this word was the i+1 target
-            _cascade_word_known(persistence, word, processor)
         else:
             persistence.mark_word_learning(word)
             persistence.log_event(

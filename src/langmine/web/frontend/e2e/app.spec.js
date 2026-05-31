@@ -130,6 +130,16 @@ test.describe('LangMine SPA', () => {
     await expect(main.page.locator('.export-status')).toContainText('new');
   });
 
+  // Must run BEFORE any state-mutating tests — the 'Deleted' tab empty state
+  // relies on no sentences being deleted in the shared test server data.
+  test('Stash tab shows empty state when none', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await expect(curation.chineseText.first()).toBeVisible({ timeout: 5000 });
+    await curation.clickFilter('Deleted');
+    await curation.expectEmptyState('No deleted sentences');
+  });
+
   test('Delete button shows confirmation, then deletes', async () => {
     await main.goto();
     await main.selectFirstVideo();
@@ -142,11 +152,13 @@ test.describe('LangMine SPA', () => {
     await curation.expectFirstBadge('deleted');
   });
 
-  test('I Know This marks word as known and reclassifies', async () => {
+  test('mark word known from popover updates display instantly', async () => {
     await main.goto();
     await main.selectFirstVideo();
-    await curation.clickFirstIKnowThis();
-    await curation.expectFirstBadge('known');
+    await curation.clickFirstLearningWord();
+    await curation.clickMarkKnown();
+    // Word should now show known styling (popover-triggering word was already .word-learning)
+    await expect(curation.firstCard.wordKnown().first()).toBeVisible({ timeout: 5000 });
   });
 
   // ── Mine form ────────────────────────────────────────────────────────
@@ -167,15 +179,6 @@ test.describe('LangMine SPA', () => {
     await curation.clickFilter('Stashed');
     await expect(curation.statusBadge('stashed').first()).toBeVisible({ timeout: 5000 });
     await expect(curation.chineseText.first()).toContainText('效率');
-  });
-
-  test('Stash tab shows empty state when none', async () => {
-    await main.goto();
-    await main.selectFirstVideo();
-    // Wait for initial load before switching filters
-    await expect(curation.chineseText.first()).toBeVisible({ timeout: 5000 });
-    await curation.clickFilter('Deleted');
-    await curation.expectEmptyState('No deleted sentences');
   });
 
   // ── M6: Screenshot display ───────────────────────────────────────────
