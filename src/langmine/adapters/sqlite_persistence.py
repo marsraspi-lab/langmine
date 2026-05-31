@@ -212,7 +212,7 @@ class SQLitePersistence(Persistence):
         return self._row_to_vocab(row)
 
     def get_known_words(self, language_code: str = "") -> set[str]:
-        query = "SELECT word_simplified FROM vocab WHERE status = 'known'"
+        query = "SELECT word_simplified FROM vocab WHERE status IN ('known', 'ignored')"
         params: list = []
         if language_code:
             query += " AND language_code = ?"
@@ -232,6 +232,14 @@ class SQLitePersistence(Persistence):
         now = datetime.now(timezone.utc).isoformat()
         self.conn.execute(
             "UPDATE vocab SET status = 'learning', updated_at = ? WHERE word_simplified = ?",
+            (now, word_simplified),
+        )
+        self.conn.commit()
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute(
+            "UPDATE vocab SET status = 'ignored', updated_at = ? WHERE word_simplified = ?",
             (now, word_simplified),
         )
         self.conn.commit()

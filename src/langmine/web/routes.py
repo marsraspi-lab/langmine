@@ -542,8 +542,8 @@ def register_routes(app: Flask):
             return jsonify({"error": "Missing 'status' field"}), 400
 
         new_status = data["status"]
-        if new_status not in ("known", "learning"):
-            return jsonify({"error": "Status must be 'known' or 'learning'"}), 400
+        if new_status not in ("known", "learning", "ignored"):
+            return jsonify({"error": "Status must be 'known', 'learning', or 'ignored'"}), 400
 
         if new_status == "known":
             persistence.mark_word_known(word)
@@ -553,7 +553,16 @@ def register_routes(app: Flask):
                 language_code=lang,
             )
             # Cascade: reclassify sentences where this word was the i+1 target
-            _cascade_word_known(persistence, word)
+            _cascade_word_known(persistence, word, processor)
+        elif new_status == "ignored":
+            persistence.mark_word_ignored(word)
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_ignored", new_value=word,
+                language_code=lang,
+            )
+            # Cascade: reclassify sentences where this word was the i+1 target
+            _cascade_word_known(persistence, word, processor)
         else:
             persistence.mark_word_learning(word)
             persistence.log_event(
@@ -934,11 +943,14 @@ def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
     }
 
 
-def _cascade_word_known(persistence: Persistence, word: str) -> None:
+def _cascade_word_known(
+    persistence: Persistence, word: str,
+    processor: LanguageProcessor | None = None,
+) -> None:
     """Reclassify all sentences where `word` is the unknown_word.
 
     - i+1 sentences → i0 (word is now known)
-    - Stashed sentences get rechecked via reclassify_stashed per affected video
+    - Stashed sentences get rechecked via SentenceClassifier per affected video
     """
     sentences = persistence.get_sentences_by_word(word)
     affected_videos: set[int] = set()
@@ -955,5 +967,23 @@ def _cascade_word_known(persistence: Persistence, word: str) -> None:
             affected_videos.add(s.video_id)
 
     # Re-run classifier on stashed sentences for affected videos
-    for vid in affected_videos:
-        persistence.reclassify_stashed(vid)
+    if processor and affected_videos:
+        from langmine.domain.classifier import SentenceClassifier
+        classifier = SentenceClassifier(processor, persistence)
+        for vid in affected_videos:
+            promoted = classifier.reclassify_stashed(vid)
+            # Log events for promoted sentences
+            if promoted:
+                stashed = persistence.get_sentences_by_video(
+                    vid, status="i1"
+                )
+                for s in stashed:
+                    persistence.log_event(
+                        entity_type="sentence", entity_id=s.id or 0,
+                        action="classified_i1", old_value="stashed",
+                        new_value="i1",
+                        language_code=s.language_code,
+                    )
+    elif affected_videos:
+        for vid in affected_videos:
+            persistence.reclassify_stashed(vid)

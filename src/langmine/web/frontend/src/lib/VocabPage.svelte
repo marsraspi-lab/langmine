@@ -180,6 +180,13 @@
     </button>
     <button
       class="filter-tab"
+      class:active={statusFilter === 'ignored'}
+      onclick={() => setStatusFilter('ignored')}
+    >
+      ⬜ Ignored
+    </button>
+    <button
+      class="filter-tab"
       class:active={statusFilter === 'unknown'}
       onclick={() => setStatusFilter('unknown')}
     >
@@ -274,6 +281,13 @@
                     disabled={wordDetail.status === 'learning'}
                   >
                     📚 Mark Learning
+                  </button>
+                  <button
+                    class="detail-btn btn-ignored"
+                    onclick={() => toggleDetailStatus('ignored')}
+                    disabled={wordDetail.status === 'ignored'}
+                  >
+                    🚫 Ignore
                   </button>
                   <button
                     class="detail-btn btn-unknown"

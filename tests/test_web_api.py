@@ -124,7 +124,7 @@ class FakePersistence(Persistence):
         return None
 
     def get_known_words(self, language_code: str = "") -> set[str]:
-        return self._known | {w.word_simplified for w in self._vocab if w.status == "known"}
+        return self._known | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
 
     def mark_word_known(self, word_simplified: str) -> None:
         existing = self.get_vocab_word(word_simplified)
@@ -140,11 +140,19 @@ class FakePersistence(Persistence):
         else:
             self._vocab.append(VocabWord(word_simplified=word_simplified, status="learning"))
 
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        existing = self.get_vocab_word(word_simplified)
+        if existing:
+            existing.status = "ignored"
+        else:
+            self._vocab.append(VocabWord(word_simplified=word_simplified, status="ignored"))
+
     def get_vocab_stats(self, language_code: str = "") -> dict:
         known = sum(1 for w in self._vocab if w.status == "known")
         learning = sum(1 for w in self._vocab if w.status == "learning")
+        ignored = sum(1 for w in self._vocab if w.status == "ignored")
         total = len(self._vocab)
-        return {"known": known, "learning": learning, "total": total}
+        return {"known": known, "learning": learning, "ignored": ignored, "total": total}
 
     def list_vocab(
         self, page=1, per_page=200, status=None, search=None, sort="frequency"

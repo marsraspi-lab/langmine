@@ -99,7 +99,7 @@ class FakePersistence(Persistence):
 
     def get_known_words(self, language_code=""):
         return self._known_words | {
-            w for w, v in self._vocab.items() if v.status == "known"
+            w for w, v in self._vocab.items() if v.status in ("known", "ignored")
         }
 
     def get_vocab_stats(self, language_code=""):
@@ -118,6 +118,13 @@ class FakePersistence(Persistence):
             self._vocab[w].status = "learning"
         else:
             self._vocab[w] = VocabWord(word_simplified=w, status="learning")
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        if word_simplified in self._vocab:
+            self._vocab[word_simplified].status = "ignored"
+        else:
+            from langmine.domain.models import VocabWord
+            self._vocab[word_simplified] = VocabWord(word_simplified=word_simplified, status="ignored")
 
     def save_vocab_word(self, w):
         self._vocab[w.word_simplified] = w

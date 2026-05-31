@@ -62,7 +62,7 @@ class FakePersistence(Persistence):
             if existing.id == s.id: self._sentences[i] = s; break
 
     def get_known_words(self, language_code: str = ""):
-        return self._known | {w.word_simplified for w in self._vocab if w.status == "known"}
+        return self._known | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
 
     def get_vocab_word(self, w):
         for v in self._vocab:
@@ -80,6 +80,15 @@ class FakePersistence(Persistence):
         else: self._vocab.append(VocabWord(word_simplified=w, status="learning"))
     def get_vocab_stats(self, language_code: str = ""): return {"known": 0, "learning": 0, "total": len(self._vocab)}
     def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
+        return [], 0
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        existing = self.get_vocab_word(word_simplified)
+        if existing:
+            existing.status = "ignored"
+        else:
+            self._vocab.append(VocabWord(word_simplified=word_simplified, status="ignored"))
+
         words = list(self._vocab)
         if status: words = [w for w in words if w.status == status]
         if search: words = [w for w in words if search.lower() in w.word_simplified.lower()]

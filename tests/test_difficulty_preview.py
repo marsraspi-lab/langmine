@@ -45,7 +45,7 @@ class FakePersistence(Persistence):
         self._next_sid = 1
 
     def get_known_words(self, language_code: str = ""):
-        return self._known
+        return self._known | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
 
     # Stubs for unused methods
     def save_video(self, v):
@@ -103,6 +103,14 @@ class FakePersistence(Persistence):
             existing.status = "learning"
         else:
             self._vocab.append(VocabWord(word_simplified=w, status="learning"))
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        existing = self.get_vocab_word(word_simplified)
+        if existing:
+            existing.status = "ignored"
+        else:
+            self._vocab.append(VocabWord(word_simplified=word_simplified, status="ignored"))
+
 
     def get_vocab_stats(self, language_code: str = ""):
         return {"known": 0, "learning": 0, "total": 0}

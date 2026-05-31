@@ -276,6 +276,13 @@
           📚 Mark learning
         </button>
         <button
+          class="popover-btn btn-mark-ignored"
+          onclick={() => setWordStatus(word, activeWordIdx, 'ignored')}
+          disabled={togglingWord === activeWordIdx || word.status === 'ignored'}
+        >
+          🚫 Ignore
+        </button>
+        <button
           class="popover-btn"
           onclick={() => showInDictionary(word.token)}
         >📋 Show in dictionary</button>
@@ -371,6 +378,10 @@
     color: var(--accent, #e94560);
     border-bottom: 2px dotted var(--accent, #e94560);
   }
+  .word-ignored {
+    color: var(--text-secondary, #999);
+    text-decoration: line-through;
+  }
 
   /* --- Word annotations row --- */
   .word-annotations {
@@ -444,6 +455,10 @@
   }
   .popover-status-badge.word-learning {
     background: rgba(255, 167, 38, 0.2);
+    border-bottom: none;
+  }
+  .popover-status-badge.word-ignored {
+    background: rgba(150, 150, 150, 0.2);
     border-bottom: none;
   }
   .popover-status-badge.word-unknown {
