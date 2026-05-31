@@ -9,7 +9,7 @@ YouTube sentence mining for language learning. Extract sentences with audio from
 - **Python 3.11+**
 - **ffmpeg** — for audio processing and clipping (auto-downloaded via setup script if missing)
 - **Anki** + **AnkiConnect addon** (ID: 2055492159) — for flashcard export
-- **Node.js 20+** — for building the Svelte frontend
+- **Node.js 26+** — for building the Svelte frontend
 
 ### Installing ffmpeg
 
