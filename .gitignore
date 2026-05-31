@@ -37,6 +37,10 @@ clips/
 bin/ffmpeg
 bin/ffprobe
 
+# Sandbox (Dockerfile committed, build artifacts ignored)
+sandbox/*
+!sandbox/Dockerfile
+
 # OS
 .DS_Store
 Thumbs.db
