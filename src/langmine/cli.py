@@ -160,7 +160,7 @@ def _cmd_serve(args):
     )
 
     print(f"⛏️  LangMine server starting at http://{args.host}:{args.port}")
-    app.run(host=args.host, port=args.port, debug=True)
+    app.run(host=args.host, port=args.port, debug=True, use_reloader=False)
 
 
 def _cmd_export(args):
