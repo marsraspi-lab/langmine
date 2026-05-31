@@ -15,22 +15,21 @@
 
   let loading = $state(false);
 
-  let initialLoaded = $state(false);
+  // Load sentences on first mount (selectVideo in stores.js may trigger
+  // this before the first filter click, but we handle that race).
+  // M19: filtering is pure client-side via curatedSentences derived store.
+  // Only the initial video load hits the server.
+  $effect(() => {
+    if (videoId && !$curatedSentences.length) {
+      loading = true;
+      loadSentences(videoId, 'all').finally(() => { loading = false; });
+    }
+  });
 
   async function setFilter(key) {
     currentFilter.set(key);
-    // M19: filtering is client-side via curatedSentences derived store.
-    // Load sentences only if empty (first mount for this video).
-    // selectVideo() in stores.js already loads them on video change.
-    if (!$curatedSentences.length) {
-      loading = true;
-      try {
-        await loadSentences(videoId, 'all');
-        initialLoaded = true;
-      } finally {
-        loading = false;
-      }
-    }
+    // M19: filtering is pure client-side — no server roundtrip needed.
+    // sentences are already loaded via the $effect above.
   }
 
   function onKeep(id) {
