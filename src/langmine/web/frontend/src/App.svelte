@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import CardList from './lib/CardList.svelte';
-  import { loadVideos, selectedVideoId, toasts, removeToast, theme, toggleTheme, currentView, loadConfig, languages, currentLanguage, loadLanguages, selectLanguage } from './lib/stores.js';
+  import { loadVideos, selectedVideoId, toasts, removeToast, theme, toggleTheme, currentView, loadConfig, languages, currentLanguage, loadLanguages, selectLanguage, loadWordStatuses } from './lib/stores.js';
   import SettingsPage from './lib/SettingsPage.svelte';
   import VocabPage from './lib/VocabPage.svelte';
 
@@ -10,6 +10,7 @@
     loadVideos();
     loadConfig();
     loadLanguages();
+    loadWordStatuses();
   });
 </script>
 

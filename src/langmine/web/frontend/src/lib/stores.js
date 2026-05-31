@@ -45,6 +45,34 @@ export const languages = writable([]);
 /** @type {import('svelte/store').Writable<string>} */
 export const currentLanguage = writable('zh');
 
+// === New: word status stores (M19) ===
+
+/** @type {import('svelte/store').Writable<Set<string>>} */
+export const knownWords = writable(new Set());
+/** @type {import('svelte/store').Writable<Set<string>>} */
+export const learningWords = writable(new Set());
+/** @type {import('svelte/store').Writable<Set<string>>} */
+export const ignoredWords = writable(new Set());
+
+/**
+ * Move a word between status sets atomically.
+ * Mutates all three sets in place, triggering reactive updates.
+ */
+export function setWordStatus(word, newStatus) {
+  for (const [status, store] of Object.entries({
+    known: knownWords,
+    learning: learningWords,
+    ignored: ignoredWords,
+  })) {
+    store.update(s => {
+      const next = new Set(s);
+      if (status === newStatus) next.add(word);
+      else next.delete(word);
+      return next;
+    });
+  }
+}
+
 /** @type {import('svelte/store').Writable<boolean>} */
 export const readingMode = writable(false);
 
@@ -244,5 +272,29 @@ export async function exportAnki(videoId, forceUpdateModel = false, cardType = '
     exportStatus.set(`❌ ${err.message}`);
   } finally {
     exporting.set(false);
+  }
+}
+
+// === Word status hashmap management (M19) ===
+
+export async function loadWordStatuses() {
+  try {
+    const data = await api.listVocabStatuses();
+    knownWords.set(new Set(data.known || []));
+    learningWords.set(new Set(data.learning || []));
+    ignoredWords.set(new Set(data.ignored || []));
+  } catch (err) {
+    console.error('Failed to load word statuses:', err);
+  }
+}
+
+export async function markWordStatus(word, status) {
+  // 1. Instant client-side update
+  setWordStatus(word, status);
+  // 2. Async server persist (fire-and-forget)
+  try {
+    await updateVocabWord(word, status);
+  } catch (err) {
+    addToast(`Failed to save: ${err.message}`, 'error');
   }
 }
