@@ -25,19 +25,30 @@
     editValue = sentence[field] || '';
   }
 
+  function startSegmentedEdit() {
+    // Convert "word / word" format to space-separated for editing
+    editingField = 'text_segmented';
+    editValue = (sentence.text_segmented || '').replace(/ \/ /g, ' ');
+  }
+
   function cancelEdit() {
     editingField = null;
     editValue = '';
   }
 
   async function saveEdit(field) {
-    if (editValue === sentence[field]) {
+    let value = editValue;
+    // Convert space-separated words back to " / " format for text_segmented
+    if (field === 'text_segmented') {
+      value = value.trim().split(/\\s+/).join(' / ');
+    }
+    if (value === sentence[field]) {
       cancelEdit();
       return;
     }
     saving = true;
     try {
-      await updateSentenceField(sentence.id, { [field]: editValue });
+      await updateSentenceField(sentence.id, { [field]: value });
       cancelEdit();
     } catch {
       // Error toast shown by store
@@ -213,6 +224,25 @@
       {:else}
         <span class="translation-text" onclick={() => startEdit('translation_de')} title="Click to edit">
           {sentence.translation_de}
+        </span>
+      {/if}
+    </div>
+  {/if}
+
+  {#if editingField === 'text_segmented' || sentence.text_segmented}
+    <div class="editable-field" class:saving>
+      {#if editingField === 'text_segmented'}
+        <input
+          type="text"
+          class="edit-input segmented-input"
+          bind:value={editValue}
+          onkeydown={(e) => handleEditKeydown(e, 'text_segmented')}
+          onblur={() => saveEdit('text_segmented')}
+          autofocus
+        />
+      {:else}
+        <span class="segmented-text" onclick={() => startSegmentedEdit()} title="Click to edit segmentation">
+          {sentence.text_segmented}
         </span>
       {/if}
     </div>

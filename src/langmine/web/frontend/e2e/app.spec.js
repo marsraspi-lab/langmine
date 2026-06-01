@@ -596,6 +596,35 @@ test.describe('LangMine SPA', () => {
     await expect(btn).toContainText('Reclassify', { timeout: 5000 });
   });
 
+  // ── M23: Word Splitting ─────────────────────────────────────────────
+
+  test('editing text_segmented with spaces splits and merges words', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // Click the segmented-text display to enter edit mode
+    const sentence1 = curation.cards.nth(0);
+    const segText = sentence1.locator('.segmented-text');
+    await segText.click();
+
+    // Input appears with space-separated form
+    const segInput = main.page.locator('.edit-input.segmented-input');
+    await expect(segInput).toBeVisible();
+    await expect(segInput).toHaveValue('我们 一般 早上 起床');
+
+    // Split "一般" → "一 般" (add space)
+    await segInput.fill('我们 一 般 早上 起床');
+    await segInput.press('Enter');
+
+    // Toast confirms save
+    await main.expectToast('Saved');
+
+    // Re-open to verify persisted as " / " format
+    await segText.click();
+    await expect(segInput).toHaveValue('我们 一 般 早上 起床');
+  });
+
   // ── Dismiss proper name (must be LAST — mutates shared state) ──────────
 
   test('dismiss proper name removes brackets in reading mode', async () => {
