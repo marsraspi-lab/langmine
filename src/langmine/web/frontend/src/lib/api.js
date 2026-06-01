@@ -138,6 +138,19 @@ export async function dismissProperName(word) {
   return res.json();
 }
 
+export async function markProperName(word) {
+  const res = await fetch(`/api/vocab/${encodeURIComponent(word)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proper_name: true }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Failed to mark as proper name');
+  }
+  return res.json();
+}
+
 // Image search API (M12)
 export async function searchImages(query, count = 5) {
   const res = await fetch(`/api/images/search?q=${encodeURIComponent(query)}&count=${count}`);

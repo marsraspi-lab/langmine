@@ -701,12 +701,31 @@ def register_routes(app: Flask):
             )
             return jsonify({"word": word, "status": "learning", "ok": True})
 
+        # Handle "mark as proper name" action (M20 manual)
+        if data.get("proper_name") is True:
+            existing = persistence.get_vocab_word(word)
+            if existing:
+                existing.status = "proper-name"
+            else:
+                from langmine.domain.models import VocabWord
+                persistence.save_vocab_word(VocabWord(
+                    word_simplified=word, status="proper-name",
+                    language_code=lang))
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_proper_name",
+                old_value=existing.status if existing else "unknown",
+                new_value="proper-name",
+                language_code=lang,
+            )
+            return jsonify({"word": word, "status": "proper-name", "ok": True})
+
         if "status" not in data:
             return jsonify({"error": "Missing 'status' field"}), 400
 
         new_status = data["status"]
-        if new_status not in ("known", "learning", "ignored"):
-            return jsonify({"error": "Status must be 'known', 'learning', or 'ignored'"}), 400
+        if new_status not in ("known", "learning", "ignored", "proper-name"):
+            return jsonify({"error": "Status must be 'known', 'learning', 'ignored', or 'proper-name'"}), 400
 
         if new_status == "known":
             persistence.mark_word_known(word)
@@ -720,6 +739,22 @@ def register_routes(app: Flask):
             persistence.log_event(
                 entity_type="word", entity_id=0,
                 action="marked_ignored", new_value=word,
+                language_code=lang,
+            )
+        elif new_status == "proper-name":
+            existing = persistence.get_vocab_word(word)
+            if existing:
+                existing.status = "proper-name"
+            else:
+                from langmine.domain.models import VocabWord
+                persistence.save_vocab_word(VocabWord(
+                    word_simplified=word, status="proper-name",
+                    language_code=lang))
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_proper_name",
+                old_value=existing.status if existing else "unknown",
+                new_value="proper-name",
                 language_code=lang,
             )
         else:
@@ -1048,8 +1083,8 @@ def _words_array(sentence: Sentence, persistence: Persistence,
         elif token in known_words:
             status = "known"
 
-        # Proper name detection (known/ignored takes priority)
-        if status not in ("known", "ignored") and processor and processor.is_proper_name(
+        # Proper name detection (known/ignored/proper-name from vocab takes priority)
+        if status not in ("known", "ignored", "proper-name") and processor and processor.is_proper_name(
             token, context_sentence=sentence.text
         ):
             status = "proper-name"
