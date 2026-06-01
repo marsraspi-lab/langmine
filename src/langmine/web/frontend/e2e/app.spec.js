@@ -620,6 +620,9 @@ test.describe('LangMine SPA', () => {
     // Toast confirms save
     await main.expectToast('Saved');
 
+    // Wait for cards to reload after refreshAfterAction
+    await curation.expectCardsLoaded();
+
     // Re-open to verify persisted as " / " format
     await segText.click();
     await expect(segInput).toHaveValue('我们 一 般 早上 起床');
