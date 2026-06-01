@@ -1,6 +1,14 @@
 import { writable, derived } from 'svelte/store';
 import { api } from './api.js';
 
+/** Friendly error messages for known pipeline stages. */
+const FRIENDLY_ERRORS = {
+  transcript: 'Could not download transcript. The video may not have subtitles.',
+  classification: 'Could not classify sentences. Try again or check language settings.',
+  enrichment: 'Could not generate translations. The language processor may be unavailable.',
+  unknown: null,  // fall through to raw message
+};
+
 /** @type {import('svelte/store').Writable<Array>} */
 export const videos = writable([]);
 
@@ -181,7 +189,18 @@ export async function mineVideo(url, file = null) {
   try {
     let data;
     for await (const event of api.mineVideoStream(url, file)) {
-      if (event.status) {
+      console.log('[mine]', event);
+      if (event.error) {
+        const err = event.error;
+        const msg = err?.message ?? (typeof err === 'string' ? err : JSON.stringify(err));
+        const stage = err?.stage;
+        const friendly = FRIENDLY_ERRORS[stage];
+        if (friendly) {
+          throw new Error(friendly);
+        }
+        // Unexpected error: show truncated message for debugging
+        throw new Error(msg.length > 200 ? msg.slice(0, 197) + '…' : msg);
+      } else if (event.status) {
         mineStatus.set(`⏳ ${event.status}`);
       } else {
         data = event;  // final result
@@ -198,6 +217,7 @@ export async function mineVideo(url, file = null) {
     }
     return data;
   } catch (err) {
+    console.error('[mine]', err);
     mineStatus.set(`❌ ${err.message}`);
     return null;
   } finally {

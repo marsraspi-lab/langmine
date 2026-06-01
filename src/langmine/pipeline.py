@@ -17,6 +17,14 @@ from langmine.transcript import merge_sentences
 from langmine.config import load_config
 
 
+class MineError(Exception):
+    """Pipeline error with a stage identifier for frontend display."""
+
+    def __init__(self, message: str, stage: str):
+        super().__init__(message)
+        self.stage = stage
+
+
 def _bootstrap_hsk(persistence: Persistence, config) -> None:
     """Pre-mark HSK words up to config.hsk_bootstrap_level as known (M21).
 
@@ -185,11 +193,14 @@ def process_video(
 
     # 1. Fetch and merge transcript
     _progress("Fetching transcript…")
-    chunks = transcript_source.fetch(video_id)
+    try:
+        chunks = transcript_source.fetch(video_id)
+    except Exception as e:
+        raise MineError(str(e), "transcript") from e
     merged = merge_sentences(chunks, gap_ms=gap_ms)
 
     if not merged:
-        raise ValueError("No sentences could be extracted from the video.")
+        raise MineError("No sentences could be extracted from the video.", "transcript")
 
     # 2. Save video metadata
     video = Video(
@@ -200,12 +211,16 @@ def process_video(
     persistence.save_video(video)
 
     # 3. Classify sentences
-    classifier = SentenceClassifier(language_processor, persistence)
-    sentences = classifier.classify(
-        video_id=video.id,
-        sentences=merged,
-        max_cards=max_cards,
-    )
+    _progress("Classifying sentences…")
+    try:
+        classifier = SentenceClassifier(language_processor, persistence)
+        sentences = classifier.classify(
+            video_id=video.id,
+            sentences=merged,
+            max_cards=max_cards,
+        )
+    except Exception as e:
+        raise MineError(str(e), "classification") from e
 
     # 3b. Stamp language_code on all sentences
     for s in sentences:
@@ -215,10 +230,16 @@ def process_video(
     _bootstrap_hsk(persistence, config)
 
     # 4. Enrich with NLP (pinyin, translation, definitions)
-    classifier.enrich(sentences)
+    _progress("Enriching with translations…")
+    try:
+        classifier.enrich(sentences)
+    except Exception as e:
+        raise MineError(str(e), "enrichment") from e
 
     # 4b. Capture screenshots for non-trivial sentences
     screenshot_dir = f"{output_dir}/screenshots"
+    total_screenshots = sum(1 for s in sentences if s.screenshot_enabled and s.status != "i0")
+    captured = 0
     for i, s in enumerate(sentences):
         if s.screenshot_enabled and s.status != "i0":
             try:
@@ -228,8 +249,17 @@ def process_video(
                     output_dir=screenshot_dir,
                     sentence_id=str(i + 1).zfill(4),
                 ) or ""
-            except Exception:
+                if s.screenshot_path:
+                    captured += 1
+                    _progress(f"Screenshot saved: {s.screenshot_path}")
+                else:
+                    _progress(f"Screenshot skipped for sentence {i + 1}")
+            except Exception as e:
+                _progress(f"Screenshot failed for sentence {i + 1}: {e}")
                 s.screenshot_path = ""
+
+    if total_screenshots > 0:
+        _progress(f"Screenshots: {captured}/{total_screenshots} captured")
 
     # 5. Persist classified sentences
     persistence.save_sentences(sentences)

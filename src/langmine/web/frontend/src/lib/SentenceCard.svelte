@@ -320,7 +320,11 @@
 
   {#if sentence.has_screenshot}
     <div class="screenshot-thumb">
-      <img src="/api/sentences/{sentence.id}/screenshot" alt="Screenshot" />
+      <img
+        src="/api/sentences/{sentence.id}/screenshot"
+        alt="Screenshot"
+        onerror={(e) => console.error('[screenshot] Not found:', e.target.src)}
+      />
     </div>
   {/if}
 
