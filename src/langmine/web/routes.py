@@ -210,7 +210,21 @@ def register_routes(app: Flask):
                     "i1_count": len(result["i1_candidates"]),
                 }))
             except MineError as e:
-                progress_queue.put(("error", {"message": str(e), "stage": e.stage}))
+                msg = str(e)
+                stage = e.stage
+                if stage == "transcript":
+                    # Enrich with subtitle info if available
+                    try:
+                        subs = transcript.list_subtitles(video_id)
+                    except Exception:
+                        subs = []
+                    if subs:
+                        langs = ", ".join(f"{s.language_name} ({s.kind})" for s in subs[:3])
+                        msg = f"This video has subtitles ({langs}) but download failed. Try again."
+                    else:
+                        msg = "This video has no subtitles in any language."
+                    stage = "transcript"
+                progress_queue.put(("error", {"message": msg, "stage": stage}))
             except ValueError as e:
                 progress_queue.put(("error", {"message": str(e), "stage": "unknown"}))
             except Exception as e:
@@ -245,6 +259,38 @@ def register_routes(app: Flask):
                 "X-Accel-Buffering": "no",
             },
         )
+
+    @app.route("/api/videos/subtitles")
+    def list_subtitles():
+        """List available subtitle tracks for a YouTube video."""
+        url = request.args.get("url", "").strip()
+        if not url:
+            return jsonify({"error": "Missing 'url' parameter"}), 400
+
+        from langmine.transcript import _extract_video_id
+        try:
+            video_id = _extract_video_id(url)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        transcript_source = _get_transcript_source()
+        if transcript_source is None:
+            return jsonify({"subtitles": [], "available": False}), 200
+
+        try:
+            subs = transcript_source.list_subtitles(video_id)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception:
+            return jsonify({"subtitles": [], "available": False}), 200
+
+        return jsonify({
+            "subtitles": [
+                {"language_code": s.language_code, "language_name": s.language_name, "kind": s.kind}
+                for s in subs
+            ],
+            "available": len(subs) > 0,
+        })
 
     @app.route("/api/videos/preview", methods=["POST"])
     def preview_video():

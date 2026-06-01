@@ -182,6 +182,9 @@ class FakeTranscriptSource(TranscriptSource):
             TranscriptChunk(text="起床", start_ms=2000, duration_ms=500),
         ]
 
+    def list_subtitles(self, video_id):
+        return []
+
 
 class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir): return f"{output_dir}/{video_id}.mp3"

@@ -207,6 +207,9 @@ class FakeTranscriptSource(TranscriptSource):
             TranscriptChunk(text="学习", start_ms=3800, duration_ms=500),
         ]
 
+    def list_subtitles(self, video_id: str):
+        return []
+
 
 class FakeAudioProcessor(AudioProcessor):
     """Fake audio processor — returns paths without real files."""

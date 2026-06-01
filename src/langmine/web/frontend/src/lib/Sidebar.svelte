@@ -1,7 +1,7 @@
 <script>
   import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo,
     exportStatus, exporting, exportAnki, deleteVideo } from './stores.js';
-  import { previewVideo } from './api.js';
+  import { previewVideo, fetchSubtitleInfo } from './api.js';
   import PreviewPanel from './PreviewPanel.svelte';
 
   let urlInput = $state('');
@@ -15,6 +15,11 @@
   let previewLoading = $state(false);
   let previewData = $state(null);
   let previewError = $state('');
+
+  // Subtitle discovery state (M25)
+  let subInfo = $state(null);
+  let subLoading = $state(false);
+  let subCheckTimer = null;
 
   async function handleMine() {
     const url = urlInput.trim();
@@ -80,6 +85,25 @@
       previewLoading = false;
     }
   }
+
+  function handleUrlInput() {
+    subInfo = null;
+    clearTimeout(subCheckTimer);
+    const url = urlInput.trim();
+    if (!url || url.length < 20) return;
+
+    subCheckTimer = setTimeout(async () => {
+      subLoading = true;
+      try {
+        const result = await fetchSubtitleInfo(url);
+        if (result.ok) subInfo = result.data;
+      } catch (e) {
+        // best-effort — ignore failures
+      } finally {
+        subLoading = false;
+      }
+    }, 800);
+  }
 </script>
 
 <aside class="sidebar">
@@ -97,9 +121,26 @@
       type="text"
       placeholder="YouTube URL..."
       bind:value={urlInput}
+      oninput={handleUrlInput}
       onkeydown={handleKeydown}
       disabled={$mining}
     />
+    {#if subLoading}
+      <div class="subtitle-chip loading">⏳ Checking subtitles…</div>
+    {:else if subInfo && subInfo.available}
+      {#if subInfo.subtitles.length === 1}
+        {@const s = subInfo.subtitles[0]}
+        <div class="subtitle-chip {s.kind}" title={s.language_name}>
+          {s.kind === 'manual' ? '✅' : '⚠️'} {s.language_name} ({s.kind === 'manual' ? 'manual' : 'auto-generated'})
+        </div>
+      {:else}
+        <div class="subtitle-chip manual">
+          ✅ {subInfo.subtitles.length} subtitle languages available
+        </div>
+      {/if}
+    {:else if subInfo && !subInfo.available}
+      <div class="subtitle-chip none">❌ No subtitles available</div>
+    {/if}
     <label class="file-upload-label" class:has-file={transcriptFile !== null}>
       <span>{transcriptFile ? `📄 ${transcriptFile.name}` : '📂 Transcript .srt / .vtt (optional)'}</span>
       <input
@@ -286,6 +327,16 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+  .subtitle-chip {
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .subtitle-chip.manual { background: rgba(76, 175, 80, 0.15); color: #66bb6a; }
+  .subtitle-chip.auto  { background: rgba(255, 152, 0, 0.15); color: #ffa726; }
+  .subtitle-chip.none  { background: rgba(244, 67, 54, 0.15); color: #ef5350; }
+  .subtitle-chip.loading { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
   .preview-btn {
     width: 100%;
     padding: 8px;

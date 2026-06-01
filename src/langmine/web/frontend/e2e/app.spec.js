@@ -671,4 +671,18 @@ test.describe('LangMine SPA', () => {
     await expect(reading.properNameWords.filter({ hasText: '李世民' })).toHaveCount(0, { timeout: 5000 });
     await expect(main.page.locator('.toast-success').first()).toContainText('not a proper name');
   });
+
+  // ── M25: Subtitle chip ──────────────────────────────────────────────────
+
+  test('subtitle chip appears on URL input', async () => {
+    await main.goto();
+
+    // Type a YouTube URL — the test server's FakeTranscriptSource returns []
+    // for list_subtitles, so we expect the "no subtitles" chip
+    await main.urlInput.fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
+    await main.page.waitForTimeout(1200);  // debounce (800ms) + API call
+
+    const chip = main.page.locator('.subtitle-chip');
+    await expect(chip).toBeVisible();
+  });
 });

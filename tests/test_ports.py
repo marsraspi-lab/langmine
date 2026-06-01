@@ -26,6 +26,8 @@ def test_transcript_source_contract():
     class FakeAdapter(TranscriptSource):
         def fetch(self, video_id: str) -> list[TranscriptChunk]:
             return []
+        def list_subtitles(self, video_id: str):
+            return []
 
     adapter = FakeAdapter()
     assert adapter.fetch("abc123") == []

@@ -31,6 +31,15 @@ class MergedSentence:
     end_ms: float
 
 
+@dataclass
+class SubtitleInfo:
+    """Info about an available subtitle track."""
+
+    language_code: str       # e.g. "zh-Hans", "en"
+    language_name: str       # e.g. "Chinese (Simplified)", "English"
+    kind: str                # "manual" or "auto"
+
+
 # === Ports ===
 
 
@@ -110,6 +119,14 @@ class TranscriptSource(ABC):
 
         Raises:
             ValueError: If the video is unavailable or has no transcript.
+        """
+
+    @abstractmethod
+    def list_subtitles(self, video_id: str) -> list[SubtitleInfo]:
+        """Return available subtitle tracks for a video.
+
+        Returns empty list if no subtitles exist.
+        Raises ValueError if the video is unavailable/private.
         """
 
 

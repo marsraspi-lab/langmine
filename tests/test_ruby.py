@@ -294,6 +294,7 @@ class FakeRbPersistence(Persistence):
 
 class FakeRbTranscript(TranscriptSource):
     def fetch(self, video_id): return [TranscriptChunk(text="test", start_ms=0, duration_ms=500)]
+    def list_subtitles(self, video_id): return []
 
 
 class FakeRbAudio(AudioProcessor):
