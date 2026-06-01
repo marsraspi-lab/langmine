@@ -2,6 +2,28 @@
 
 All notable changes to LangMine.
 
+## [1.7.2] — 2026-06-01
+
+### Fixed
+
+- **Subtitle language threading (#30)** — User-selected subtitle language code now reaches `yt-dlp --sub-lang`, fixing manual subtitles that use a different language variant than the config default. Previously the adapter's built-in `_language_codes` was always used regardless of user selection.
+- **Enriched mine errors (#30)** — Frontend now shows backend's detailed error message (e.g. "This video has subtitles (Chinese manual) but download failed") instead of generic `FRIENDLY_ERRORS` fallback.
+
+## [1.7.1] — 2026-06-01
+
+### Fixed
+
+- **Optgroup subtitle dropdown (#29)** — Manual subs sorted A–Z at top, divider, auto captions A–Z below.
+- **Regex fix for manual subs (#29)** — Parser handles both spacing variants from yt-dlp.
+- **Stale locator fix (#29)** — Explicit `toBeVisible()` wait before clicking `.segmented-text`.
+
+## [1.7.0] — 2026-06-01
+
+### Added
+
+- **M25: Subtitle Discovery** — Subtitle chip on URL paste, richer mine errors.
+- **M26: Language Selection** — Pick subtitle language, kind-aware merge gaps, 🤖/✍️ badges.
+
 ## [1.6.0] — 2026-06-01
 
 ### Added

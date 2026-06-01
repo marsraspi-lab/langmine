@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.7.1 — M0–M26 shipped. 243 pytest + 57 E2E. All tests pass.
+**Status:** v1.7.2 — M0–M26 shipped. 245 pytest + 57 E2E. All tests pass.
 
 ## Requirements
 
@@ -367,6 +367,13 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M24 | Sentence Joining | ✅ — ⬆️ Merge with previous sentence, concatenates text/reading/translation |
 | M25 | Subtitle Discovery | ✅ — Subtitle chip on URL paste (✅ manual / ⚠️ auto / ❌ none), richer mine errors |
 | M26 | Language Selection | ✅ — Pick subtitle language, kind-aware merge gaps (300ms manual, 700ms auto), 🤖/✍️ badges |
+
+### v1.7.2
+
+| Feature | Description |
+|---------|-------------|
+| Subtitle language threading (#30) | ✅ — User-selected subtitle language code now reaches yt-dlp download, fixing manual subs that use a different language variant than config default |
+| Enriched mine errors (#30) | ✅ — Frontend now shows backend's detailed error message (e.g. "This video has subtitles (Chinese manual) but download failed") instead of generic fallback |
 
 ### v1.7.1
 
