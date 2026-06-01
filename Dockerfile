@@ -1,8 +1,10 @@
+# syntax=docker/dockerfile:1
 # Stage 1: Build Svelte frontend
 FROM node:lts-alpine AS frontend
 COPY src/langmine/web/frontend/package*.json /build/
 WORKDIR /build
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 COPY src/langmine/web/frontend/ /build/
 RUN npm run build
 
@@ -20,16 +22,20 @@ LABEL org.opencontainers.image.version=$VERSION \
 WORKDIR /app
 
 # Copy dependency manifest first so pip install is cached
-# unless pyproject.toml changes (standard Docker layer optimization)
+# unless pyproject.toml changes (Docker layer optimization).
+# --mount=type=cache preserves pip's download cache across builds
+# so only changed/new deps are re-downloaded.
 COPY pyproject.toml .
-RUN mkdir -p src/langmine && touch src/langmine/__init__.py \
-    && pip install --no-cache-dir . \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    mkdir -p src/langmine && touch src/langmine/__init__.py \
+    && pip install . \
     && rm -rf src/langmine
 
 # Copy application code (fast — deps already installed above)
 COPY . .
 COPY --from=frontend /static /app/src/langmine/web/static/
-RUN pip install --no-cache-dir -e .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e .
 
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
