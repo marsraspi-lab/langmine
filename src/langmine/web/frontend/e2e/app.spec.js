@@ -626,6 +626,7 @@ test.describe('LangMine SPA', () => {
 
     // Re-open to verify persisted as " / " format (re-query after DOM refresh)
     const segText2 = curation.cards.nth(0).locator('.segmented-text');
+    await expect(segText2).toBeVisible({ timeout: 10000 });
     await segText2.click();
     await expect(segInput).toHaveValue('我们 一 般 早上 起床');
   });
