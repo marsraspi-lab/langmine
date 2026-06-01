@@ -284,7 +284,7 @@ cd src/langmine/web/frontend && npm run build && cd -
 | Check | Command |
 |-------|---------|
 | Full test suite | `pytest tests/ -q` (all tests) |
-| E2E tests | `npx playwright test` (42 tests) |
+| E2E tests | `npx playwright test` (51 tests) |
 | Cardinal rule | `grep -r "from.*adapters" src/langmine/domain/` → empty |
 | Domain→languages | `grep -r "from langmine.languages" src/langmine/domain/` → empty |
 | Web→languages | `grep -r "from langmine.languages" src/langmine/web/` → empty |

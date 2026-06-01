@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.6.0 — M0–M24 (sentence joining). 234 pytest + 51 E2E. All tests pass.
+**Status:** v1.6.1 — M0–M24 shipped. 234 pytest + 51 E2E. All tests pass.
 
 ## Requirements
 
@@ -366,7 +366,14 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M23 | Word Splitting | ✅ — edit `text_segmented` inline with spaces as word boundaries |
 | M24 | Sentence Joining | ✅ — ⬆️ Merge with previous sentence, concatenates text/reading/translation |
 
-> **Current:** M0–M24 shipped. 234 pytest + 51 E2E all green.
+### v1.6.1
+
+| Fix | Description |
+|-----|-------------|
+| SSE error display (#23) | ✅ — `MineError(stage)` wraps pipeline phases, structured SSE errors, friendly UI messages per stage, screenshot path logging, missing-image console logging |
+
+> **Current:** M0–M24 shipped + SSE error fix. 234 pytest + 51 E2E all green.  
+> **Up next:** M25 Subtitle Discovery — show subtitle availability (✅ manual / ⚠️ auto / ❌ none) on URL paste. M26 Language Selection — pick subtitle language, auto vs manual merge tuning.
 
 ---
 
