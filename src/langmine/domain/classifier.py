@@ -167,3 +167,58 @@ class SentenceClassifier:
                 promoted += 1
             # unknown_count >= 2: stays stashed — no change
         return promoted
+
+    def reclassify_all(self, video_id: int) -> list[Sentence]:
+        """Re-classify ALL sentences for a video after vocab changes (M22).
+
+        Re-counts unknown words per sentence using current known_words.
+        Updates status and unknown_word fields in place.
+        Returns sentences sorted by best-candidate-first:
+        i1 (by frequency, most common first), then i0, then stashed.
+        """
+        known_words = self._persistence.get_known_words()
+        sentences = self._persistence.get_sentences_by_video(video_id)
+
+        i1_candidates: list[Sentence] = []
+        i0_sentences: list[Sentence] = []
+        stashed: list[Sentence] = []
+
+        for s in sentences:
+            tokens = [t.strip() for t in s.text_segmented.split(" / ") if t.strip()]
+            if not tokens:
+                i0_sentences.append(s)
+                continue
+
+            content_words = [
+                t for t in tokens if not self._processor.is_non_word(t)
+            ]
+            unknown = [w for w in content_words if w not in known_words]
+            unknown_count = len(unknown)
+
+            if unknown_count == 0:
+                s.status = "i0"
+                s.unknown_word = ""
+                s.unknown_word_rank = None
+                i0_sentences.append(s)
+            elif unknown_count == 1:
+                s.status = "i1"
+                s.unknown_word = unknown[0]
+                s.unknown_word_rank = self._processor.get_frequency(unknown[0])
+                i1_candidates.append(s)
+            else:
+                s.status = "stashed"
+                s.unknown_word = ""
+                s.unknown_word_rank = None
+                stashed.append(s)
+
+            self._persistence.update_sentence(s)
+
+        # Sort i1 by frequency (most common first, None sorts last)
+        i1_candidates.sort(
+            key=lambda s: (
+                s.unknown_word_rank is None,
+                s.unknown_word_rank or 0,
+            )
+        )
+
+        return i1_candidates + i0_sentences + stashed

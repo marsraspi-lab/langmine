@@ -268,6 +268,32 @@ export async function selectLanguage(code) {
   }
 }
 
+// === M22: Reclassification + paginated "Add Sentences" ===
+
+export let reclassifyOffset = 0;
+
+export async function reclassifyAndLoad(videoId, offset = 0, limit = 50) {
+  try {
+    const res = await api.reclassifySentences(videoId, offset, limit);
+    if (res.ok) {
+      const { sentences: newSentences, total } = res.data;
+      if (offset === 0) {
+        sentences.set(newSentences);
+      } else {
+        sentences.update(existing => [...existing, ...newSentences]);
+      }
+      reclassifyOffset = offset + newSentences.length;
+      return { hasMore: reclassifyOffset < total, total };
+    } else {
+      addToast('Reclassification failed', 'error');
+      return { hasMore: false, total: 0 };
+    }
+  } catch (err) {
+    addToast(`Reclassification failed: ${err.message}`, 'error');
+    return { hasMore: false, total: 0 };
+  }
+}
+
 export async function saveConfig(updates) {
   try {
     await api.updateConfig(updates);

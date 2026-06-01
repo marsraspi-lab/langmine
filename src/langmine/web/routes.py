@@ -372,6 +372,38 @@ def register_routes(app: Flask):
             "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
         })
 
+    @app.route("/api/videos/<int:video_id>/reclassify", methods=["POST"])
+    def reclassify_sentences(video_id: int):
+        """Re-classify all sentences for a video (M22).
+
+        Re-runs classification with current known_words,
+        saves updated statuses, returns sentences sorted by
+        best-candidate-first (i1 by frequency, then i0, then stashed).
+        Supports offset/limit pagination.
+        """
+        persistence = _get_persistence()
+        lang = _get_language_code()
+        processor = _get_processor()
+
+        from langmine.domain.classifier import SentenceClassifier
+        classifier = SentenceClassifier(processor, persistence)
+
+        results = classifier.reclassify_all(video_id)
+
+        # Paginate
+        offset = request.args.get("offset", 0, type=int)
+        limit = request.args.get("limit", 50, type=int)
+        page = results[offset:offset + limit]
+
+        return jsonify({
+            "video_id": video_id,
+            "total": len(results),
+            "offset": offset,
+            "limit": limit,
+            "sentences": [_sentence_to_dict(s, persistence, processor=processor)
+                          for s in page],
+        })
+
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
     def update_sentence(sentence_id: int):
         """Update sentence fields: status, reading, translation_de, text_segmented.

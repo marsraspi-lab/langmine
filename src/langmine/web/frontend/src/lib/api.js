@@ -98,6 +98,8 @@ export const api = {
       force_update_model: forceUpdateModel || false,
       card_type: cardType,
     }),
+  reclassifySentences: (videoId, offset = 0, limit = 50) =>
+    post(`/videos/${videoId}/reclassify?offset=${offset}&limit=${limit}`),
 };
 
 // Vocab API calls

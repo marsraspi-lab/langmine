@@ -1,9 +1,13 @@
 <script>
   import SentenceCard from './SentenceCard.svelte';
   import TranscriptView from './TranscriptView.svelte';
-  import { sentences, curatedSentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordStatus } from './stores.js';
+  import { sentences, curatedSentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, reclassifyOffset } from './stores.js';
 
   let { videoId } = $props();
+
+  // M22: "Add Sentences" pagination state
+  let hasMoreSentences = $state(false);
+  let reclassifyLoading = $state(false);
 
   const FILTERS = [
     { key: 'all', label: 'All' },
@@ -39,12 +43,24 @@
   function onDelete(id) {
     deleteSentence(id);
   }
-  function onIknowthis(id) {
-    // No longer server-side only — handled via markWordStatus in popover
-  }
 
   function toggleReadingMode() {
     readingMode.update(v => !v);
+  }
+
+  // M22: trigger reclassification + load next page
+  async function onAddSentences() {
+    reclassifyLoading = true;
+    const { hasMore } = await reclassifyAndLoad(videoId, 0, 50);
+    hasMoreSentences = hasMore;
+    reclassifyLoading = false;
+  }
+
+  async function onLoadMore() {
+    reclassifyLoading = true;
+    const { hasMore } = await reclassifyAndLoad(videoId, reclassifyOffset, 50);
+    hasMoreSentences = hasMore;
+    reclassifyLoading = false;
   }
 
   const EMPTY_MESSAGES = {
@@ -89,6 +105,19 @@
       {#each filtered as sentence (sentence.id)}
         <SentenceCard {sentence} onkeep={onKeep} ondelete={onDelete} wordStatuses={sentence.wordStatuses} />
       {/each}
+
+      <!-- M22: Add Sentences button -->
+      <div class="add-sentences-bar">
+        {#if hasMoreSentences}
+          <button class="add-sentences-btn" onclick={onLoadMore} disabled={reclassifyLoading}>
+            {reclassifyLoading ? '⏳ Loading...' : '+ Add more sentences'}
+          </button>
+        {:else}
+          <button class="add-sentences-btn" onclick={onAddSentences} disabled={reclassifyLoading}>
+            {reclassifyLoading ? '⏳ Reclassifying...' : '🔄 Reclassify & sort'}
+          </button>
+        {/if}
+      </div>
     {/if}
   {/if}
 </div>
@@ -132,5 +161,26 @@
     line-height: 1.6;
     max-width: 400px;
     margin: 0 auto;
+  }
+  .add-sentences-bar {
+    text-align: center;
+    padding: 24px 0;
+  }
+  .add-sentences-btn {
+    padding: 10px 32px;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .add-sentences-btn:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+  .add-sentences-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 </style>

@@ -258,3 +258,143 @@ class TestStatusSummary:
         assert i0_count == 1
         assert stashed_count == 1
         assert i1_count + i0_count + stashed_count == 3
+
+
+# === reclassify_all (M22) ===
+
+
+class FakePersistenceWithSentences(Persistence):
+    """Stores sentences and vocab for reclassify_all tests."""
+
+    def __init__(self, known_words: set[str] | None = None):
+        self._known = known_words or set()
+        self._ignored = set()
+        self._vocab: list[VocabWord] = []
+        self._sentences: list[Sentence] = []
+
+    def get_known_words(self, language_code: str = "") -> set[str]:
+        return self._known | self._ignored | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
+
+    def get_sentences_by_video(self, video_id: int, status=None, language_code: str = ""):
+        results = [s for s in self._sentences if s.video_id == video_id]
+        if status:
+            results = [s for s in results if s.status == status]
+        return results
+
+    def update_sentence(self, s: Sentence) -> None:
+        for i, existing in enumerate(self._sentences):
+            if existing.id == s.id:
+                self._sentences[i] = s
+                return
+
+    # Stubs for abstract methods
+    def save_video(self, v): pass
+    def get_video(self, yt_id): return None
+    def list_videos(self, language_code: str = ""): return []
+    def video_exists(self, yt_id): return False
+    def delete_video(self, vid): return False
+    def save_sentences(self, ss): pass
+    def get_stash_candidates(self, limit=20): return []
+    def get_sentences_by_status(self, status, language_code: str = ""): return []
+    def reclassify_stashed(self, vid): return 0
+    def save_vocab_word(self, w): pass
+    def get_vocab_word(self, w): return None
+    def mark_word_known(self, w): pass
+    def mark_word_learning(self, w): pass
+    def mark_word_ignored(self, w): pass
+    def get_vocab_stats(self, language_code: str = ""): return {"known": 0, "learning": 0, "total": 0}
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
+        return [], 0
+    def get_sentences_by_word(self, w): return []
+    def log_event(self, **kw): pass
+
+
+def _make_sentence(video_id: int, text_segmented: str, status: str = "stashed",
+                   unknown_word: str = "", unknown_word_rank: int | None = None) -> Sentence:
+    """Helper: create a Sentence for reclassify_all tests."""
+    return Sentence(
+        id=hash(text_segmented) % 10000,
+        video_id=video_id,
+        start_ms=0,
+        end_ms=1000,
+        text=text_segmented.replace(" / ", ""),
+        text_segmented=text_segmented,
+        status=status,
+        unknown_word=unknown_word,
+        unknown_word_rank=unknown_word_rank,
+    )
+
+
+def test_reclassify_all_promotes_stashed_to_i1():
+    """A stashed sentence with 2+ unknowns should promote to i1 when words are learned."""
+    processor = FakeLanguageProcessor()
+    persistence = FakePersistenceWithSentences(known_words={"我", "爱", "天气"})
+
+    # "我" known, "爱" known, "天气" known → only unknown is "很好"
+    s1 = _make_sentence(1, "我 / 爱 / 天气 / 很好", status="stashed")
+    # "我" known, "中文" unknown → one unknown → should be i1
+    s2 = _make_sentence(1, "我 / 学习 / 中文", status="stashed")
+    persistence._sentences = [s1, s2]
+
+    classifier = SentenceClassifier(processor, persistence)
+    results = classifier.reclassify_all(1)
+
+    # s1: 我(known), 爱(known), 天气(known), 很好(unknown) → 1 unknown → i1
+    # s2: 我(known), 学习(unknown), 中文(unknown) → 2 unknowns → stashed
+    assert results[0].status == "i1"  # best i1 first (only i1)
+    assert results[1].status == "stashed"
+    assert len(results) == 2
+
+
+def test_reclassify_all_demotes_i1_to_i0():
+    """An i1 sentence should demote to i0 if the unknown word is now known."""
+    persistence = FakePersistenceWithSentences(known_words={"我们", "学习"})
+    processor = FakeLanguageProcessor()
+
+    # All words are now known
+    s = _make_sentence(1, "我们 / 学习", status="i1", unknown_word="学习")
+    persistence._sentences = [s]
+
+    classifier = SentenceClassifier(processor, persistence)
+    results = classifier.reclassify_all(1)
+
+    assert results[0].status == "i0"
+
+
+def test_reclassify_all_sorts_i1_by_frequency():
+    """i1 candidates should be sorted by frequency rank (ascending)."""
+    persistence = FakePersistenceWithSentences(known_words={"我"})
+    processor = FakeLanguageProcessor()
+
+    # "我" known → exactly 1 unknown each → both promoted to i1
+    s1 = _make_sentence(1, "我 / 斟酌", status="stashed")
+    s2 = _make_sentence(1, "我 / 一般", status="stashed")
+    persistence._sentences = [s1, s2]
+
+    classifier = SentenceClassifier(processor, persistence)
+    results = classifier.reclassify_all(1)
+
+    # "一般"(rank=1847) before "斟酌"(rank=8203)
+    assert results[0].unknown_word == "一般"
+    assert results[1].unknown_word == "斟酌"
+
+
+def test_reclassify_all_sort_order():
+    """Sort order: i1 candidates first, then i0, then stashed."""
+    persistence = FakePersistenceWithSentences(known_words={"我"})
+    processor = FakeLanguageProcessor()
+
+    s_stashed = _make_sentence(1, "罕见 / 词语 / 很多", status="stashed")   # 3 unknowns → stashed
+    s_i0 = _make_sentence(1, "我", status="i0")                              # all known → i0
+    s_i1 = _make_sentence(1, "我 / 一个 / 猫", status="stashed")              # "我" known, "一个" unknown, "猫" unknown → 2 unknowns → stashed
+
+    persistence._sentences = [s_stashed, s_i0, s_i1]
+
+    classifier = SentenceClassifier(processor, persistence)
+    results = classifier.reclassify_all(1)
+
+    # Only s_i0 is i0 (all known), rest stay stashed
+    # Sort: i0 before stashed
+    assert results[0].status == "i0"
+    assert results[1].status == "stashed"
+    assert results[2].status == "stashed"
