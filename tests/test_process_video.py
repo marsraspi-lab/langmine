@@ -52,7 +52,7 @@ class FakeTranscript(TranscriptSource):
         self.chunks = [TranscriptChunk(text=t, start_ms=i * 2000, duration_ms=1000)
                        for i, t in enumerate(chunks)]
 
-    def fetch(self, video_id: str):
+    def fetch(self, video_id: str, language: str = ""):
         return self.chunks
 
     def list_subtitles(self, video_id: str):
@@ -235,6 +235,38 @@ def test_process_video_returns_summary():
     assert result["i0_count"] == 1
     assert result["stash_count"] == 1
     assert result["total_sentences"] == 3
+
+
+def test_process_video_passes_subtitle_language_to_fetch():
+    """subtitle_language should be passed to transcript_source.fetch()."""
+    transcript = FakeTranscript(["我们 学习"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"我们", "学习"})
+    processor = FakeChineseProcessor()
+
+    # Wrap fetch to capture the language argument
+    original_fetch = transcript.fetch
+    captured_language = []
+
+    def tracking_fetch(video_id, language=""):
+        captured_language.append(language)
+        return original_fetch(video_id, language=language)
+
+    transcript.fetch = tracking_fetch
+
+    process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_lang",
+        output_dir="/tmp/test",
+        subtitle_language="zh-Hans",
+    )
+
+    assert captured_language == ["zh-Hans"], (
+        f"Expected fetch(language='zh-Hans') but got {captured_language}"
+    )
 
 
 # === HSK Bootstrap Tests (M21) ===

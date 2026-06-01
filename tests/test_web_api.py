@@ -195,7 +195,7 @@ class FakePersistence(Persistence):
 class FakeTranscriptSource(TranscriptSource):
     """Fake transcript source — returns hardcoded Chinese sentences."""
 
-    def fetch(self, video_id: str) -> list[TranscriptChunk]:
+    def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
         return [
             TranscriptChunk(text="我们", start_ms=0, duration_ms=500),
             TranscriptChunk(text="一般", start_ms=600, duration_ms=400),

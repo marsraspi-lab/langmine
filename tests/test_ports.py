@@ -24,7 +24,7 @@ def test_transcript_source_contract():
     """Concrete implementations must implement fetch()."""
 
     class FakeAdapter(TranscriptSource):
-        def fetch(self, video_id: str) -> list[TranscriptChunk]:
+        def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
             return []
         def list_subtitles(self, video_id: str):
             return []

@@ -251,6 +251,46 @@ class TestFetchTranscript:
         idx = captured_cmd[0].index("--sub-lang")
         assert captured_cmd[0][idx + 1] == "es"
 
+    def test_adapter_fetch_with_language_uses_exact_code(self):
+        """YouTubeTranscriptAdapter.fetch(language='zh') should use --sub-lang zh."""
+        srt = _make_srt([("Hello", 1000, 2000)])
+        captured_cmd = []
+
+        def capture_run(*args, **kwargs):
+            captured_cmd.append(args[0])
+            return self._mock_ytdlp_run(srt)(*args, **kwargs)
+
+        from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter
+        adapter = YouTubeTranscriptAdapter(language_codes=["zh-Hans", "zh"])
+        with patch("subprocess.run", side_effect=capture_run):
+            adapter.fetch("dQw4w9WgXcQ", language="zh")
+
+        assert "--sub-lang" in captured_cmd[0]
+        idx = captured_cmd[0].index("--sub-lang")
+        assert captured_cmd[0][idx + 1] == "zh", (
+            f"Expected --sub-lang zh but got {captured_cmd[0][idx + 1]}"
+        )
+
+    def test_adapter_fetch_without_language_uses_defaults(self):
+        """When language='' (default), adapter should use its _language_codes."""
+        srt = _make_srt([("Hello", 1000, 2000)])
+        captured_cmd = []
+
+        def capture_run(*args, **kwargs):
+            captured_cmd.append(args[0])
+            return self._mock_ytdlp_run(srt)(*args, **kwargs)
+
+        from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter
+        adapter = YouTubeTranscriptAdapter(language_codes=["zh-Hans", "zh"])
+        with patch("subprocess.run", side_effect=capture_run):
+            adapter.fetch("dQw4w9WgXcQ")
+
+        assert "--sub-lang" in captured_cmd[0]
+        idx = captured_cmd[0].index("--sub-lang")
+        assert captured_cmd[0][idx + 1] == "zh-Hans", (
+            f"Expected --sub-lang zh-Hans (first default) but got {captured_cmd[0][idx + 1]}"
+        )
+
 
 class TestMergeSentences:
     """Tests for the pause-based sentence merging heuristic."""
