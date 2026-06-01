@@ -22,10 +22,16 @@
   let subCheckTimer = null;
   let selectedSubLang = $state('');
 
-  // M26: Filter to only manual subtitles for language selection
-  let manualSubs = $derived(
-    subInfo?.subtitles?.filter(s => s.kind === 'manual') ?? []
+  // M26: Sorted subtitle lists for optgroup dropdown
+  let allSubs = $derived(subInfo?.subtitles ?? []);
+  let sortedManualSubs = $derived(
+    allSubs.filter(s => s.kind === 'manual').sort((a, b) => a.language_name.localeCompare(b.language_name))
   );
+  let sortedAutoSubs = $derived(
+    allSubs.filter(s => s.kind === 'auto').sort((a, b) => a.language_name.localeCompare(b.language_name))
+  );
+  let hasManualSubs = $derived(sortedManualSubs.length > 0);
+  let hasAutoSubs = $derived(sortedAutoSubs.length > 0);
 
   async function handleMine() {
     const url = urlInput.trim();
@@ -104,9 +110,9 @@
         const result = await fetchSubtitleInfo(url);
         if (result.ok) {
           subInfo = result.data;
-          if (manualSubs.length > 0) {
-            selectedSubLang = manualSubs[0].language_code;
-          }
+          // Auto-select first manual sub, fall back to first auto
+          const firstChoice = sortedManualSubs[0] ?? sortedAutoSubs[0];
+          if (firstChoice) selectedSubLang = firstChoice.language_code;
         }
       } catch (e) {
         // best-effort — ignore failures
@@ -138,9 +144,9 @@
     />
     {#if subLoading}
       <div class="subtitle-chip loading">⏳ Checking subtitles…</div>
-    {:else if subInfo && subInfo.available && manualSubs.length > 0}
-      {#if manualSubs.length === 1}
-        {@const s = manualSubs[0]}
+    {:else if subInfo && subInfo.available}
+      {#if hasManualSubs && sortedManualSubs.length === 1 && sortedAutoSubs.length === 0}
+        {@const s = sortedManualSubs[0]}
         <div class="subtitle-chip manual" title={s.language_name}>
           ✅ {s.language_name} (manual)
         </div>
@@ -148,16 +154,23 @@
         <div class="subtitle-chip manual sub-lang-row">
           <span>✅</span>
           <select bind:value={selectedSubLang} class="sub-lang-select">
-            {#each manualSubs as s}
-              <option value={s.language_code}>
-                {s.language_name} (manual)
-              </option>
-            {/each}
+            {#if hasManualSubs}
+              <optgroup label="── Manual subtitles ──">
+                {#each sortedManualSubs as s}
+                  <option value={s.language_code}>{s.language_name} (manual)</option>
+                {/each}
+              </optgroup>
+            {/if}
+            {#if hasAutoSubs}
+              <optgroup label="── Auto-generated captions ──">
+                {#each sortedAutoSubs as s}
+                  <option value={s.language_code}>{s.language_name} (auto)</option>
+                {/each}
+              </optgroup>
+            {/if}
           </select>
         </div>
       {/if}
-    {:else if subInfo && subInfo.available && manualSubs.length === 0}
-      <div class="subtitle-chip auto">⚠️ No manual subtitles — only auto-generated available</div>
     {:else if subInfo && !subInfo.available}
       <div class="subtitle-chip none">❌ No subtitles available</div>
     {/if}
