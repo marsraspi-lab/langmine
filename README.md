@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.7.0 — M0–M26 shipped. 234 pytest + 52 E2E. All tests pass.
+**Status:** v1.7.0 — M0–M26 shipped. 242 pytest + 57 E2E. All tests pass.
 
 ## Requirements
 
@@ -374,6 +374,8 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 |---------|-------------|
 | Subtitle Discovery (M25) | ✅ — Subtitle chip on URL paste (✅ manual / ⚠️ auto / ❌ none), richer mine errors |
 | Language Selection (M26) | ✅ — Pick subtitle language, kind-aware merge gaps (300ms manual, 700ms auto), 🤖/✍️ badges |
+| E2E coverage (#27) | ✅ — 6 new E2E tests covering manual/auto/no-subtitle chips, language dropdown, mine flow, badges |
+| Subtitle kind fix (#27) | ✅ — Section-aware yt-dlp parsing, auto-translated tracks correctly labeled auto, UI filters to manual only |
 
 ### v1.6.1
 
@@ -381,7 +383,7 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 |-----|-------------|
 | SSE error display (#23) | ✅ — `MineError(stage)` wraps pipeline phases, structured SSE errors, friendly UI messages per stage, screenshot path logging, missing-image console logging |
 
-> **Current:** M0–M26 shipped. 234 pytest + 52 E2E all green.  
+> **Current:** M0–M26 shipped. 242 pytest + 57 E2E all green.  
 > **Up next:** Stats dashboard — vocabulary growth charts, per-video breakdown, daily mining volume.
 
 ---
