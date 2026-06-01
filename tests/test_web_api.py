@@ -653,3 +653,64 @@ class TestReclassifySentences:
         data = resp.get_json()
         assert data["total"] == 0
         assert data["sentences"] == []
+
+
+class TestMergeSentences:
+    """POST /api/sentences/<id>/merge-with-previous — M24."""
+
+    def test_merge_concatenates_text_and_timing(self, client, persistence):
+        """Merging sentence B into A concatenates text and spans timing."""
+        video = Video(youtube_id="merge-test", title="Merge", channel="TC")
+        persistence.save_video(video)
+
+        # Sentence A (earlier)
+        sA = Sentence(
+            video_id=video.id, start_ms=1000, end_ms=3000,
+            text="我们 一般", text_segmented="我们 / 一般",
+            reading="wǒmen yībān", translation_de="Wir allgemein",
+            status="i1",
+        )
+        # Sentence B (later)
+        sB = Sentence(
+            video_id=video.id, start_ms=4000, end_ms=6000,
+            text="早上 起床", text_segmented="早上 / 起床",
+            reading="zǎoshang qǐchuáng", translation_de="morgens aufstehen",
+            status="i1",
+        )
+        persistence.save_sentences([sA, sB])
+
+        resp = client.post(f"/api/sentences/{sB.id}/merge-with-previous")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        merged = data["sentence"]
+
+        # Merged sentence keeps A's id, A's start_ms, B's end_ms
+        assert merged["id"] == sA.id
+        assert merged["start_ms"] == 1000
+        assert merged["end_ms"] == 6000
+
+        # Text concatenated
+        assert merged["text"] == "我们 一般 早上 起床"
+        assert merged["text_segmented"] == "我们 / 一般 / 早上 / 起床"
+
+        # B is marked as deleted
+        sentences = persistence.get_sentences_by_video(video.id)
+        assert len(sentences) == 2
+        sB_after = next(s for s in sentences if s.id == sB.id)
+        assert sB_after.status == "deleted"
+
+    def test_merge_on_first_sentence_returns_400(self, client, persistence):
+        """Cannot merge the first sentence (no previous)."""
+        video = Video(youtube_id="merge-first", title="First", channel="TC")
+        persistence.save_video(video)
+        s = Sentence(video_id=video.id, start_ms=1000, end_ms=3000,
+                     text="test", text_segmented="test", status="i1")
+        persistence.save_sentences([s])
+
+        resp = client.post(f"/api/sentences/{s.id}/merge-with-previous")
+        assert resp.status_code == 400
+        assert "previous" in resp.get_json()["error"].lower()
+
+    def test_merge_nonexistent_sentence_returns_404(self, client, persistence):
+        resp = client.post("/api/sentences/999/merge-with-previous")
+        assert resp.status_code == 404

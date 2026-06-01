@@ -5,7 +5,7 @@
   import { currentView, vocabSearchQuery } from './stores.js';
 
   /** @type {{ sentence: Object, onkeep: Function, ondelete: Function, oniknowthis: Function }} */
-  let { sentence, onkeep = () => {}, ondelete = () => {}, wordStatuses = {} } = $props();
+  let { sentence, onkeep = () => {}, ondelete = () => {}, onmerge = () => {}, showMerge = false, wordStatuses = {} } = $props();
 
   const STATUS_LABELS = {
     i1: 'i+1',
@@ -325,6 +325,11 @@
   {/if}
 
   <div class="card-actions">
+    {#if showMerge}
+      <button class="btn-merge" onclick={() => onmerge(sentence.id)}>
+        ⬆️ Merge
+      </button>
+    {/if}
     <button class="btn-keep" onclick={() => onkeep(sentence.id)}>
       🟢 Keep
     </button>

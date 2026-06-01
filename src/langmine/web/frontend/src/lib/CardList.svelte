@@ -1,7 +1,8 @@
 <script>
   import SentenceCard from './SentenceCard.svelte';
   import TranscriptView from './TranscriptView.svelte';
-  import { sentences, curatedSentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, reclassifyOffset } from './stores.js';
+  import { sentences, curatedSentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, reclassifyOffset, addToast } from './stores.js';
+  import { mergeWithPrevious } from './api.js';
 
   let { videoId } = $props();
 
@@ -42,6 +43,17 @@
   }
   function onDelete(id) {
     deleteSentence(id);
+  }
+
+  // M24: sentence joining
+  async function onMerge(id) {
+    try {
+      await mergeWithPrevious(id);
+      await loadSentences(videoId, $currentFilter);
+      addToast('Merged', 'success');
+    } catch (err) {
+      addToast(`Merge failed: ${err.message}`, 'error');
+    }
   }
 
   function toggleReadingMode() {
@@ -102,8 +114,8 @@
     {:else if showEmpty}
       <div class="empty-state">{emptyMessage}</div>
     {:else}
-      {#each filtered as sentence (sentence.id)}
-        <SentenceCard {sentence} onkeep={onKeep} ondelete={onDelete} wordStatuses={sentence.wordStatuses} />
+      {#each filtered as sentence, idx (sentence.id)}
+        <SentenceCard {sentence} onkeep={onKeep} ondelete={onDelete} onmerge={onMerge} showMerge={idx > 0} wordStatuses={sentence.wordStatuses} />
       {/each}
 
       <!-- M22: Add Sentences button -->
