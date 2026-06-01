@@ -108,26 +108,19 @@ def register_routes(app: Flask):
                 return jsonify({"error": "Missing 'url' field"}), 400
             url = data["url"]
 
+        from langmine.transcript import _extract_video_id
+        video_id = _extract_video_id(url)
+
         # Parse optional subtitle language selection (M26)
         language = request.form.get("language", "") if request.content_type and "multipart" in request.content_type else data.get("language", "")
         subtitle_kind = ""
-        if language and not is_file_upload:
-            from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter
-            from langmine.config import load_config as _load_config
-            _cfg = _load_config()
-            transcript = YouTubeTranscriptAdapter(
-                user_agent=_cfg.user_agent,
-                language_codes=[language],
-            )
+        if language and not is_file_upload and transcript is not None:
             try:
                 subs = transcript.list_subtitles(video_id)
                 match = next((s for s in subs if s.language_code == language), None)
                 subtitle_kind = match.kind if match else ""
             except Exception:
                 pass
-
-        from langmine.transcript import _extract_video_id
-        video_id = _extract_video_id(url)
 
         # ── Choose code path ─────────────────────────────────────────────
         accept = request.headers.get("Accept", "")
