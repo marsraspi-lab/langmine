@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from langmine.domain.ports import TranscriptChunk, MergedSentence
+from langmine.domain.ports import TranscriptChunk, MergedSentence, SubtitleInfo
 
 
 def fetch_transcript(video_id_or_url: str, user_agent: str = "",
@@ -192,6 +192,51 @@ def _parse_srt(path: Path) -> list[TranscriptChunk]:
         ))
 
     return chunks
+
+
+def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
+    """Parse yt-dlp --list-subs output into SubtitleInfo objects.
+
+    Expected format:
+        [info] Available subtitles for abc123:
+        Language Name                  Formats
+        zh-Hans  Chinese (Simplified)  vtt, srt, ttml
+        en       English               vtt, srt, ttml
+        zh-Hant  Chinese (Traditional) vtt, srt, ttml (auto-generated)
+    """
+    subtitles = []
+    in_table = False
+
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "Available subtitles" in line or "Language" in line:
+            in_table = True
+            continue
+        if "Has automatic captions" in line or "Available automatic" in line:
+            continue
+        if not in_table:
+            continue
+
+        match = re.match(
+            r"^(\S+)\s{2,}(.+?)\s{2,}(vtt|srt|ttml|ass)(.*)$",
+            line
+        )
+        if not match:
+            continue
+
+        lang_code = match.group(1)
+        lang_name = match.group(2).strip()
+        kind = "auto" if "auto-generated" in match.group(4).lower() else "manual"
+
+        subtitles.append(SubtitleInfo(
+            language_code=lang_code,
+            language_name=lang_name,
+            kind=kind,
+        ))
+
+    return subtitles
 
 
 def merge_sentences(

@@ -155,6 +155,9 @@ class FakeTranscriptSource(TranscriptSource):
     def fetch(self, video_id):
         return self._chunks
 
+    def list_subtitles(self, video_id):
+        return []
+
 
 class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir):
@@ -291,6 +294,9 @@ class TestDifficultyPreview:
         class FailingTranscriptSource(TranscriptSource):
             def fetch(self, video_id):
                 raise ValueError("No transcript available for video 'test'.")
+
+            def list_subtitles(self, video_id):
+                return []
 
         app = create_app(
             persistence=persistence,

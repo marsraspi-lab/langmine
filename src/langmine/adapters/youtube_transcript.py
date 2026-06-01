@@ -1,6 +1,8 @@
 """YouTube Transcript adapter — wraps transcript.py behind TranscriptSource port."""
 
-from langmine.domain.ports import TranscriptSource, TranscriptChunk
+import subprocess
+
+from langmine.domain.ports import TranscriptSource, TranscriptChunk, SubtitleInfo
 from langmine.transcript import fetch_transcript
 
 
@@ -14,3 +16,24 @@ class YouTubeTranscriptAdapter(TranscriptSource):
     def fetch(self, video_id: str) -> list[TranscriptChunk]:
         return fetch_transcript(video_id, user_agent=self._user_agent,
                                 language_codes=self._language_codes)
+
+    def list_subtitles(self, video_id: str) -> list[SubtitleInfo]:
+        """List available subtitle tracks via yt-dlp --list-subs."""
+        from langmine.transcript import _parse_list_subs_output
+
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        cmd = ["yt-dlp", "--list-subs", "--skip-download", "--no-playlist", "--no-warnings"]
+        if self._user_agent:
+            cmd.insert(1, "--user-agent")
+            cmd.insert(2, self._user_agent)
+        cmd.append(url)
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        stderr = result.stderr.lower() if result.stderr else ""
+
+        if result.returncode != 0:
+            if "video unavailable" in stderr or "private video" in stderr:
+                raise ValueError(f"Video '{video_id}' is unavailable or private.")
+            return []  # Unknown error, treat as no subtitles
+
+        return _parse_list_subs_output(result.stdout)

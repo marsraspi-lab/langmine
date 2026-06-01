@@ -55,6 +55,9 @@ class FakeTranscript(TranscriptSource):
     def fetch(self, video_id: str):
         return self.chunks
 
+    def list_subtitles(self, video_id: str):
+        return []
+
 
 class FakeAudio(AudioProcessor):
     def download(self, video_id: str, output_dir: str) -> str:
