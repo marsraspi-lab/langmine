@@ -1083,8 +1083,8 @@ def _words_array(sentence: Sentence, persistence: Persistence,
         elif token in known_words:
             status = "known"
 
-        # Proper name detection (known/ignored/proper-name from vocab takes priority)
-        if status not in ("known", "ignored", "proper-name") and processor and processor.is_proper_name(
+        # Proper name detection — skip if user has any explicit vocab status
+        if status not in ("known", "ignored", "proper-name", "learning") and processor and processor.is_proper_name(
             token, context_sentence=sentence.text
         ):
             status = "proper-name"
