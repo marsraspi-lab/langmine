@@ -389,8 +389,8 @@ test.describe('LangMine SPA', () => {
     await main.selectFirstVideo();
     await reading.enterReadingMode();
     await reading.expectLoaded();
-    await reading.expectSentenceCount(54);
-    await reading.expectToolbarInfo('54 sentences');
+    await reading.expectSentenceCount(55);
+    await reading.expectToolbarInfo('55 sentences');
   });
 
   test('reading mode shows word highlighting', async () => {
@@ -488,6 +488,33 @@ test.describe('LangMine SPA', () => {
     await expect(main.page.locator('.search-input')).toHaveValue('一般');
   });
 
+  // ── M20: Proper name brackets ──────────────────────────────────────────
+
+  test('proper name words are wrapped in brackets in reading mode', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // "李世民" should appear as a proper-name word with bracket styling
+    await expect(reading.properNameWords.first()).toBeVisible();
+    const liShimin = reading.properNameWords.filter({ hasText: '李世民' });
+    await expect(liShimin).toBeVisible();
+  });
+
+  test('clicking a proper name shows dismiss option in popover', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // Click the proper name "李世民"
+    await reading.clickWord('李世民');
+    await reading.expectPopoverVisible();
+
+    // Popover should show "Not a proper name" dismiss button
+    const dismissBtn = main.page.locator('.popover-btn', { hasText: 'Not a proper name' });
+    await expect(dismissBtn).toBeVisible();
+  });
+
   // ── M22: Add Sentences + Reclassification ──────────────────────────────
 
   test('Reclassify button appears and triggers reclassification', async () => {
@@ -504,7 +531,7 @@ test.describe('LangMine SPA', () => {
     await btn.click();
 
     // Wait for reclassification to complete — button updates
-    // With 54 total sentences, first page has 50 → hasMore=true
+    // With 55 total sentences, first page has 50 → hasMore=true
     await expect(btn).toContainText('Add more sentences', { timeout: 5000 });
   });
 
@@ -521,7 +548,7 @@ test.describe('LangMine SPA', () => {
     // Click "Add more sentences" to load remaining
     await btn.click();
 
-    // After loading remaining 4 sentences (total=54, offset was 50),
+    // After loading remaining 5 sentences (total=55, offset was 50),
     // hasMore becomes false → button reverts to "Reclassify"
     await expect(btn).toContainText('Reclassify', { timeout: 5000 });
   });
