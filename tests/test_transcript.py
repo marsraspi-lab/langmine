@@ -10,6 +10,7 @@ from langmine.transcript import (
     merge_sentences,
     TranscriptChunk,
     _parse_srt,
+    _parse_list_subs_output,
 )
 
 
@@ -329,3 +330,98 @@ class TestMergeSentences:
         # With 500ms gap threshold, they should split
         split = merge_sentences(chunks, gap_ms=500)
         assert len(split) == 2
+
+
+# ── _parse_list_subs_output ──────────────────────────────────────────────
+
+
+class TestParseListSubsOutput:
+    """Section-aware parsing of yt-dlp --list-subs output."""
+
+    def test_manual_subtitles_only(self):
+        output = """[info] Available subtitles for abc123:
+Language Name                  Formats
+zh-Hans  Chinese (Simplified)  vtt, srt, ttml
+en       English               vtt, srt, ttml
+"""
+        subs = _parse_list_subs_output(output)
+        assert len(subs) == 2
+        assert subs[0].language_code == "zh-Hans"
+        assert subs[0].language_name == "Chinese (Simplified)"
+        assert subs[0].kind == "manual"
+        assert subs[1].language_code == "en"
+        assert subs[1].kind == "manual"
+
+    def test_auto_generated_only(self):
+        output = """[info] Available automatic captions for abc123:
+Language Name                  Formats
+en       English               vtt, srt, ttml (auto-generated)
+"""
+        subs = _parse_list_subs_output(output)
+        assert len(subs) == 1
+        assert subs[0].language_code == "en"
+        assert subs[0].kind == "auto"
+
+    def test_manual_and_auto_sections(self):
+        output = """[info] Available subtitles for abc123:
+Language Name                  Formats
+zh-Hans  Chinese (Simplified)  vtt, srt, ttml
+
+[info] Available automatic captions for abc123:
+Language Name                  Formats
+en       English               vtt, srt, ttml (auto-generated)
+"""
+        subs = _parse_list_subs_output(output)
+        manual = [s for s in subs if s.kind == "manual"]
+        auto = [s for s in subs if s.kind == "auto"]
+        assert len(manual) == 1
+        assert len(auto) == 1
+        assert manual[0].language_code == "zh-Hans"
+        assert auto[0].language_code == "en"
+
+    def test_auto_translated_strips_from_suffix(self):
+        """Auto-translated tracks have 'from X' in name — should be stripped."""
+        output = """[info] Available automatic captions for abc123:
+Language Name                               Formats
+zh-Hans-en  Chinese (Simplified) from English  vtt, srt, ttml, srv3
+"""
+        subs = _parse_list_subs_output(output)
+        assert len(subs) == 1
+        assert subs[0].language_code == "zh-Hans-en"
+        assert subs[0].language_name == "Chinese (Simplified)"  # not "Chinese (Simplified) from English"
+        assert subs[0].kind == "auto"
+
+    def test_auto_translated_all_marked_auto(self):
+        """All auto-translated tracks (from X) should be kind=auto."""
+        output = """[info] Available automatic captions for abc123:
+Language Name                               Formats
+zh-Hans-en  Chinese (Simplified) from English  vtt, srt, ttml, srv3
+ja-en       Japanese from English              vtt, srt, ttml, srv3
+ko-en       Korean from English                vtt, srt, ttml, srv3
+"""
+        subs = _parse_list_subs_output(output)
+        assert len(subs) == 3
+        for s in subs:
+            assert s.kind == "auto", f"{s.language_code} should be auto, got {s.kind}"
+            assert " from " not in s.language_name
+
+    def test_empty_output(self):
+        assert _parse_list_subs_output("") == []
+
+    def test_no_subtitles_header(self):
+        output = """[info] Available subtitles for abc123:
+Language Name                  Formats
+"""
+        subs = _parse_list_subs_output(output)
+        assert subs == []
+
+    def test_real_world_me_at_the_zoo(self):
+        """Simulate the yt-dlp output for 'Me at the zoo' (auto-translated only)."""
+        output = """[info] Available automatic captions for jNQXAC9IVRw:
+Language   Name                               Formats
+zh-Hans-en Chinese (Simplified) from English  vtt, srt, ttml, srv3, srv2, srv1, json3
+ja-en      Japanese from English              vtt, srt, ttml, srv3, srv2, srv1, json3
+"""
+        subs = _parse_list_subs_output(output)
+        assert all(s.kind == "auto" for s in subs)
+        assert all(" from " not in s.language_name for s in subs)

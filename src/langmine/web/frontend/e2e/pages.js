@@ -295,6 +295,39 @@ export class VocabPage {
   }
 }
 
+// ── Subtitle chip + language selector (M25/M26) ──────────────────────────
+
+export class SubtitleChip {
+  constructor(page) {
+    this.page = page;
+  }
+
+  get chip()             { return this.page.locator('.subtitle-chip'); }
+  get langSelect()       { return this.page.locator('select.sub-lang-select'); }
+  get langOptions()      { return this.page.locator('select.sub-lang-select option'); }
+  get videoBadges()      { return this.page.locator('.sub-badge'); }
+
+  async selectLanguage(languageCode) {
+    await this.langSelect.selectOption(languageCode);
+  }
+
+  async expectChipVisible(kind) {
+    await expect(this.page.locator(`.subtitle-chip.${kind}`)).toBeVisible();
+  }
+
+  async expectChipText(text) {
+    await expect(this.chip).toContainText(text);
+  }
+
+  async expectDropdownVisible() {
+    await expect(this.langSelect).toBeVisible();
+  }
+
+  async expectOptionCount(n) {
+    await expect(this.langOptions).toHaveCount(n);
+  }
+}
+
 // ── Difficulty preview (M13) ──────────────────────────────────────────
 
 export class PreviewPage {
