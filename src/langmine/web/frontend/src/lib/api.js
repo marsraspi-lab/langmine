@@ -175,3 +175,15 @@ export async function previewVideo(url) {
   });
   return { ok: res.ok, status: res.status, data: await res.json() };
 }
+
+// M24: Sentence joining
+export async function mergeWithPrevious(sentenceId) {
+  const res = await fetch(`/api/sentences/${sentenceId}/merge-with-previous`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Merge failed');
+  }
+  return res.json();
+}

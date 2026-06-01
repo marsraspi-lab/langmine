@@ -625,6 +625,30 @@ test.describe('LangMine SPA', () => {
     await expect(segInput).toHaveValue('我们 一 般 早上 起床');
   });
 
+  // ── M24: Sentence Joining ────────────────────────────────────────────
+
+  test('merge with previous combines two sentences', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // Sentence 5 (李世民...) should have merge button
+    const sentence5 = curation.cards.nth(4);
+    const mergeBtn = sentence5.locator('.btn-merge');
+    await expect(mergeBtn).toBeVisible();
+    await expect(mergeBtn).toContainText('Merge');
+
+    // Sentence 1 should NOT have merge button (first sentence)
+    const sentence1 = curation.cards.nth(0);
+    await expect(sentence1.locator('.btn-merge')).toHaveCount(0);
+
+    // Click merge on sentence 5
+    await mergeBtn.click();
+
+    // Wait for the card list to refresh
+    await expect(curation.cards).not.toHaveCount(5, { timeout: 5000 });
+  });
+
   // ── Dismiss proper name (must be LAST — mutates shared state) ──────────
 
   test('dismiss proper name removes brackets in reading mode', async () => {

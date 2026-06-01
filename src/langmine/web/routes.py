@@ -468,6 +468,67 @@ def register_routes(app: Flask):
             "sentence": _sentence_to_dict(sentence, persistence, processor=_get_processor()),
         })
 
+    @app.route("/api/sentences/<int:sentence_id>/merge-with-previous", methods=["POST"])
+    def merge_with_previous(sentence_id: int):
+        """Merge sentence B into the previous sentence A (M24).
+
+        Concatenates text, text_segmented, reading, translation_de.
+        Keeps sentence A's media (audio, screenshot), spans timing.
+        Marks sentence B as deleted.
+        """
+        persistence = _get_persistence()
+        lang = _get_language_code()
+
+        sentence_b = _get_sentence_or_404(persistence, sentence_id)
+
+        # Find the previous sentence (A) — same video, earlier start_ms
+        all_sentences = persistence.get_sentences_by_video(
+            sentence_b.video_id, language_code=lang
+        )
+        # Sort by start_ms to find predecessor
+        sorted_sentences = sorted(all_sentences, key=lambda s: s.start_ms)
+        b_idx = None
+        for i, s in enumerate(sorted_sentences):
+            if s.id == sentence_b.id:
+                b_idx = i
+                break
+        if b_idx is None or b_idx == 0:
+            return jsonify({"error": "No previous sentence to merge with"}), 400
+
+        sentence_a = sorted_sentences[b_idx - 1]
+
+        # Merge text fields
+        sentence_a.text += " " + sentence_b.text
+        sentence_a.text_segmented += " / " + sentence_b.text_segmented
+        if sentence_a.reading:
+            sentence_a.reading += " " + sentence_b.reading if sentence_b.reading else ""
+        if sentence_a.translation_de:
+            sentence_a.translation_de += " " + sentence_b.translation_de if sentence_b.translation_de else ""
+
+        # Span timing
+        sentence_a.end_ms = sentence_b.end_ms
+
+        # Mark B as deleted
+        sentence_b.status = "deleted"
+        persistence.update_sentence(sentence_b)
+
+        # Re-classify A
+        _reclassify_from_segmented(persistence, sentence_a)
+        persistence.update_sentence(sentence_a)
+
+        persistence.log_event(
+            entity_type="sentence", entity_id=sentence_a.id,
+            action="merged", old_value=str(sentence_b.id),
+            new_value=sentence_a.text_segmented,
+            language_code=lang,
+        )
+
+        return jsonify({
+            "sentence": _sentence_to_dict(sentence_a, persistence, processor=_get_processor()),
+            "merged_id": sentence_b.id,
+            "ok": True,
+        })
+
     @app.route("/api/sentences/<int:sentence_id>/iknowthis", methods=["PATCH"])
     def mark_word_known(sentence_id: int):
         """Mark the unknown word in this sentence as known.
@@ -928,6 +989,19 @@ def _get_processor() -> LanguageProcessor | None:
 def _get_transcript_source() -> TranscriptSource | None:
     """Get the transcript source port from app config."""
     return current_app.config.get("LANGMINE_TRANSCRIPT_SOURCE")
+
+
+def _get_sentence_or_404(persistence: Persistence, sentence_id: int) -> Sentence:
+    """Get a sentence by ID, raise 404 if not found."""
+    from flask import abort
+    # Persistence doesn't have get_sentence_by_id — search all videos
+    videos = persistence.list_videos()
+    for video in videos:
+        sentences = persistence.get_sentences_by_video(video.id)
+        for s in sentences:
+            if s.id == sentence_id:
+                return s
+    abort(404, description=f"Sentence {sentence_id} not found")
 
 
 def _get_audio_processor() -> AudioProcessor | None:
