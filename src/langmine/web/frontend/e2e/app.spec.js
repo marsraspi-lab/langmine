@@ -685,13 +685,14 @@ test.describe('LangMine SPA', () => {
     await subtitles.expectChipText('Chinese');
   });
 
-  test('shows auto-only warning when only auto subs available', async () => {
+  test('shows auto subs in dropdown when only auto available', async () => {
     await main.goto();
     // dQw4w9WgXcQ = auto English subs in test server — no manual subs
     await main.urlInput.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     await main.page.waitForTimeout(1200);
-    await subtitles.expectChipVisible('auto');
-    await subtitles.expectChipText('No manual subtitles');
+    await subtitles.expectDropdownVisible();
+    await subtitles.expectOptionCount(1);
+    await subtitles.expectOptionText('English (auto)');
   });
 
   test('shows no-subtitle chip for unknown video', async () => {
@@ -702,13 +703,13 @@ test.describe('LangMine SPA', () => {
     await subtitles.expectChipText('No subtitles available');
   });
 
-  test('shows language dropdown with only manual subtitles', async () => {
+  test('shows language dropdown with manual and auto subs', async () => {
     await main.goto();
     // aAaAaAaAaAa = 2 manual (zh-Hans, en) + 1 auto (ja) in test server
     await main.urlInput.fill('https://www.youtube.com/watch?v=aAaAaAaAaAa');
     await main.page.waitForTimeout(1200);
     await subtitles.expectDropdownVisible();
-    await subtitles.expectOptionCount(2);  // only manual subs
+    await subtitles.expectOptionCount(3);  // 2 manual + 1 auto
   });
 
   test('can mine with a selected subtitle language', async () => {
