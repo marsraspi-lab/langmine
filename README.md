@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.7.0 — M0–M26 shipped. 242 pytest + 57 E2E. All tests pass.
+**Status:** v1.7.1 — M0–M26 shipped. 243 pytest + 57 E2E. All tests pass.
 
 ## Requirements
 
@@ -368,6 +368,14 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M25 | Subtitle Discovery | ✅ — Subtitle chip on URL paste (✅ manual / ⚠️ auto / ❌ none), richer mine errors |
 | M26 | Language Selection | ✅ — Pick subtitle language, kind-aware merge gaps (300ms manual, 700ms auto), 🤖/✍️ badges |
 
+### v1.7.1
+
+| Feature | Description |
+|---------|-------------|
+| Optgroup subtitle dropdown (#29) | ✅ — Manual subs sorted A–Z at top, divider, auto captions A–Z below; users can select auto subs directly |
+| Regex fix for manual subs (#29) | ✅ — yt-dlp manual section uses single-space format separator, parser now handles both spacing variants |
+| Stale locator fix (#29) | ✅ — Explicit `toBeVisible()` wait before clicking `.segmented-text` on CI runners |
+
 ### v1.7.0
 
 | Feature | Description |
@@ -383,7 +391,7 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 |-----|-------------|
 | SSE error display (#23) | ✅ — `MineError(stage)` wraps pipeline phases, structured SSE errors, friendly UI messages per stage, screenshot path logging, missing-image console logging |
 
-> **Current:** M0–M26 shipped. 242 pytest + 57 E2E all green.  
+> **Current:** M0–M26 shipped. 243 pytest + 57 E2E all green.  
 > **Up next:** Stats dashboard — vocabulary growth charts, per-video breakdown, daily mining volume.
 
 ---
