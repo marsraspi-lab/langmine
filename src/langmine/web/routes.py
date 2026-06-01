@@ -726,6 +726,7 @@ def register_routes(app: Flask):
             "audio_pad_after_ms": config.audio_pad_after_ms,
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
+            "hsk_bootstrap_level": config.hsk_bootstrap_level,
             "user_agent": config.user_agent,
         })
 
@@ -744,6 +745,7 @@ def register_routes(app: Flask):
             "source_language", "target_language", "translation_api",
             "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
             "max_cards_per_video", "max_stash_cards",
+            "hsk_bootstrap_level",
             "deepl_api_key",
             "user_agent",
         }

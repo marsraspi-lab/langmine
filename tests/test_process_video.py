@@ -2,12 +2,12 @@
 
 import pytest
 
-from langmine.pipeline import process_video
+from langmine.pipeline import process_video, _bootstrap_hsk
 from langmine.domain.ports import (
     TranscriptSource, AudioProcessor, Persistence, MergedSentence,
     LanguageProcessor, Dictionary, Translator, FrequencySource,
 )
-from langmine.domain.models import Video, Sentence
+from langmine.domain.models import Video, Sentence, VocabWord
 
 
 # === Fake ports with Chinese NLP ===
@@ -73,9 +73,10 @@ class FakePersistence(Persistence):
         self._ignored = set()
         self.videos: dict = {}
         self.sentences: list[Sentence] = []
+        self._vocab: list[VocabWord] = []
 
     def get_known_words(self) -> set[str]:
-        return self._known | self._ignored
+        return self._known | self._ignored | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
 
     def save_video(self, video):
         if video.id is None:
@@ -103,8 +104,14 @@ class FakePersistence(Persistence):
     def update_sentence(self, s): pass
     def get_sentences_by_status(self, status): return []
     def reclassify_stashed(self, vid): return 0
-    def save_vocab_word(self, w): pass
-    def get_vocab_word(self, w): return None
+    def save_vocab_word(self, w: VocabWord) -> None:
+        self._vocab.append(w)
+
+    def get_vocab_word(self, word_simplified: str) -> VocabWord | None:
+        for w in self._vocab:
+            if w.word_simplified == word_simplified:
+                return w
+        return None
     def mark_word_known(self, w): pass
     def mark_word_learning(self, w): pass
     def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
@@ -225,3 +232,72 @@ def test_process_video_returns_summary():
     assert result["i0_count"] == 1
     assert result["stash_count"] == 1
     assert result["total_sentences"] == 3
+
+
+# === HSK Bootstrap Tests (M21) ===
+
+
+class BootstrapConfig:
+    """Fake config for _bootstrap_hsk tests."""
+
+    def __init__(self, hsk_bootstrap_level: int = 0, source_language: str = "zh"):
+        self.hsk_bootstrap_level = hsk_bootstrap_level
+        self.source_language = source_language
+
+
+def test_bootstrap_hsk_disabled_when_level_zero():
+    """_bootstrap_hsk should do nothing when hsk_bootstrap_level is 0."""
+    persistence = FakePersistence()
+    config = BootstrapConfig(hsk_bootstrap_level=0)
+
+    _bootstrap_hsk(persistence, config)
+
+    assert len(persistence._vocab) == 0
+
+
+def test_bootstrap_hsk_marks_hsk1_words_as_known():
+    """HSK level 1 words should be saved as known when bootstrap level is 1."""
+    persistence = FakePersistence()
+    config = BootstrapConfig(hsk_bootstrap_level=1)
+
+    _bootstrap_hsk(persistence, config)
+
+    # HSK 1 has ~150 words — all should be saved
+    assert len(persistence._vocab) > 0
+    for w in persistence._vocab:
+        assert w.status == "known"
+        assert w.hsk_level <= 1
+        assert w.language_code == "zh"
+
+
+def test_bootstrap_hsk_skips_existing_words():
+    """Words already in vocab should not be overwritten."""
+    persistence = FakePersistence()
+    # Pre-populate with a known word
+    persistence._vocab.append(VocabWord(
+        word_simplified="我们",
+        hsk_level=1,
+        status="learning",  # user marked as learning, not known
+        language_code="zh",
+    ))
+    config = BootstrapConfig(hsk_bootstrap_level=1)
+
+    _bootstrap_hsk(persistence, config)
+
+    # "我们" should still be "learning" (not overwritten)
+    existing = persistence.get_vocab_word("我们")
+    assert existing is not None
+    assert existing.status == "learning"
+
+
+def test_bootstrap_hsk_respects_level_boundary():
+    """Only words up to the bootstrap level should be marked."""
+    persistence = FakePersistence()
+    config = BootstrapConfig(hsk_bootstrap_level=3)
+
+    _bootstrap_hsk(persistence, config)
+
+    for w in persistence._vocab:
+        assert w.hsk_level <= 3
+        # No HSK 4+ words
+        assert not (w.hsk_level and w.hsk_level > 3)

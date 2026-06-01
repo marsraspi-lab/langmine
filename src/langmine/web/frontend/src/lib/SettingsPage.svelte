@@ -93,6 +93,19 @@
         Max Stash Cards
         <input name="max_stash_cards" type="number" value={$config.max_stash_cards || 20} min="1" max="100" />
       </label>
+      <label>
+        HSK Bootstrap Level
+        <select name="hsk_bootstrap_level" value={$config.hsk_bootstrap_level || 0}>
+          <option value="0">Off</option>
+          <option value="1">HSK 1</option>
+          <option value="2">HSK 2</option>
+          <option value="3">HSK 3</option>
+          <option value="4">HSK 4</option>
+          <option value="5">HSK 5</option>
+          <option value="6">HSK 6</option>
+        </select>
+        <span class="hint">Words ≤ this level are pre-marked known during mining.</span>
+      </label>
     </section>
 
     <section class="settings-section">
