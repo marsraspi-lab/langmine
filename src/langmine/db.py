@@ -3,7 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS videos (
     transcript_json TEXT,
     audio_path TEXT,
     processed_at TEXT DEFAULT (datetime('now')),
-    language_code TEXT NOT NULL DEFAULT 'zh'
+    language_code TEXT NOT NULL DEFAULT 'zh',
+    subtitle_language TEXT NOT NULL DEFAULT '',
+    subtitle_kind TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS sentences (
@@ -152,6 +154,16 @@ class Database:
                     language_code TEXT NOT NULL DEFAULT 'zh'
                 )"""
             )
+
+        if current < 5:
+            # v4 → v5: added subtitle_language + subtitle_kind on videos
+            for col in ["subtitle_language", "subtitle_kind"]:
+                try:
+                    self._conn.execute(
+                        f"ALTER TABLE videos ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                    )
+                except sqlite3.OperationalError:
+                    pass
 
         self._conn.execute(
             "UPDATE schema_version SET version = ? WHERE version < ?",

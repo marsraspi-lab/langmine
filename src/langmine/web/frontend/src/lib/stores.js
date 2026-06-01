@@ -183,12 +183,12 @@ export const curatedSentences = derived(
   }
 );
 
-export async function mineVideo(url, file = null) {
+export async function mineVideo(url, file = null, language = '') {
   mining.set(true);
   mineStatus.set('⏳ Mining...');
   try {
     let data;
-    for await (const event of api.mineVideoStream(url, file)) {
+    for await (const event of api.mineVideoStream(url, file, language)) {
       console.log('[mine]', event);
       if (event.error) {
         const err = event.error;

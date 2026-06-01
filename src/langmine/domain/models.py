@@ -49,6 +49,8 @@ class Video:
     audio_path: str = ""           # path to full MP3
     processed_at: str | None = None
     language_code: str = ""        # "zh", "es", "ko", etc.
+    subtitle_language: str = ""    # e.g. "zh-Hans" — chosen subtitle track
+    subtitle_kind: str = ""        # "manual", "auto", or ""
 
     # Set by persistence layer
     id: int | None = None

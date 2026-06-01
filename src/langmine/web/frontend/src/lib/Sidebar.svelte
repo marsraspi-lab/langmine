@@ -20,6 +20,7 @@
   let subInfo = $state(null);
   let subLoading = $state(false);
   let subCheckTimer = null;
+  let selectedSubLang = $state('');
 
   async function handleMine() {
     const url = urlInput.trim();
@@ -27,7 +28,7 @@
       mineStatus.set('Enter a YouTube URL.');
       return;
     }
-    await mineVideo(url, transcriptFile);
+    await mineVideo(url, transcriptFile, selectedSubLang);
     urlInput = '';
     transcriptFile = null;
     // Reset the file input
@@ -96,7 +97,12 @@
       subLoading = true;
       try {
         const result = await fetchSubtitleInfo(url);
-        if (result.ok) subInfo = result.data;
+        if (result.ok) {
+          subInfo = result.data;
+          if (result.data.subtitles.length > 0) {
+            selectedSubLang = result.data.subtitles[0].language_code;
+          }
+        }
       } catch (e) {
         // best-effort — ignore failures
       } finally {
@@ -134,8 +140,15 @@
           {s.kind === 'manual' ? '✅' : '⚠️'} {s.language_name} ({s.kind === 'manual' ? 'manual' : 'auto-generated'})
         </div>
       {:else}
-        <div class="subtitle-chip manual">
-          ✅ {subInfo.subtitles.length} subtitle languages available
+        <div class="subtitle-chip manual sub-lang-row">
+          <span>✅</span>
+          <select bind:value={selectedSubLang} class="sub-lang-select">
+            {#each subInfo.subtitles as s}
+              <option value={s.language_code}>
+                {s.language_name} ({s.kind === 'manual' ? 'manual' : 'auto'})
+              </option>
+            {/each}
+          </select>
         </div>
       {/if}
     {:else if subInfo && !subInfo.available}
@@ -192,6 +205,11 @@
               {/if}
               {#if video.kept_count > 0}
                 <span class="count-kept">✅{video.kept_count}</span>
+              {/if}
+              {#if video.subtitle_kind === 'auto'}
+                <span class="sub-badge auto">🤖 auto</span>
+              {:else if video.subtitle_kind === 'manual'}
+                <span class="sub-badge manual">✍️ manual</span>
               {/if}
             </div>
           </button>
@@ -337,6 +355,25 @@
   .subtitle-chip.auto  { background: rgba(255, 152, 0, 0.15); color: #ffa726; }
   .subtitle-chip.none  { background: rgba(244, 67, 54, 0.15); color: #ef5350; }
   .subtitle-chip.loading { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
+  .sub-lang-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sub-lang-select {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: inherit;
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+  }
+  .sub-lang-select option {
+    background: var(--bg);
+    color: var(--text);
+  }
   .preview-btn {
     width: 100%;
     padding: 8px;
