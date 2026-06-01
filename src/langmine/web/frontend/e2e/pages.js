@@ -326,6 +326,10 @@ export class SubtitleChip {
   async expectOptionCount(n) {
     await expect(this.langOptions).toHaveCount(n);
   }
+
+  async expectOptionText(text) {
+    await expect(this.langOptions.filter({ hasText: text })).toHaveCount(1);
+  }
 }
 
 // ── Difficulty preview (M13) ──────────────────────────────────────────

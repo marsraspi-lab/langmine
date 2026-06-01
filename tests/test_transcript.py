@@ -425,3 +425,25 @@ ja-en      Japanese from English              vtt, srt, ttml, srv3, srv2, srv1, 
         subs = _parse_list_subs_output(output)
         assert all(s.kind == "auto" for s in subs)
         assert all(" from " not in s.language_name for s in subs)
+
+    def test_real_world_auto_first_then_manual(self):
+        """Simulate the yt-dlp output where auto section comes first,
+        then manual section with narrower spacing (single space before vtt)."""
+        output = """[info] Available automatic captions for NMoEqBiIVLA:
+Language   Name                               Formats
+ab-zh      Abkhazian from Chinese             vtt, srt, ttml, srv3, srv2, srv1, json3
+af-zh      Afrikaans from Chinese             vtt, srt, ttml, srv3, srv2, srv1, json3
+
+[info] Available subtitles for NMoEqBiIVLA:
+Language Name    Formats
+zh       Chinese vtt, srt, ttml, srv3, srv2, srv1, json3
+"""
+        subs = _parse_list_subs_output(output)
+        manual = [s for s in subs if s.kind == "manual"]
+        auto = [s for s in subs if s.kind == "auto"]
+        assert len(manual) == 1
+        assert manual[0].language_code == "zh"
+        assert manual[0].language_name == "Chinese"
+        assert len(auto) == 2
+        assert auto[0].language_code == "ab-zh"
+        assert auto[0].language_name == "Abkhazian"  # "from Chinese" stripped
