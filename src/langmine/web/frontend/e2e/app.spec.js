@@ -624,8 +624,9 @@ test.describe('LangMine SPA', () => {
     // Wait for cards to reload after refreshAfterAction
     await curation.expectCardsLoaded();
 
-    // Re-open to verify persisted as " / " format
-    await segText.click();
+    // Re-open to verify persisted as " / " format (re-query after DOM refresh)
+    const segText2 = curation.cards.nth(0).locator('.segmented-text');
+    await segText2.click();
     await expect(segInput).toHaveValue('我们 一 般 早上 起床');
   });
 
