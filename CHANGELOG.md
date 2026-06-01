@@ -2,6 +2,37 @@
 
 All notable changes to LangMine.
 
+## [1.6.0] — 2026-06-01
+
+### Added
+
+- **M24: Sentence Joining** — `POST /api/sentences/<id>/merge-with-previous` endpoint. Merges sentence B into the previous sentence A: concatenates `text`, `text_segmented`, `reading`, `translation_de`; spans timing from A's `start_ms` to B's `end_ms`; soft-deletes B; reclassifies the merged sentence.
+- **Frontend merge button** — ⬆️ Merge button on non-first sentence cards in curation view. Calls `mergeWithPrevious()` API function, reloads sentence list on success. Toast feedback on merge/failure.
+- **`_get_sentence_or_404()` helper** in `routes.py`.
+
+### Changed
+
+- **E2E**: 51 tests (up from 49). New merge E2E test verifies button visibility, first-sentence guard, merge POST.
+
+---
+
+## [1.5.0] — 2026-06-01
+
+### Added
+
+- **M23: Word Splitting** — click `text_segmented` inline to edit word boundaries. Type spaces between words; saved as `word1 / word2 / word3` format. `_reclassify_from_segmented()` reclassifies the sentence after editing.
+- **M22: Add Sentences** — `reclassify_all()` domain method + `POST /api/videos/<id>/reclassify?offset=N&limit=M` endpoint. "🔄 Reclassify & sort" and "+ Add more sentences" buttons in curation view with pagination.
+- **M21: HSK Bootstrap** — `_bootstrap_hsk()` pre-marks HSK words as `known` from language extension proficiency data.
+- **M20: Manual Proper Names** — `PATCH /api/vocab/<word>` now accepts `{status: "proper-name"}` and `{proper_name: true/false}`. "👤 Mark as proper name" and "❌ Not a proper name" buttons in word popovers. Guard in `_words_array` prevents re-detection of dismissed proper names.
+- **M19: Client-Side Curation** — `knownWords`/`learningWords`/`ignoredWords` Svelte hashmaps. `curatedSentences` derived store computes `computedStatus` client-side. All sentences visible. Instant word highlighting — no server roundtrip for word status changes.
+
+### Changed
+
+- **E2E**: 49 tests (up from 42). New tests for word splitting, add sentences pagination, proper-name marking/dismissal.
+- **Pytest**: 234 tests (up from 206). New tests for proper-name guard, merge endpoint, reclassification.
+
+---
+
 ## [1.2.0] — 2026-05-31
 
 ### Added

@@ -2,7 +2,7 @@
 
 YouTube sentence mining for language learning. Extract sentences with audio from YouTube videos, filter by vocabulary level (i+1), curate in a browser, and send flashcards directly to Anki via AnkiConnect.
 
-**Status:** v1.5.0 — M0–M18 (proper name brackets). 206 pytest + 42 E2E. All tests pass.
+**Status:** v1.6.0 — M0–M24 (sentence joining). 234 pytest + 51 E2E. All tests pass.
 
 ## Requirements
 
@@ -359,8 +359,14 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 | M16 | Event Timeline | ✅ — append-only event log, 11 event types, created_at/updated_at timestamps |
 | M17 | Ignore Word Status | ✅ — 🚫 mark words as ignored, auto-reclassify stash, 200 pytest + 42 E2E |
 | M18 | Proper Name Brackets | ✅ — [square brackets] on proper names, jieba POS detection, dismissable |
+| M19 | Client-Side Curation | ✅ — Svelte hashmaps for instant word highlighting, derived curatedSentences store |
+| M20 | Manual Proper Names | ✅ — 👤 Mark as proper name / ❌ dismiss, guard against re-detection |
+| M21 | HSK Bootstrap | ✅ — pre-mark HSK words as known from proficiency data |
+| M22 | Add Sentences | ✅ — reclassify & paginate all sentences, \"Add more sentences\" button |
+| M23 | Word Splitting | ✅ — edit `text_segmented` inline with spaces as word boundaries |
+| M24 | Sentence Joining | ✅ — ⬆️ Merge with previous sentence, concatenates text/reading/translation |
 
-> **Plan:** no next plan yet — all milestones through M18 are shipped.
+> **Current:** M0–M24 shipped. 234 pytest + 51 E2E all green.
 
 ---
 

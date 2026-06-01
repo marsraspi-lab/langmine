@@ -1,42 +1,55 @@
-# Handoff — 2026-05-31 (Proper Name Brackets)
+# Handoff — 2026-06-01 (Sentence Joining)
 
 ## Where We Are
 
-**Proper name brackets complete.** Merged to `main` (PR #13).
+**Sentence joining complete.** Merged to `main` (PR #21).
 
-- **`main`:** v1.5.0 — M0–M18 (proper name brackets). 206 pytest + 42 E2E.
-- **What's new:** `LanguageProcessor.is_proper_name()` port method. Chinese implementation using jieba posseg (detects person names `nr`, place names `ns`). Transcript API and preview endpoint assign `status="proper-name"` — excluded from i+1 unknown counting. Frontend renders `[brackets]` via CSS `::before`/`::after`. "Not a proper name" popover action dismisses via `PATCH /api/vocab/{word}` with `{proper_name: false}`.
-- **Status:** v1.5.0 material — all 18 milestones complete.
+- **`main`:** v1.6.0 — M0–M24. 234 pytest + 51 E2E.
+- **What's new (M24):** `POST /api/sentences/<id>/merge-with-previous` — merges sentence B into the previous sentence A. Concatenates `text`, `text_segmented`, `reading`, `translation_de`. Spans timing from A's `start_ms` to B's `end_ms`. Soft-deletes B. Reclassifies the merged sentence. Frontend: ⬆️ Merge button on non-first sentence cards in curation view.
+- **What's new (M23):** Word splitting via editable `text_segmented` — click the segmented text to edit word boundaries with spaces. Spaces converted to ` / ` separator on save. Sentence reclassified after split.
+- **What's new (M22):** "Add Sentences" — `reclassify_all()` endpoint reclassifies all sentences for a video, paginated (offset/limit). "🔄 Reclassify & sort" and "+ Add more sentences" buttons in curation view.
+- **What's new (M21):** HSK bootstrap — pre-marks HSK words as `known` based on configured proficiency level.
+- **What's new (M20):** Manual proper name marking — `PATCH /api/vocab/<word>` supports `{status: "proper-name"}` and `{proper_name: true/false}`. 👤 Mark as proper name / ❌ Not a proper name buttons in word popovers. Guard prevents re-detection of dismissed proper names.
+- **What's new (M19):** Client-side curation — `knownWords`/`learningWords`/`ignoredWords` Svelte hashmaps. `curatedSentences` derived store computes status client-side. All sentences visible. Instant word highlighting. Removed server cascade for word status changes.
 
-## What Changed (M18)
+## What Changed (M19–M24)
 
-### New Port Method
-- `LanguageProcessor.is_proper_name(token) -> bool` — detected via jieba posseg in Chinese
-- Proper name POS tags: `nr` (person), `ns` (place), `nrfg` (given name), `nrt` (transliterated)
+### M19: Client-Side Curation
+- Svelte writable stores: `knownWords`, `learningWords`, `ignoredWords` (hashmaps)
+- `curatedSentences` derived store: computes `computedStatus` per sentence from vocabulary
+- All sentences visible in "All" tab regardless of status
+- Instant word highlighting — no server roundtrip on word status change
 
-### Transcript & Preview
-- `_words_array()` checks `is_proper_name()` and assigns `status="proper-name"`
-- Preview endpoint token classification includes proper-name check
-- Proper names excluded from i+1 unknown counting (like non-words)
-- Known/ignored words take priority over proper-name detection
+### M20: Manual Proper Names
+- `PATCH /api/vocab/<word>` now accepts `{status: "proper-name"}` and `{proper_name: true/false}`
+- Popover buttons: "👤 Mark as proper name", "❌ Not a proper name"
+- `_words_array` guard in `classifier.py` excludes `("known", "ignored", "proper-name", "learning")`
+- 3 new E2E tests for proper-name marking/dismissal
 
-### New API Behavior
-- `PATCH /api/vocab/{word}` accepts `{"proper_name": false}` → marks word as `learning`
-- Logs `dismissed_proper_name` event
+### M21: HSK Bootstrap
+- `_bootstrap_hsk()` pre-marks HSK words as `known` using language extension proficiency data
+- Words stamped with `hsk_level` and `frequency_rank` from language data
 
-### Frontend
-- CSS `::before`/`::after` brackets on `.word-proper-name` (faded gray)
-- "❌ Not a proper name" button in word popover (visible when status is proper-name)
-- `dismissProperName()` in `api.js`
+### M22: Add Sentences
+- `SentenceClassifier.reclassify_all(video_id)` — domain method
+- `POST /api/videos/<id>/reclassify?offset=N&limit=M` — returns `{sentences, has_more, total}`
+- Frontend: "🔄 Reclassify & sort" and "+ Add more sentences" buttons
+- `reclassifyAndLoad` store action with pagination state
 
-### Infrastructure
-- `sandbox/Dockerfile`: `libasound2` → `libasound2t64` (Debian trixie rename)
-- `pyproject.toml` bumped to 1.5.0
+### M23: Word Splitting
+- Click `text_segmented` to inline-edit with spaces as word boundaries
+- Save converts `"word1 word2 word3"` → `"word1 / word2 / word3"`
+- `_reclassify_from_segmented()` reclassifies after edit
+- E2E: edits "我们 一般 早上 起床" → "我们 一 般 早上 起床" (split 一般)
 
-### Tests
-- `tests/languages/chinese/test_service.py` — 4 tests: person/place detection, common word/particle rejection
-- `tests/test_web_transcript.py::TestProperNameInTranscript` — 1 test: transcript proper-name status
-- `tests/test_web_api.py::TestDismissProperName` — 1 test: dismiss API flow
+### M24: Sentence Joining
+- `POST /api/sentences/<id>/merge-with-previous` — backend endpoint
+- Finds previous sentence by `start_ms` ordering, concatenates all fields
+- Soft-deletes previous sentence, reclassifies merged via `_reclassify_from_segmented()`
+- `_get_sentence_or_404()` helper
+- Frontend: `mergeWithPrevious()` API + ⬆️ Merge button (visible when `idx > 0`)
+- `onMerge` handler in CardList: API call → reload → toast
+- E2E: verifies merge button visibility, first-sentence guard, merge POST
 
 ## Architecture Rules (unchanged)
 
@@ -49,45 +62,16 @@
 - `routes.py` must not import from `adapters/` (wire through Flask config)
 - TDD: failing test first, then implementation
 
-## Key File Structure (current)
-
-```
-src/langmine/
-├── domain/              # Language-agnostic core
-├── adapters/            # Language-agnostic adapters only
-├── languages/
-│   └── chinese/
-│       ├── __init__.py         # MANIFEST + get_anki_templates() + exports
-│       ├── service.py          # ChineseLanguageService
-│       ├── dictionary.py       # CcCedictAdapter
-│       ├── frequency.py        # SubtlexChAdapter + JiebaFrequencyAdapter
-│       ├── hsk_data.py         # HSK proficiency data
-│       ├── anki/               # Card templates as files
-│       │   ├── basic/{front.html, back.html, css.css}
-│       │   └── cloze/{front.html, back.html, css.css}
-│       └── data/               # CC-CEDICT + SUBTLEX corpus
-├── language_factory.py  # Factory: processors, templates, manifest, proficiency
-├── web/                 # No language-specific code
-├── pipeline.py          # Accepts ports, stamps language_code
-├── cli.py               # Uses factory
-└── config.py
-tests/
-├── test_multi_language.py      # 5 tests — model + isolation
-├── test_language_factory.py
-├── languages/chinese/          # 4 test files
-└── ...
-```
-
 ## Key Commands
 
 ```bash
 # Run all tests
-cd /root/projects/langmine
-python -m pytest tests/ -q
+cd /workspace/langmine
+python -m pytest tests/ -q --ignore=tests/test_audio.py
 
 # Run E2E tests
 cd src/langmine/web/frontend
-npx playwright test
+PLAYWRIGHT_BROWSERS_PATH=/opt/playwright-browsers npx playwright test
 
 # Build frontend
 cd src/langmine/web/frontend && npm run build
@@ -96,22 +80,4 @@ cd src/langmine/web/frontend && npm run build
 grep -r "from langmine.languages" src/langmine/domain/      # must be EMPTY
 grep -r "from langmine.languages" src/langmine/web/         # must be EMPTY
 grep -r "from langmine.adapters" src/langmine/domain/       # must be EMPTY
-
-# Docker build with version
-docker build --build-arg VERSION=1.2.0 -t langmine:1.2.0 .
 ```
-
-## Version Infrastructure
-
-Single source of truth: `pyproject.toml` → `importlib.metadata.version("langmine")`.
-
-| Channel | How |
-|---|---|
-| CLI | `langmine --version` |
-| API | `GET /api/version` → `{"version": "1.2.0", "name": "langmine"}` |
-| UI | Settings page footer (fetches `/api/version` on mount) |
-| Docker | `--build-arg VERSION=1.2.0` → OCI label |
-
-## Multi-Language Plan
-
-See `.hermes/plans/2026-05-30-decouple-chinese.md` for full phase breakdown (7 phases, ~35 tasks). Spanish, Korean, Russian are planned — create `languages/<code>/` with service + dictionary + frequency + anki templates + manifest, add to factory.
