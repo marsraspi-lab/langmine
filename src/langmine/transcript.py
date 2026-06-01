@@ -197,26 +197,42 @@ def _parse_srt(path: Path) -> list[TranscriptChunk]:
 def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
     """Parse yt-dlp --list-subs output into SubtitleInfo objects.
 
+    yt-dlp --list-subs produces TWO sections:
+    1. "Available subtitles" — manual (human-created), kind="manual"
+    2. "Available automatic captions" — auto-generated (speech recognition)
+       or auto-translated from another language, kind="auto"
+
     Expected format:
         [info] Available subtitles for abc123:
         Language Name                  Formats
         zh-Hans  Chinese (Simplified)  vtt, srt, ttml
         en       English               vtt, srt, ttml
-        zh-Hant  Chinese (Traditional) vtt, srt, ttml (auto-generated)
+
+        [info] Available automatic captions for abc123:
+        Language Name                               Formats
+        zh-Hans  Chinese (Simplified)               vtt, srt, ttml (auto-generated)
+        zh-Hans-en Chinese (Simplified) from English  vtt, srt, ttml, ...
     """
     subtitles = []
-    in_table = False
+    section = None  # "manual" or "auto"
 
     for line in output.splitlines():
         line = line.strip()
         if not line:
             continue
-        if "Available subtitles" in line or "Language" in line:
-            in_table = True
+
+        # Detect section transitions
+        if "Available automatic captions" in line or "Available auto-generated" in line:
+            section = "auto"
             continue
-        if "Has automatic captions" in line or "Available automatic" in line:
+        if "Available subtitles" in line:
+            section = "manual"
             continue
-        if not in_table:
+        # Skip header line
+        if "Language" in line and "Formats" in line:
+            continue
+
+        if section is None:
             continue
 
         match = re.match(
@@ -228,7 +244,13 @@ def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
 
         lang_code = match.group(1)
         lang_name = match.group(2).strip()
-        kind = "auto" if "auto-generated" in match.group(4).lower() else "manual"
+
+        # Determine kind: section-based (reliable) overrides text-based heuristic
+        kind = section  # "manual" or "auto"
+
+        # Clean up auto-translated names: "Chinese (Simplified) from English" → "Chinese (Simplified)"
+        if " from " in lang_name:
+            lang_name = lang_name.rsplit(" from ", 1)[0]
 
         subtitles.append(SubtitleInfo(
             language_code=lang_code,

@@ -684,13 +684,13 @@ test.describe('LangMine SPA', () => {
     await subtitles.expectChipText('Chinese');
   });
 
-  test('shows auto subtitle chip on URL input', async () => {
+  test('shows auto-only warning when only auto subs available', async () => {
     await main.goto();
-    // dQw4w9WgXcQ = auto English subs in test server
+    // dQw4w9WgXcQ = auto English subs in test server — no manual subs
     await main.urlInput.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     await main.page.waitForTimeout(1200);
     await subtitles.expectChipVisible('auto');
-    await subtitles.expectChipText('English');
+    await subtitles.expectChipText('No manual subtitles');
   });
 
   test('shows no-subtitle chip for unknown video', async () => {
@@ -701,25 +701,24 @@ test.describe('LangMine SPA', () => {
     await subtitles.expectChipText('No subtitles available');
   });
 
-  test('shows language dropdown when multiple subtitles available', async () => {
+  test('shows language dropdown with only manual subtitles', async () => {
     await main.goto();
-    // aAaAaAaAaAa = 3 languages in test server
+    // aAaAaAaAaAa = 2 manual (zh-Hans, en) + 1 auto (ja) in test server
     await main.urlInput.fill('https://www.youtube.com/watch?v=aAaAaAaAaAa');
     await main.page.waitForTimeout(1200);
     await subtitles.expectDropdownVisible();
-    await subtitles.expectOptionCount(3);
+    await subtitles.expectOptionCount(2);  // only manual subs
   });
 
   test('can mine with a selected subtitle language', async () => {
     await main.goto();
-    // Use multi-lang video, select Japanese, then mine
+    // Use multi-lang video, select Chinese (Simplified) (manual), then mine
     await main.urlInput.fill('https://www.youtube.com/watch?v=aAaAaAaAaAa');
     await main.page.waitForTimeout(1200);
     await subtitles.expectDropdownVisible();
-    await subtitles.selectLanguage('ja');
+    await subtitles.selectLanguage('zh-Hans');
     await main.mineButton.click();
     // Mine should start (fake pipeline succeeds instantly)
-    // After mine completes, the video list updates
     await expect(main.mineStatus).toContainText(/sentences/, { timeout: 15000 });
   });
 

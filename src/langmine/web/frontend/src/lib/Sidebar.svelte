@@ -22,6 +22,11 @@
   let subCheckTimer = null;
   let selectedSubLang = $state('');
 
+  // M26: Filter to only manual subtitles for language selection
+  let manualSubs = $derived(
+    subInfo?.subtitles?.filter(s => s.kind === 'manual') ?? []
+  );
+
   async function handleMine() {
     const url = urlInput.trim();
     if (!url) {
@@ -99,8 +104,8 @@
         const result = await fetchSubtitleInfo(url);
         if (result.ok) {
           subInfo = result.data;
-          if (result.data.subtitles.length > 0) {
-            selectedSubLang = result.data.subtitles[0].language_code;
+          if (manualSubs.length > 0) {
+            selectedSubLang = manualSubs[0].language_code;
           }
         }
       } catch (e) {
@@ -133,24 +138,26 @@
     />
     {#if subLoading}
       <div class="subtitle-chip loading">⏳ Checking subtitles…</div>
-    {:else if subInfo && subInfo.available}
-      {#if subInfo.subtitles.length === 1}
-        {@const s = subInfo.subtitles[0]}
-        <div class="subtitle-chip {s.kind}" title={s.language_name}>
-          {s.kind === 'manual' ? '✅' : '⚠️'} {s.language_name} ({s.kind === 'manual' ? 'manual' : 'auto-generated'})
+    {:else if subInfo && subInfo.available && manualSubs.length > 0}
+      {#if manualSubs.length === 1}
+        {@const s = manualSubs[0]}
+        <div class="subtitle-chip manual" title={s.language_name}>
+          ✅ {s.language_name} (manual)
         </div>
       {:else}
         <div class="subtitle-chip manual sub-lang-row">
           <span>✅</span>
           <select bind:value={selectedSubLang} class="sub-lang-select">
-            {#each subInfo.subtitles as s}
+            {#each manualSubs as s}
               <option value={s.language_code}>
-                {s.language_name} ({s.kind === 'manual' ? 'manual' : 'auto'})
+                {s.language_name} (manual)
               </option>
             {/each}
           </select>
         </div>
       {/if}
+    {:else if subInfo && subInfo.available && manualSubs.length === 0}
+      <div class="subtitle-chip auto">⚠️ No manual subtitles — only auto-generated available</div>
     {:else if subInfo && !subInfo.available}
       <div class="subtitle-chip none">❌ No subtitles available</div>
     {/if}
