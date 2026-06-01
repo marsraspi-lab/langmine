@@ -119,7 +119,7 @@ def register_routes(app: Flask):
             # Synchronous path — backward compatible, no threading needed.
             # Used by test client and non-browser clients.
             try:
-                from langmine.pipeline import process_video
+                from langmine.pipeline import process_video, MineError
                 from langmine.config import load_config
 
                 config = load_config()
@@ -153,6 +153,8 @@ def register_routes(app: Flask):
                     "total_sentences": result["total_sentences"],
                     "i1_count": len(result["i1_candidates"]),
                 })
+            except MineError as e:
+                return jsonify({"error": str(e), "stage": e.stage}), 400
             except ValueError as e:
                 return jsonify({"error": str(e)}), 400
             except Exception as e:
@@ -169,7 +171,7 @@ def register_routes(app: Flask):
         def _do_mine():
             """Run mining in a thread, pushing progress to the queue."""
             try:
-                from langmine.pipeline import process_video
+                from langmine.pipeline import process_video, MineError
                 from langmine.config import load_config
 
                 config = load_config()
@@ -207,10 +209,12 @@ def register_routes(app: Flask):
                     "total_sentences": result["total_sentences"],
                     "i1_count": len(result["i1_candidates"]),
                 }))
+            except MineError as e:
+                progress_queue.put(("error", {"message": str(e), "stage": e.stage}))
             except ValueError as e:
-                progress_queue.put(("error", str(e)))
+                progress_queue.put(("error", {"message": str(e), "stage": "unknown"}))
             except Exception as e:
-                progress_queue.put(("error", f"Mining failed: {e}"))
+                progress_queue.put(("error", {"message": f"Mining failed: {e}", "stage": "unknown"}))
 
         def _sse_stream():
             """SSE generator: yield progress events + final result."""
