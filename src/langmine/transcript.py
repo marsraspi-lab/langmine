@@ -236,7 +236,7 @@ def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
             continue
 
         match = re.match(
-            r"^(\S+)\s{2,}(.+?)\s{2,}(vtt|srt|ttml|ass)(.*)$",
+            r"^(\S+)\s{2,}(.+?)\s+(vtt|srt|ttml|ass)(.*)$",
             line
         )
         if not match:
