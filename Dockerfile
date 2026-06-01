@@ -18,6 +18,15 @@ LABEL org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.description="YouTube sentence mining for language learning"
 
 WORKDIR /app
+
+# Copy dependency manifest first so pip install is cached
+# unless pyproject.toml changes (standard Docker layer optimization)
+COPY pyproject.toml .
+RUN mkdir -p src/langmine && touch src/langmine/__init__.py \
+    && pip install --no-cache-dir . \
+    && rm -rf src/langmine
+
+# Copy application code (fast — deps already installed above)
 COPY . .
 COPY --from=frontend /static /app/src/langmine/web/static/
 RUN pip install --no-cache-dir -e .
