@@ -176,7 +176,7 @@ class FakeTranscriptSource(TranscriptSource):
     def __init__(self, subtitles=None):
         self._subtitles = subtitles or {}
 
-    def fetch(self, video_id):
+    def fetch(self, video_id, language=""):
         return [
             TranscriptChunk(text="我们", start_ms=0, duration_ms=500),
             TranscriptChunk(text="一般", start_ms=600, duration_ms=400),

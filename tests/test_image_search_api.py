@@ -98,7 +98,7 @@ class FakePersistence(Persistence):
 
 
 class FakeTranscriptSource(TranscriptSource):
-    def fetch(self, video_id):
+    def fetch(self, video_id, language=""):
         return [TranscriptChunk(text="test", start_ms=0, duration_ms=500)]
 
     def list_subtitles(self, video_id):

@@ -152,7 +152,7 @@ class FakeTranscriptSource(TranscriptSource):
     def __init__(self, chunks=None):
         self._chunks = chunks or [TranscriptChunk(text="test", start_ms=0, duration_ms=500)]
 
-    def fetch(self, video_id):
+    def fetch(self, video_id, language=""):
         return self._chunks
 
     def list_subtitles(self, video_id):
@@ -292,7 +292,7 @@ class TestDifficultyPreview:
         from langmine.web.app import create_app
 
         class FailingTranscriptSource(TranscriptSource):
-            def fetch(self, video_id):
+            def fetch(self, video_id, language=""):
                 raise ValueError("No transcript available for video 'test'.")
 
             def list_subtitles(self, video_id):

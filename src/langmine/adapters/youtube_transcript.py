@@ -13,9 +13,10 @@ class YouTubeTranscriptAdapter(TranscriptSource):
         self._user_agent = user_agent
         self._language_codes = language_codes or []
 
-    def fetch(self, video_id: str) -> list[TranscriptChunk]:
+    def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
+        lang_codes = [language] if language else self._language_codes
         return fetch_transcript(video_id, user_agent=self._user_agent,
-                                language_codes=self._language_codes)
+                                language_codes=lang_codes)
 
     def list_subtitles(self, video_id: str) -> list[SubtitleInfo]:
         """List available subtitle tracks via yt-dlp --list-subs."""

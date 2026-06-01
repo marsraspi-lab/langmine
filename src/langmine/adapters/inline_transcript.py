@@ -13,8 +13,8 @@ class InlineTranscriptSource(TranscriptSource):
     def __init__(self, chunks: list[TranscriptChunk]):
         self._chunks = chunks
 
-    def fetch(self, video_id: str) -> list[TranscriptChunk]:
-        # video_id is ignored — we already have the chunks
+    def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
+        # video_id and language are ignored — we already have the chunks
         return self._chunks
 
     def list_subtitles(self, video_id: str) -> list[SubtitleInfo]:

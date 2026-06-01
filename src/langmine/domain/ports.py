@@ -114,8 +114,14 @@ class TranscriptSource(ABC):
     """
 
     @abstractmethod
-    def fetch(self, video_id: str) -> list[TranscriptChunk]:
+    def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
         """Fetch subtitle chunks for a video.
+
+        Args:
+            video_id: YouTube video ID or URL.
+            language: Optional subtitle language code (e.g., 'zh-Hans').
+                When provided, download this specific language track.
+                When empty, use the adapter's default language preferences.
 
         Raises:
             ValueError: If the video is unavailable or has no transcript.

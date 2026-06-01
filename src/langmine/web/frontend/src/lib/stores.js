@@ -196,7 +196,10 @@ export async function mineVideo(url, file = null, language = '') {
         const stage = err?.stage;
         const friendly = FRIENDLY_ERRORS[stage];
         if (friendly) {
-          throw new Error(friendly);
+          // Prefer backend's enriched message when it differs from the generic fallback.
+          // e.g. "This video has subtitles (Chinese (manual)) but download failed." vs.
+          //      "Could not download transcript. The video may not have subtitles."
+          throw new Error(msg && msg !== friendly ? msg : friendly);
         }
         // Unexpected error: show truncated message for debugging
         throw new Error(msg.length > 200 ? msg.slice(0, 197) + '…' : msg);

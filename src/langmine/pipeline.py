@@ -172,6 +172,7 @@ def process_video(
     pad_after_ms: int | None = None,
     progress_callback=None,
     subtitle_kind: str = "",
+    subtitle_language: str = "",
 ) -> dict:
     """Mine and classify all sentences from a video.
 
@@ -200,7 +201,7 @@ def process_video(
     # 1. Fetch and merge transcript
     _progress("Fetching transcript…")
     try:
-        chunks = transcript_source.fetch(video_id)
+        chunks = transcript_source.fetch(video_id, language=subtitle_language)
     except Exception as e:
         raise MineError(str(e), "transcript") from e
     merged = merge_sentences(chunks, gap_ms=gap_ms)

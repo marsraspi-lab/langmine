@@ -146,6 +146,7 @@ def register_routes(app: Flask):
                     output_dir=output_dir,
                     gap_ms=0 if is_file_upload else None,
                     subtitle_kind=subtitle_kind,
+                    subtitle_language=language if not is_file_upload else "",
                 )
 
                 video = persistence.get_video(video_id)
@@ -213,6 +214,7 @@ def register_routes(app: Flask):
                     gap_ms=0 if is_file_upload else None,
                     progress_callback=_on_progress,
                     subtitle_kind=subtitle_kind if not is_file_upload else "",
+                    subtitle_language=language if not is_file_upload else "",
                 )
 
                 video = persistence.get_video(video_id)
