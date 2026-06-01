@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { MainPage, CurationPage, SettingsPage, VocabPage, ReadingPage, PreviewPage } from './pages.js';
+import { MainPage, CurationPage, SettingsPage, VocabPage, ReadingPage, PreviewPage, SubtitleChip } from './pages.js';
 
 test.describe('LangMine SPA', () => {
-  let main, curation, settings, vocab, reading, preview;
+  let main, curation, settings, vocab, reading, preview, subtitles;
 
   test.beforeEach(async ({ page }) => {
     main      = new MainPage(page);
@@ -11,6 +11,7 @@ test.describe('LangMine SPA', () => {
     vocab     = new VocabPage(page);
     reading   = new ReadingPage(page);
     preview   = new PreviewPage(page);
+    subtitles = new SubtitleChip(page);
   });
 
   // ── Basic page load ──────────────────────────────────────────────────
@@ -672,17 +673,76 @@ test.describe('LangMine SPA', () => {
     await expect(main.page.locator('.toast-success').first()).toContainText('not a proper name');
   });
 
-  // ── M25: Subtitle chip ──────────────────────────────────────────────────
+  // ── M25/M26: Subtitle discovery + language selection ────────────────────
 
-  test('subtitle chip appears on URL input', async () => {
+  test('shows manual subtitle chip on URL input', async () => {
     await main.goto();
-
-    // Type a YouTube URL — the test server's FakeTranscriptSource returns []
-    // for list_subtitles, so we expect the "no subtitles" chip
+    // jNQXAC9IVRw = manual Chinese subs in test server
     await main.urlInput.fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
-    await main.page.waitForTimeout(1200);  // debounce (800ms) + API call
+    await main.page.waitForTimeout(1200);  // debounce (800ms) + API
+    await subtitles.expectChipVisible('manual');
+    await subtitles.expectChipText('Chinese');
+  });
 
-    const chip = main.page.locator('.subtitle-chip');
-    await expect(chip).toBeVisible();
+  test('shows auto subtitle chip on URL input', async () => {
+    await main.goto();
+    // dQw4w9WgXcQ = auto English subs in test server
+    await main.urlInput.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await main.page.waitForTimeout(1200);
+    await subtitles.expectChipVisible('auto');
+    await subtitles.expectChipText('English');
+  });
+
+  test('shows no-subtitle chip for unknown video', async () => {
+    await main.goto();
+    await main.urlInput.fill('https://www.youtube.com/watch?v=unknown12345');
+    await main.page.waitForTimeout(1200);
+    await subtitles.expectChipVisible('none');
+    await subtitles.expectChipText('No subtitles available');
+  });
+
+  test('shows language dropdown when multiple subtitles available', async () => {
+    await main.goto();
+    // aAaAaAaAaAa = 3 languages in test server
+    await main.urlInput.fill('https://www.youtube.com/watch?v=aAaAaAaAaAa');
+    await main.page.waitForTimeout(1200);
+    await subtitles.expectDropdownVisible();
+    await subtitles.expectOptionCount(3);
+  });
+
+  test('can mine with a selected subtitle language', async () => {
+    await main.goto();
+    // Use multi-lang video, select Japanese, then mine
+    await main.urlInput.fill('https://www.youtube.com/watch?v=aAaAaAaAaAa');
+    await main.page.waitForTimeout(1200);
+    await subtitles.expectDropdownVisible();
+    await subtitles.selectLanguage('ja');
+    await main.mineButton.click();
+    // Mine should start (fake pipeline succeeds instantly)
+    // After mine completes, the video list updates
+    await expect(main.mineStatus).toContainText(/sentences/, { timeout: 15000 });
+  });
+
+  test('shows subtitle kind badge in video list', async () => {
+    await main.goto();
+    await main.expectLoaded();
+    // The seed video dQw4w9WgXcQ has subtitle info
+    // Navigate to the video to trigger subtitle fetch, then check the sidebar list
+    await main.urlInput.fill('https://www.youtube.com/watch?v=dQw4w9WgXcQ');
+    await main.page.waitForTimeout(1200);
+    // The seed video should have an auto badge after we mined it with auto subs
+    // Mine the multi-lang video with a language to see the badge appear
+    await main.urlInput.fill('https://www.youtube.com/watch?v=jNQXAC9IVRw');
+    await main.page.waitForTimeout(1200);
+    await subtitles.expectChipVisible('manual');
+    await main.mineButton.click();
+    await main.page.waitForTimeout(3000);  // wait for mine to finish
+    // After mining, the video list should show the badge
+    // Reload to see the video entry
+    await main.goto();
+    await main.expectLoaded();
+    const badges = subtitles.videoBadges;
+    // At least one badge should be visible (from the newly mined video or the seed)
+    await expect(badges.first()).toBeVisible({ timeout: 5000 });
   });
 });

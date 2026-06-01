@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..
 from langmine.web.app import create_app
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
-    TranscriptChunk, MergedSentence, ImageSearch,
+    TranscriptChunk, MergedSentence, ImageSearch, SubtitleInfo,
 )
 from langmine.domain.models import Video, Sentence, VocabWord
 
@@ -173,6 +173,9 @@ class FakePersistence(Persistence):
 
 
 class FakeTranscriptSource(TranscriptSource):
+    def __init__(self, subtitles=None):
+        self._subtitles = subtitles or {}
+
     def fetch(self, video_id):
         return [
             TranscriptChunk(text="我们", start_ms=0, duration_ms=500),
@@ -183,7 +186,7 @@ class FakeTranscriptSource(TranscriptSource):
         ]
 
     def list_subtitles(self, video_id):
-        return []
+        return self._subtitles.get(video_id, [])
 
 
 class FakeAudioProcessor(AudioProcessor):
@@ -297,10 +300,22 @@ vocab_words = [
 for w in vocab_words:
     persistence.save_vocab_word(w)
 
+# Subtitle seed data for E2E tests
+# jNQXAC9IVRw = manual Chinese, dQw4w9WgXcQ = auto English, aAaAaAaAaAa = multi-lang
+subtitles_map = {
+    "jNQXAC9IVRw": [SubtitleInfo("zh-Hans", "Chinese (Simplified)", "manual")],
+    "dQw4w9WgXcQ": [SubtitleInfo("en", "English", "auto")],
+    "aAaAaAaAaAa": [
+        SubtitleInfo("zh-Hans", "Chinese (Simplified)", "manual"),
+        SubtitleInfo("en", "English", "manual"),
+        SubtitleInfo("ja", "Japanese", "auto"),
+    ],
+}
+
 app = create_app(
     persistence=persistence,
     language_processor=FakeLanguageProcessor(),
-    transcript_source=FakeTranscriptSource(),
+    transcript_source=FakeTranscriptSource(subtitles=subtitles_map),
     audio_processor=FakeAudioProcessor(),
     anki_exporter=FakeAnkiExporter(),
     image_searcher=FakeImageSearch(),
