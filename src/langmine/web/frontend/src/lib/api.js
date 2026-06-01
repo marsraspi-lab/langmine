@@ -176,6 +176,12 @@ export async function previewVideo(url) {
   return { ok: res.ok, status: res.status, data: await res.json() };
 }
 
+// Subtitle discovery (M25)
+export async function fetchSubtitleInfo(url) {
+  const res = await fetch(`/api/videos/subtitles?url=${encodeURIComponent(url)}`);
+  return { ok: res.ok, status: res.status, data: await res.json() };
+}
+
 // M24: Sentence joining
 export async function mergeWithPrevious(sentenceId) {
   const res = await fetch(`/api/sentences/${sentenceId}/merge-with-previous`, {
