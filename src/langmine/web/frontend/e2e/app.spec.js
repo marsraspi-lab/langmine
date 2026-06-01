@@ -389,8 +389,8 @@ test.describe('LangMine SPA', () => {
     await main.selectFirstVideo();
     await reading.enterReadingMode();
     await reading.expectLoaded();
-    await reading.expectSentenceCount(4);
-    await reading.expectToolbarInfo('4 sentences');
+    await reading.expectSentenceCount(54);
+    await reading.expectToolbarInfo('54 sentences');
   });
 
   test('reading mode shows word highlighting', async () => {
@@ -486,5 +486,43 @@ test.describe('LangMine SPA', () => {
     await expect(main.page.locator('h2')).toContainText('Vocabulary', { timeout: 5000 });
     // Search input should be pre-filled with the word
     await expect(main.page.locator('.search-input')).toHaveValue('一般');
+  });
+
+  // ── M22: Add Sentences + Reclassification ──────────────────────────────
+
+  test('Reclassify button appears and triggers reclassification', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // Button should be visible with initial label
+    const btn = curation.addSentencesBtn;
+    await expect(btn).toBeVisible();
+    await expect(btn).toContainText('Reclassify');
+
+    // Click it
+    await btn.click();
+
+    // Wait for reclassification to complete — button updates
+    // With 54 total sentences, first page has 50 → hasMore=true
+    await expect(btn).toContainText('Add more sentences', { timeout: 5000 });
+  });
+
+  test('Add more sentences loads next page', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // First: trigger reclassification
+    const btn = curation.addSentencesBtn;
+    await btn.click();
+    await expect(btn).toContainText('Add more sentences', { timeout: 5000 });
+
+    // Click "Add more sentences" to load remaining
+    await btn.click();
+
+    // After loading remaining 4 sentences (total=54, offset was 50),
+    // hasMore becomes false → button reverts to "Reclassify"
+    await expect(btn).toContainText('Reclassify', { timeout: 5000 });
   });
 });

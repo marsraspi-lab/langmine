@@ -249,6 +249,15 @@ sentences = [
 for s in sentences:
     persistence.save_sentences([s])
 
+# M22: Add extra stashed sentences for pagination testing (>50 total)
+for i in range(50):
+    persistence.save_sentences([Sentence(
+        video_id=video.id, start_ms=20000 + i * 1000, end_ms=21000 + i * 1000,
+        text=f"额外 句子 {i}",
+        text_segmented=f"额外 / 句子 / {i}",
+        status="stashed",
+    )])
+
 # Seed vocab words for M9 tests — word highlighting and vocab page
 vocab_words = [
     VocabWord(word_simplified="一般", reading="yībān", definition_de="allgemein",

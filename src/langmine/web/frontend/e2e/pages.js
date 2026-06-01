@@ -97,6 +97,9 @@ export class CurationPage {
   statusBadge(type)       { return this.page.locator(`.status-badge.${type}`); }
   filterTab(label)        { return this.page.locator('.tab', { hasText: label }); }
 
+  // M22: Add Sentences
+  get addSentencesBtn()   { return this.page.locator('.add-sentences-btn'); }
+
   // Actions
   async clickFilter(label) {
     await this.filterTab(label).click();
