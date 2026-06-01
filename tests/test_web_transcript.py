@@ -320,3 +320,31 @@ class TestProperNameInTranscript:
             f"Expected 曹操=proper-name, got {statuses_by_token}"
         assert statuses_by_token.get("是") == "known", \
             f"Expected 是=known (in known set), got {statuses_by_token}"
+
+    def test_dismissed_proper_name_not_re_detected(self, proper_name_client):
+        """After dismissing (word=learning in vocab), auto-detection must not re-apply."""
+        client, persistence, video = proper_name_client
+
+        # Seed a sentence with 曹操
+        sentence = Sentence(
+            video_id=video.id, start_ms=1000, end_ms=3000,
+            text="曹操 是 英雄",
+            text_segmented="曹操 / 是 / 英雄",
+            reading="cáo cāo shì yīng xióng",
+            translation_de="Cao Cao ist ein Held",
+            status="i1",
+        )
+        persistence.save_sentences([sentence])
+
+        # Save 曹操 as learning (simulates dismiss)
+        persistence.save_vocab_word(VocabWord(
+            word_simplified="曹操", status="learning"))
+
+        resp = client.get(f"/api/videos/{video.id}/transcript")
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+
+        words = data["sentences"][0]["words"]
+        statuses_by_token = {w["token"]: w["status"] for w in words}
+        assert statuses_by_token.get("曹操") == "learning", \
+            f"Expected 曹操=learning (dismissed), got {statuses_by_token}"

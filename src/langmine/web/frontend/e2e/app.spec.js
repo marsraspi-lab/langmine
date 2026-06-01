@@ -389,8 +389,8 @@ test.describe('LangMine SPA', () => {
     await main.selectFirstVideo();
     await reading.enterReadingMode();
     await reading.expectLoaded();
-    await reading.expectSentenceCount(4);
-    await reading.expectToolbarInfo('4 sentences');
+    await reading.expectSentenceCount(55);
+    await reading.expectToolbarInfo('55 sentences');
   });
 
   test('reading mode shows word highlighting', async () => {
@@ -486,5 +486,133 @@ test.describe('LangMine SPA', () => {
     await expect(main.page.locator('h2')).toContainText('Vocabulary', { timeout: 5000 });
     // Search input should be pre-filled with the word
     await expect(main.page.locator('.search-input')).toHaveValue('一般');
+  });
+
+  // ── M20: Proper name brackets ──────────────────────────────────────────
+
+  test('proper name words are wrapped in brackets in reading mode', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // "李世民" should appear as a proper-name word with bracket styling
+    await expect(reading.properNameWords.first()).toBeVisible();
+    const liShimin = reading.properNameWords.filter({ hasText: '李世民' });
+    await expect(liShimin).toBeVisible();
+  });
+
+  test('clicking a proper name shows dismiss option in popover', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // Click the proper name "李世民"
+    await reading.clickWord('李世民');
+    await reading.expectPopoverVisible();
+
+    // Popover should show "Not a proper name" dismiss button
+    const dismissBtn = main.page.locator('.popover-btn', { hasText: 'Not a proper name' });
+    await expect(dismissBtn).toBeVisible();
+  });
+
+  // ── M20+: Manual proper-name marking ─────────────────────────────────
+
+  test('curation view shows "Mark as proper name" button for non-proper-name word', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // Sentence 5 is "李世民 / 是 / 唐朝 / 皇帝" — click 唐朝
+    const sentence5 = curation.cards.nth(4);  // 0-indexed, sentence 5
+    await expect(sentence5).toBeVisible();
+
+    // Click the word "唐朝" (should be .word-unknown or similar, NOT proper-name)
+    const tangChao = sentence5.locator('.word-token', { hasText: '唐朝' });
+    await tangChao.click();
+
+    await curation.expectPopoverVisible();
+
+    // Should show "Mark as proper name" button
+    const markBtn = main.page.locator('.popover-btn', { hasText: 'Mark as proper name' });
+    await expect(markBtn).toBeVisible();
+  });
+
+  test('manual mark as proper name from reading mode popover', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // Click a non-proper-name word (e.g., "皇帝")
+    await reading.clickWord('皇帝');
+    await reading.expectPopoverVisible();
+
+    // Verify "Mark as proper name" button exists
+    const markBtn = reading.popoverBtn('Mark as proper name');
+    await expect(markBtn).toBeVisible();
+
+    // Click it
+    await markBtn.click();
+
+    // Transcript reloads — verify "皇帝" now has proper-name styling
+    await expect(reading.properNameWords.filter({ hasText: '皇帝' }).first()).toBeVisible({ timeout: 5000 });
+    await expect(main.page.locator('.toast-success').first()).toContainText('proper name');
+  });
+
+  // ── M22: Add Sentences + Reclassification ──────────────────────────────
+
+  test('Reclassify button appears and triggers reclassification', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // Button should be visible with initial label
+    const btn = curation.addSentencesBtn;
+    await expect(btn).toBeVisible();
+    await expect(btn).toContainText('Reclassify');
+
+    // Click it
+    await btn.click();
+
+    // Wait for reclassification to complete — button updates
+    // With 55 total sentences, first page has 50 → hasMore=true
+    await expect(btn).toContainText('Add more sentences', { timeout: 5000 });
+  });
+
+  test('Add more sentences loads next page', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await curation.expectCardsLoaded();
+
+    // First: trigger reclassification
+    const btn = curation.addSentencesBtn;
+    await btn.click();
+    await expect(btn).toContainText('Add more sentences', { timeout: 5000 });
+
+    // Click "Add more sentences" to load remaining
+    await btn.click();
+
+    // After loading remaining 5 sentences (total=55, offset was 50),
+    // hasMore becomes false → button reverts to "Reclassify"
+    await expect(btn).toContainText('Reclassify', { timeout: 5000 });
+  });
+
+  // ── Dismiss proper name (must be LAST — mutates shared state) ──────────
+
+  test('dismiss proper name removes brackets in reading mode', async () => {
+    await main.goto();
+    await main.selectFirstVideo();
+    await reading.enterReadingMode();
+
+    // 李世民 is auto-detected as proper-name
+    await reading.clickWord('李世民');
+    await reading.expectPopoverVisible();
+
+    // Click "Not a proper name" dismiss button
+    const dismissBtn = reading.popoverBtn('Not a proper name');
+    await dismissBtn.click();
+
+    // Transcript reloads — verify 李世民 no longer has proper-name styling
+    await expect(reading.properNameWords.filter({ hasText: '李世民' })).toHaveCount(0, { timeout: 5000 });
+    await expect(main.page.locator('.toast-success').first()).toContainText('not a proper name');
   });
 });

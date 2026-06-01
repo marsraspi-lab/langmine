@@ -372,6 +372,38 @@ def register_routes(app: Flask):
             "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
         })
 
+    @app.route("/api/videos/<int:video_id>/reclassify", methods=["POST"])
+    def reclassify_sentences(video_id: int):
+        """Re-classify all sentences for a video (M22).
+
+        Re-runs classification with current known_words,
+        saves updated statuses, returns sentences sorted by
+        best-candidate-first (i1 by frequency, then i0, then stashed).
+        Supports offset/limit pagination.
+        """
+        persistence = _get_persistence()
+        lang = _get_language_code()
+        processor = _get_processor()
+
+        from langmine.domain.classifier import SentenceClassifier
+        classifier = SentenceClassifier(processor, persistence)
+
+        results = classifier.reclassify_all(video_id)
+
+        # Paginate
+        offset = request.args.get("offset", 0, type=int)
+        limit = request.args.get("limit", 50, type=int)
+        page = results[offset:offset + limit]
+
+        return jsonify({
+            "video_id": video_id,
+            "total": len(results),
+            "offset": offset,
+            "limit": limit,
+            "sentences": [_sentence_to_dict(s, persistence, processor=processor)
+                          for s in page],
+        })
+
     @app.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
     def update_sentence(sentence_id: int):
         """Update sentence fields: status, reading, translation_de, text_segmented.
@@ -669,12 +701,31 @@ def register_routes(app: Flask):
             )
             return jsonify({"word": word, "status": "learning", "ok": True})
 
+        # Handle "mark as proper name" action (M20 manual)
+        if data.get("proper_name") is True:
+            existing = persistence.get_vocab_word(word)
+            if existing:
+                existing.status = "proper-name"
+            else:
+                from langmine.domain.models import VocabWord
+                persistence.save_vocab_word(VocabWord(
+                    word_simplified=word, status="proper-name",
+                    language_code=lang))
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_proper_name",
+                old_value=existing.status if existing else "unknown",
+                new_value="proper-name",
+                language_code=lang,
+            )
+            return jsonify({"word": word, "status": "proper-name", "ok": True})
+
         if "status" not in data:
             return jsonify({"error": "Missing 'status' field"}), 400
 
         new_status = data["status"]
-        if new_status not in ("known", "learning", "ignored"):
-            return jsonify({"error": "Status must be 'known', 'learning', or 'ignored'"}), 400
+        if new_status not in ("known", "learning", "ignored", "proper-name"):
+            return jsonify({"error": "Status must be 'known', 'learning', 'ignored', or 'proper-name'"}), 400
 
         if new_status == "known":
             persistence.mark_word_known(word)
@@ -688,6 +739,22 @@ def register_routes(app: Flask):
             persistence.log_event(
                 entity_type="word", entity_id=0,
                 action="marked_ignored", new_value=word,
+                language_code=lang,
+            )
+        elif new_status == "proper-name":
+            existing = persistence.get_vocab_word(word)
+            if existing:
+                existing.status = "proper-name"
+            else:
+                from langmine.domain.models import VocabWord
+                persistence.save_vocab_word(VocabWord(
+                    word_simplified=word, status="proper-name",
+                    language_code=lang))
+            persistence.log_event(
+                entity_type="word", entity_id=0,
+                action="marked_proper_name",
+                old_value=existing.status if existing else "unknown",
+                new_value="proper-name",
                 language_code=lang,
             )
         else:
@@ -1016,8 +1083,8 @@ def _words_array(sentence: Sentence, persistence: Persistence,
         elif token in known_words:
             status = "known"
 
-        # Proper name detection (known/ignored takes priority)
-        if status not in ("known", "ignored") and processor and processor.is_proper_name(
+        # Proper name detection — skip if user has any explicit vocab status
+        if status not in ("known", "ignored", "proper-name", "learning") and processor and processor.is_proper_name(
             token, context_sentence=sentence.text
         ):
             status = "proper-name"

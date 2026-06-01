@@ -266,6 +266,13 @@
         >
           🚫 Ignore
         </button>
+        {#if word.status !== 'proper-name'}
+          <button
+            class="popover-btn"
+            onclick={() => handleWordStatusClick(word, activeWordIdx, 'proper-name')}
+            disabled={togglingWord === activeWordIdx}
+          >👤 Mark as proper name</button>
+        {/if}
         <button
           class="popover-btn"
           onclick={() => showInDictionary(word.token)}

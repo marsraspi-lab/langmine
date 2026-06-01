@@ -57,7 +57,8 @@ class FakeLanguageProcessor(LanguageProcessor):
         ranks = {"一般": 1847, "效率": 3412, "爬山": 5000, "管理": 2100}
         return ranks.get(word)
     def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
-    def is_proper_name(self, token, context_sentence=""): return False
+    def is_proper_name(self, token, context_sentence=""): 
+        return token in {"李世民", "刘备", "北京"}
     def find_known_synonyms(self, word, known_words): return []
     def get_annotation(self, text): return "[]"
 
@@ -245,9 +246,29 @@ sentences = [
         unknown_word="天气", unknown_word_rank=2500,
         status="kept",
     ),
+    # M20: proper name sentence for bracket display test
+    Sentence(
+        video_id=video.id, start_ms=17000, end_ms=20000,
+        text="李世民 是 唐朝 皇帝",
+        text_segmented="李世民 / 是 / 唐朝 / 皇帝",
+        reading="lǐ shì mín shì táng cháo huáng dì",
+        annotation_json="[]",
+        translation_de="Li Shimin war ein Kaiser der Tang-Dynastie",
+        unknown_word="皇帝", unknown_word_rank=3500,
+        status="i1",
+    ),
 ]
 for s in sentences:
     persistence.save_sentences([s])
+
+# M22: Add extra stashed sentences for pagination testing (>50 total)
+for i in range(50):
+    persistence.save_sentences([Sentence(
+        video_id=video.id, start_ms=20000 + i * 1000, end_ms=21000 + i * 1000,
+        text=f"额外 句子 {i}",
+        text_segmented=f"额外 / 句子 / {i}",
+        status="stashed",
+    )])
 
 # Seed vocab words for M9 tests — word highlighting and vocab page
 vocab_words = [

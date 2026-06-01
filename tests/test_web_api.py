@@ -573,3 +573,83 @@ class TestDismissProperName:
         word = persistence.get_vocab_word("曹操")
         assert word is not None
         assert word.status == "learning"
+
+
+class TestReclassifySentences:
+    """POST /api/videos/<id>/reclassify — M22."""
+
+    def test_reclassify_returns_sorted(self, client, persistence):
+        """Reclassify returns sentences sorted by best-candidate-first."""
+        # Seed video + sentences
+        video = Video(youtube_id="test123", language_code="zh")
+        persistence.save_video(video)
+
+        # "我" known — s1 has 1 unknown ("天气") → i1
+        # "我", "天气" known — s2 has 0 unknowns → i0
+        # "我" known — s3 has 3 unknowns → stashed
+        persistence.save_vocab_word(VocabWord(
+            word_simplified="我", status="known", language_code="zh"))
+        persistence.save_vocab_word(VocabWord(
+            word_simplified="天气", status="known", language_code="zh"))
+
+        s1 = Sentence(video_id=video.id, start_ms=0, end_ms=1000,
+                      text="我喜欢天气", text_segmented="我 / 喜欢 / 天气",
+                      status="stashed")
+        s2 = Sentence(video_id=video.id, start_ms=1000, end_ms=2000,
+                      text="我喜欢天气", text_segmented="我 / 天气",
+                      status="stashed")
+        s3 = Sentence(video_id=video.id, start_ms=2000, end_ms=3000,
+                      text="罕见词语很多", text_segmented="罕见 / 词语 / 很多",
+                      status="stashed")
+        persistence.save_sentences([s1, s2, s3])
+
+        resp = client.post(f"/api/videos/{video.id}/reclassify")
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        assert data["total"] == 3
+        assert len(data["sentences"]) == 3
+        # s2 (i0) before s1 (i1), s3 stays stashed
+        # i1 first, then i0, then stashed
+        statuses = [s["status"] for s in data["sentences"]]
+        # s1: "我"(known), "喜欢"(unknown), "天气"(known) → 1 unknown → i1
+        # s2: "我"(known), "天气"(known) → 0 unknown → i0
+        # s3: "罕见"(unknown), "词语"(unknown), "很多"(unknown) → 3 unknown → stashed
+        assert statuses[0] == "i1"
+        assert statuses[1] == "i0"
+        assert statuses[2] == "stashed"
+
+    def test_reclassify_pagination(self, client, persistence):
+        """Reclassify supports offset/limit pagination."""
+        video = Video(youtube_id="test456", language_code="zh")
+        persistence.save_video(video)
+
+        # Create 5 stashed sentences — all unknown → stay stashed
+        for i in range(5):
+            persistence.save_sentences([Sentence(
+                video_id=video.id, start_ms=i * 1000, end_ms=(i + 1) * 1000,
+                text=f"句子{i}", text_segmented=f"罕见 / 词语{i}",
+                status="stashed")])
+
+        resp = client.post(f"/api/videos/{video.id}/reclassify?offset=0&limit=2")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 5
+        assert len(data["sentences"]) == 2
+        assert data["offset"] == 0
+
+        # Page 2
+        resp = client.post(f"/api/videos/{video.id}/reclassify?offset=2&limit=2")
+        assert len(resp.get_json()["sentences"]) == 2
+
+        # Page 3
+        resp = client.post(f"/api/videos/{video.id}/reclassify?offset=4&limit=2")
+        assert len(resp.get_json()["sentences"]) == 1  # last one
+
+    def test_reclassify_nonexistent_video(self, client):
+        """Reclassify on nonexistent video returns empty list."""
+        resp = client.post("/api/videos/999/reclassify")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total"] == 0
+        assert data["sentences"] == []

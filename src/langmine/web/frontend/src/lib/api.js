@@ -98,6 +98,8 @@ export const api = {
       force_update_model: forceUpdateModel || false,
       card_type: cardType,
     }),
+  reclassifySentences: (videoId, offset = 0, limit = 50) =>
+    post(`/videos/${videoId}/reclassify?offset=${offset}&limit=${limit}`),
 };
 
 // Vocab API calls
@@ -132,6 +134,19 @@ export async function dismissProperName(word) {
   if (!res.ok) {
     const data = await res.json();
     throw new Error(data.error || 'Failed to dismiss proper name');
+  }
+  return res.json();
+}
+
+export async function markProperName(word) {
+  const res = await fetch(`/api/vocab/${encodeURIComponent(word)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ proper_name: true }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.error || 'Failed to mark as proper name');
   }
   return res.json();
 }

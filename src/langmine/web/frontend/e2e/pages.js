@@ -97,6 +97,9 @@ export class CurationPage {
   statusBadge(type)       { return this.page.locator(`.status-badge.${type}`); }
   filterTab(label)        { return this.page.locator('.tab', { hasText: label }); }
 
+  // M22: Add Sentences
+  get addSentencesBtn()   { return this.page.locator('.add-sentences-btn'); }
+
   // Actions
   async clickFilter(label) {
     await this.filterTab(label).click();
@@ -182,6 +185,7 @@ export class ReadingPage {
   get knownWords()      { return this.page.locator('.word-known'); }
   get learningWords()   { return this.page.locator('.word-learning'); }
   get unknownWords()    { return this.page.locator('.word-unknown'); }
+  get properNameWords() { return this.page.locator('.word-proper-name'); }
   get playButtons()     { return this.page.locator('.play-btn'); }
   get readingLines()     { return this.page.locator('.sentence-reading'); }
   get translations()    { return this.page.locator('.sentence-translation'); }

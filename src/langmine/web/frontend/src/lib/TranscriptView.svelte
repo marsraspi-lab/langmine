@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { dismissProperName } from './api.js';
+  import { dismissProperName, markProperName } from './api.js';
   import { addToast, currentView, vocabSearchQuery, markWordStatus } from './stores.js';
   import ImagePicker from './ImagePicker.svelte';
 
@@ -58,6 +58,17 @@
       await loadTranscript();
       closePopover();
       addToast(`"${token}" is not a proper name`, 'success');
+    } catch (err) {
+      addToast(`Failed: ${err.message}`, 'error');
+    }
+  }
+
+  async function handleMarkProperName(token) {
+    try {
+      await markProperName(token);
+      await loadTranscript();
+      closePopover();
+      addToast(`"${token}" marked as proper name`, 'success');
     } catch (err) {
       addToast(`Failed: ${err.message}`, 'error');
     }
@@ -226,6 +237,12 @@
           onclick={() => handleWordStatus(activeWord.word.token, 'unknown')}
           disabled={activeWord.word.status === 'unknown'}
         >❓ Mark unknown</button>
+        {#if activeWord.word.status !== 'proper-name'}
+          <button
+            class="popover-btn"
+            onclick={() => handleMarkProperName(activeWord.word.token)}
+          >👤 Mark as proper name</button>
+        {/if}
         {#if activeWord.word.status === 'proper-name'}
           <button
             class="popover-btn"
