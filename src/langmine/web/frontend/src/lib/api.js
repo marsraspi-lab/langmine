@@ -49,15 +49,16 @@ export const api = {
     .then(async res => ({ ok: res.ok, status: res.status, data: await res.json() })),
   /** Stream mine progress via SSE. Returns an async generator yielding
    *  {status: "message"} for progress, then the final result object. */
-  mineVideoStream: async function* (url, file = null) {
+  mineVideoStream: async function* (url, file = null, language = '') {
     let body;
     if (file) {
       const formData = new FormData();
       formData.append('url', url);
       formData.append('file', file);
+      if (language) formData.append('language', language);
       body = formData;
     } else {
-      body = JSON.stringify({ url });
+      body = JSON.stringify({ url, ...(language ? { language } : {}) });
     }
     const headers = { 'Accept': 'text/event-stream' };
     if (!file) headers['Content-Type'] = 'application/json';

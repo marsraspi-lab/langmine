@@ -171,6 +171,7 @@ def process_video(
     pad_before_ms: int | None = None,
     pad_after_ms: int | None = None,
     progress_callback=None,
+    subtitle_kind: str = "",
 ) -> dict:
     """Mine and classify all sentences from a video.
 
@@ -189,7 +190,12 @@ def process_video(
     if max_cards is None:
         max_cards = config.max_cards_per_video
     if gap_ms is None:
-        gap_ms = config.sentence_gap_ms
+        if subtitle_kind == "auto":
+            gap_ms = 700   # auto-generated subs have no punctuation cues
+        elif subtitle_kind == "manual":
+            gap_ms = 300   # manual subs are well-punctuated
+        else:
+            gap_ms = config.sentence_gap_ms
 
     # 1. Fetch and merge transcript
     _progress("Fetching transcript…")

@@ -35,20 +35,25 @@ class SQLitePersistence(Persistence):
         if video.id:
             self.conn.execute(
                 """UPDATE videos SET title=?, channel=?, duration_sec=?,
-                   transcript_json=?, audio_path=?
+                   transcript_json=?, audio_path=?,
+                   subtitle_language=?, subtitle_kind=?
                    WHERE id=?""",
                 (video.title, video.channel, video.duration_sec,
-                 video.transcript_json, video.audio_path, video.id),
+                 video.transcript_json, video.audio_path,
+                 video.subtitle_language, video.subtitle_kind,
+                 video.id),
             )
         else:
             cursor = self.conn.execute(
                 """INSERT OR REPLACE INTO videos
                    (youtube_id, title, channel, duration_sec,
-                    transcript_json, audio_path, language_code)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    transcript_json, audio_path, language_code,
+                    subtitle_language, subtitle_kind)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (video.youtube_id, video.title, video.channel,
                  video.duration_sec, video.transcript_json, video.audio_path,
-                 video.language_code),
+                 video.language_code,
+                 video.subtitle_language, video.subtitle_kind),
             )
             video.id = cursor.lastrowid
         self.conn.commit()
@@ -384,6 +389,8 @@ class SQLitePersistence(Persistence):
             audio_path=row["audio_path"] or "",
             processed_at=row["processed_at"],
             language_code=row["language_code"] or "",
+            subtitle_language=row["subtitle_language"] or "",
+            subtitle_kind=row["subtitle_kind"] or "",
         )
 
     def _row_to_sentence(self, row) -> Sentence:

@@ -108,6 +108,24 @@ def register_routes(app: Flask):
                 return jsonify({"error": "Missing 'url' field"}), 400
             url = data["url"]
 
+        # Parse optional subtitle language selection (M26)
+        language = request.form.get("language", "") if request.content_type and "multipart" in request.content_type else data.get("language", "")
+        subtitle_kind = ""
+        if language and not is_file_upload:
+            from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter
+            from langmine.config import load_config as _load_config
+            _cfg = _load_config()
+            transcript = YouTubeTranscriptAdapter(
+                user_agent=_cfg.user_agent,
+                language_codes=[language],
+            )
+            try:
+                subs = transcript.list_subtitles(video_id)
+                match = next((s for s in subs if s.language_code == language), None)
+                subtitle_kind = match.kind if match else ""
+            except Exception:
+                pass
+
         from langmine.transcript import _extract_video_id
         video_id = _extract_video_id(url)
 
@@ -134,6 +152,7 @@ def register_routes(app: Flask):
                     video_id=video_id,
                     output_dir=output_dir,
                     gap_ms=0 if is_file_upload else None,
+                    subtitle_kind=subtitle_kind,
                 )
 
                 video = persistence.get_video(video_id)
@@ -143,6 +162,16 @@ def register_routes(app: Flask):
                         action="mined", new_value=video_id,
                         language_code=config.source_language,
                     )
+                    # Persist subtitle language + kind (M26)
+                    if language:
+                        video.subtitle_language = language
+                        try:
+                            subs = transcript.list_subtitles(video_id)
+                            match = next((s for s in subs if s.language_code == language), None)
+                            video.subtitle_kind = match.kind if match else ""
+                        except Exception:
+                            pass
+                        persistence.save_video(video)
 
                 return jsonify({
                     "video_id": video.id if video else None,
@@ -190,6 +219,7 @@ def register_routes(app: Flask):
                     output_dir=output_dir,
                     gap_ms=0 if is_file_upload else None,
                     progress_callback=_on_progress,
+                    subtitle_kind=subtitle_kind if not is_file_upload else "",
                 )
 
                 video = persistence.get_video(video_id)
@@ -199,6 +229,16 @@ def register_routes(app: Flask):
                         action="mined", new_value=video_id,
                         language_code=config.source_language,
                     )
+                    # Persist subtitle language + kind (M26)
+                    if language:
+                        video.subtitle_language = language
+                        try:
+                            subs = transcript.list_subtitles(video_id)
+                            match = next((s for s in subs if s.language_code == language), None)
+                            video.subtitle_kind = match.kind if match else ""
+                        except Exception:
+                            pass
+                        persistence.save_video(video)
 
                 progress_queue.put(("done", {
                     "video_id": video.id if video else None,
@@ -1138,6 +1178,8 @@ def _video_with_counts(persistence: Persistence, video, lang: str = "") -> dict:
         "stashed_count": counts["stashed"],
         "kept_count": counts["kept"],
         "deleted_count": counts["deleted"],
+        "subtitle_language": getattr(video, "subtitle_language", ""),
+        "subtitle_kind": getattr(video, "subtitle_kind", ""),
     }
 
 
