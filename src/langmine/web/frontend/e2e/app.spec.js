@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { MainPage, CurationPage, SettingsPage, VocabPage, ReadingPage, PreviewPage, SubtitleChip } from './pages.js';
 
 test.describe('LangMine SPA', () => {
