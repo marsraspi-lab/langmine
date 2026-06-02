@@ -3,7 +3,7 @@
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -164,6 +164,17 @@ class Database:
                     )
                 except sqlite3.OperationalError:
                     pass
+
+        if current < 6:
+            # v5 → v6: renamed pinyin → reading on sentences and vocab
+            # (original M0+M1 schema used 'pinyin'; later renamed for language-agnosticism)
+            for table in ["sentences", "vocab"]:
+                try:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} RENAME COLUMN pinyin TO reading"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column already renamed or doesn't exist
 
         self._conn.execute(
             "UPDATE schema_version SET version = ? WHERE version < ?",
