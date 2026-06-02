@@ -37,10 +37,12 @@
   }
 
   async function saveEdit(field) {
+    // Guard: ignore blur events after cancelEdit() has cleared editingField
+    if (editingField === null) return;
     let value = editValue;
     // Convert space-separated words back to " / " format for text_segmented
     if (field === 'text_segmented') {
-      value = value.trim().split(/\\s+/).join(' / ');
+      value = value.trim().split(/\s+/).join(' / ');
     }
     if (value === sentence[field]) {
       cancelEdit();
