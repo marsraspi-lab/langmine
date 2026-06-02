@@ -216,6 +216,28 @@ test.describe('LangMine SPA', () => {
     await main.expectToast('Settings saved');
   });
 
+  test('sentence gap 0 persists across settings reload', async () => {
+    // Regression: `$config.sentence_gap_ms || 500` turned 0 into 500.
+    // The `??` fix preserves falsy-but-valid defaults.
+    await main.goto();
+    await main.clickNav('Settings');
+    await settings.expectFormVisible();
+
+    // Set gap to 0 and save
+    await settings.sentenceGapInput.fill('0');
+    await settings.saveBtn.click();
+    await main.expectToast('Settings saved');
+
+    // Navigate away and back — value must survive the round-trip
+    await main.clickNav('Curation');
+    await main.page.waitForTimeout(500);
+    await main.clickNav('Settings');
+    await settings.expectFormVisible();
+
+    // The input should still show 0, not 500
+    await expect(settings.sentenceGapInput).toHaveValue('0');
+  });
+
   // ── M7: Inline editing ───────────────────────────────────────────────
 
   test('click reading to edit inline', async () => {

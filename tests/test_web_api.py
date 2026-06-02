@@ -717,3 +717,57 @@ class TestMergeSentences:
     def test_merge_nonexistent_sentence_returns_404(self, client, persistence):
         resp = client.post("/api/sentences/999/merge-with-previous")
         assert resp.status_code == 404
+
+
+class TestConfigPersistence:
+    """Config save/load round-trips through the API."""
+
+    def test_sentence_gap_ms_zero_persists(self, client, monkeypatch, tmp_path):
+        """PUT sentence_gap_ms=0, GET back 0 — not clobbered by || 500 fallback."""
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: home)
+
+        # Write 0 and save
+        resp = client.put(
+            "/api/config",
+            data=json.dumps({"sentence_gap_ms": 0}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200, resp.get_data(as_text=True)
+
+        # Read back
+        resp = client.get("/api/config")
+        assert resp.status_code == 200
+        data = json.loads(resp.get_data(as_text=True))
+        assert data["sentence_gap_ms"] == 0, (
+            f"sentence_gap_ms should be 0, got {data['sentence_gap_ms']}"
+        )
+
+    def test_audio_pad_zero_persists(self, client, monkeypatch, tmp_path):
+        """PUT audio_pad_before_ms=0 survives round-trip."""
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: home)
+
+        client.put(
+            "/api/config",
+            data=json.dumps({"audio_pad_before_ms": 0}),
+            content_type="application/json",
+        )
+        resp = client.get("/api/config")
+        assert json.loads(resp.get_data(as_text=True))["audio_pad_before_ms"] == 0
+
+    def test_hsk_bootstrap_zero_persists(self, client, monkeypatch, tmp_path):
+        """PUT hsk_bootstrap_level=0 survives round-trip."""
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setattr(Path, "home", lambda: home)
+
+        client.put(
+            "/api/config",
+            data=json.dumps({"hsk_bootstrap_level": 0}),
+            content_type="application/json",
+        )
+        resp = client.get("/api/config")
+        assert json.loads(resp.get_data(as_text=True))["hsk_bootstrap_level"] == 0
