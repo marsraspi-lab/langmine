@@ -56,7 +56,18 @@ class FakeLanguageProcessor(LanguageProcessor):
     def get_frequency(self, word):
         ranks = {"一般": 1847, "效率": 3412, "爬山": 5000, "管理": 2100}
         return ranks.get(word)
-    def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
+    _FAKE_PARTICLES = {"的", "了", "吗", "吧", "呢", "啊", "哦", "嗯", "嘛",
+                        "啦", "呀", "呗", "咯", "哈", "哇", "哎", "唉", "哟",
+                        "着", "过", "地", "得"}
+    _FAKE_NUMERALS = {"零", "一", "二", "三", "四", "五", "六", "七", "八",
+                       "九", "十", "百", "千", "万", "亿", "两"}
+
+    def is_non_word(self, token):
+        """Mirrors ChineseLanguageService.is_non_word to avoid test/prod skew."""
+        import re
+        return (token in self._FAKE_PARTICLES
+                or token in self._FAKE_NUMERALS
+                or bool(re.match(r"^\d+$", token)))
     def is_proper_name(self, token, context_sentence=""): 
         return token in {"李世民", "刘备", "北京"}
     def find_known_synonyms(self, word, known_words): return []
