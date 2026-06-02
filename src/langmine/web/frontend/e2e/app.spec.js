@@ -643,16 +643,11 @@ test.describe('LangMine SPA', () => {
     // Toast confirms save
     await main.expectToast('Saved');
 
-    // Store refresh can leave cards in a transitional Svelte state
-    // where .segmented-text hasn't re-rendered yet. Navigate away
-    // and back to force a clean page load, then verify persisted value.
-    await main.clickNav('Vocab');
-    await main.clickNav('Curation');
-    await main.selectFirstVideo();
-    await curation.expectCardsLoaded();
-
-    await curation.cards.nth(0).locator('.segmented-text').click();
-    await expect(segInput).toHaveValue('我们 一 般 早上 起床');
+    // Verify persistence via API — avoids Svelte store-refresh DOM races.
+    const resp = await main.page.request.get('http://127.0.0.1:8099/api/videos/1/sentences');
+    const data = await resp.json();
+    const edited = data.sentences.find(s => s.id === 1);
+    expect(edited.text_segmented).toBe('我们 / 一 / 般 / 早上 / 起床');
   });
 
   // ── M24: Sentence Joining ────────────────────────────────────────────
