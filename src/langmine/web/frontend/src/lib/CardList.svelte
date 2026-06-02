@@ -1,10 +1,41 @@
 <script>
   import SentenceCard from './SentenceCard.svelte';
   import TranscriptView from './TranscriptView.svelte';
-  import { app, curatedSentences, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, addToast } from './stores.svelte.js';
+  import { app, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, addToast } from './stores.svelte.js';
   import { mergeWithPrevious } from './api.js';
 
   let { videoId } = $props();
+
+  // Client-side curated sentences — $derived inside component
+  // (module-level $derived/$effect in .svelte.js causes effect_orphan in production)
+  let curatedSentences = $derived(
+    app.sentences.map(s => {
+      const tokens = (s.text_segmented || '').split(' / ').filter(Boolean);
+      const unknown = tokens.filter(w =>
+        !app.knownWords.has(w) && !app.ignoredWords.has(w)
+      );
+      const count = unknown.length;
+      let computed = count === 0 ? 'i0'
+        : count === 1 ? 'i1'
+        : count === 2 ? 'i2'
+        : count === 3 ? 'i3'
+        : 'stashed';
+      if (s.status === 'deleted' || s.status === 'kept' || s.status === 'exported') {
+        computed = s.status;
+      }
+      return {
+        ...s,
+        computedStatus: computed,
+        wordStatuses: Object.fromEntries(tokens.map(w => [
+          w,
+          app.knownWords.has(w) ? 'known'
+            : app.ignoredWords.has(w) ? 'ignored'
+            : app.learningWords.has(w) ? 'learning'
+            : 'unknown'
+        ])),
+      };
+    })
+  );
 
   // M22: "Add Sentences" pagination state
   let hasMoreSentences = $state(false);
@@ -28,7 +59,7 @@
 
   // Client-side filtered sentences — pure $derived
   let filtered = $derived(
-    curatedSentences().filter(s => app.currentFilter === 'all' || s.computedStatus === app.currentFilter)
+    curatedSentences.filter(s => app.currentFilter === 'all' || s.computedStatus === app.currentFilter)
   );
 
   // Empty state precedes cards in DOM order so Playwright always finds .empty-state

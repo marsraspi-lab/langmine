@@ -3,6 +3,11 @@
 // All state lives inside a single $state({}) object so property mutations
 // (app.selectedVideoId = x) are reactive while the export binding itself
 // is never reassigned — compatible with Rolldown/Vite bundlers.
+//
+// IMPORTANT: Do NOT use $effect at module level in this file — it causes
+// "effect_orphan" at runtime with the Rolldown/Vite production bundler.
+// $derived is also not exportable. Derived values should be computed
+// directly in components via $derived there.
 
 import { api } from './api.js';
 import { updateVocabWord } from './api.js';
@@ -38,50 +43,6 @@ export const app = $state({
   readingMode: false,
   reclassifyOffset: 0,
 });
-
-// --- Derived values ---
-// Using $state + $effect instead of $derived so the getter function
-// returns a $state value that Svelte's reactivity tracker can follow.
-// (Plain $derived wrapped in a getter breaks the tracking chain.)
-
-let _curatedSentences = $state([]);
-let _selectedVideo = $state(null);
-
-$effect(() => {
-  _curatedSentences = app.sentences.map(s => {
-    const tokens = (s.text_segmented || '').split(' / ').filter(Boolean);
-    const unknown = tokens.filter(w =>
-      !app.knownWords.has(w) && !app.ignoredWords.has(w)
-    );
-    const count = unknown.length;
-    let computed = count === 0 ? 'i0'
-      : count === 1 ? 'i1'
-      : count === 2 ? 'i2'
-      : count === 3 ? 'i3'
-      : 'stashed';
-    if (s.status === 'deleted' || s.status === 'kept' || s.status === 'exported') {
-      computed = s.status;
-    }
-    return {
-      ...s,
-      computedStatus: computed,
-      wordStatuses: Object.fromEntries(tokens.map(w => [
-        w,
-        app.knownWords.has(w) ? 'known'
-          : app.ignoredWords.has(w) ? 'ignored'
-          : app.learningWords.has(w) ? 'learning'
-          : 'unknown'
-      ])),
-    };
-  });
-});
-
-$effect(() => {
-  _selectedVideo = app.videos.find(v => v.id === app.selectedVideoId) || null;
-});
-
-export function curatedSentences() { return _curatedSentences; }
-export function selectedVideo() { return _selectedVideo; }
 
 // --- Word status helpers ---
 
