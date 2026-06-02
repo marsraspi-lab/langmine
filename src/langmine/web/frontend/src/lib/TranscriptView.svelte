@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { dismissProperName, markProperName } from './api.js';
-  import { addToast, currentView, vocabSearchQuery, markWordStatus } from './stores.js';
+  import { app, addToast, markWordStatus } from './stores.svelte.js';
   import ImagePicker from './ImagePicker.svelte';
 
   let { videoId } = $props();
@@ -101,8 +101,8 @@
   function closePopover() { activeWord = null; }
 
   function showInDictionary(token) {
-    vocabSearchQuery.set(token);
-    currentView.set('vocab');
+    app.vocabSearchQuery = token;
+    app.currentView = 'vocab';
   }
 </script>
 

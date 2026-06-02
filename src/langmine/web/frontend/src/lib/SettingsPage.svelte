@@ -1,5 +1,5 @@
 <script>
-  import { config, saveConfig } from './stores.js';
+  import { app, saveConfig } from './stores.svelte.js';
 
   let saving = $state(false);
   let version = $state('');
@@ -49,7 +49,7 @@
       <h3>Anki</h3>
       <label>
         Connect URL
-        <input name="anki_connect_url" value={$config.anki_connect_url ?? ''} />
+        <input name="anki_connect_url" value={app.config.anki_connect_url ?? ''} />
       </label>
     </section>
 
@@ -57,17 +57,17 @@
       <h3>Language</h3>
       <label>
         Source Language
-        <input name="source_language" value={$config.source_language ?? ''} maxlength="6" />
+        <input name="source_language" value={app.config.source_language ?? ''} maxlength="6" />
       </label>
       <label>
         Target Language
-        <input name="target_language" value={$config.target_language ?? ''} maxlength="6" />
+        <input name="target_language" value={app.config.target_language ?? ''} maxlength="6" />
       </label>
       <label>
         Translation API
         <select name="translation_api">
-          <option value="google" selected={$config.translation_api === 'google'}>Google Translate</option>
-          <option value="deepl" selected={$config.translation_api === 'deepl'}>DeepL</option>
+          <option value="google" selected={app.config.translation_api === 'google'}>Google Translate</option>
+          <option value="deepl" selected={app.config.translation_api === 'deepl'}>DeepL</option>
         </select>
       </label>
     </section>
@@ -76,27 +76,27 @@
       <h3>Mining</h3>
       <label>
         Sentence Gap (ms)
-        <input name="sentence_gap_ms" type="number" value={$config.sentence_gap_ms ?? 500} min="0" max="5000" />
+        <input name="sentence_gap_ms" type="number" value={app.config.sentence_gap_ms ?? 500} min="0" max="5000" />
       </label>
       <label>
         Audio Pad Before (ms)
-        <input name="audio_pad_before_ms" type="number" value={$config.audio_pad_before_ms ?? 250} min="0" max="2000" />
+        <input name="audio_pad_before_ms" type="number" value={app.config.audio_pad_before_ms ?? 250} min="0" max="2000" />
       </label>
       <label>
         Audio Pad After (ms)
-        <input name="audio_pad_after_ms" type="number" value={$config.audio_pad_after_ms ?? 300} min="0" max="2000" />
+        <input name="audio_pad_after_ms" type="number" value={app.config.audio_pad_after_ms ?? 300} min="0" max="2000" />
       </label>
       <label>
         Max Cards Per Video
-        <input name="max_cards_per_video" type="number" value={$config.max_cards_per_video ?? 20} min="1" max="100" />
+        <input name="max_cards_per_video" type="number" value={app.config.max_cards_per_video ?? 20} min="1" max="100" />
       </label>
       <label>
         Max Stash Cards
-        <input name="max_stash_cards" type="number" value={$config.max_stash_cards ?? 20} min="1" max="100" />
+        <input name="max_stash_cards" type="number" value={app.config.max_stash_cards ?? 20} min="1" max="100" />
       </label>
       <label>
         HSK Bootstrap Level
-        <select name="hsk_bootstrap_level" value={$config.hsk_bootstrap_level ?? 0}>
+        <select name="hsk_bootstrap_level" value={app.config.hsk_bootstrap_level ?? 0}>
           <option value="0">Off</option>
           <option value="1">HSK 1</option>
           <option value="2">HSK 2</option>
@@ -113,7 +113,7 @@
       <h3>Network</h3>
       <label>
         User-Agent
-        <input name="user_agent" value={$config.user_agent ?? ''} placeholder="Mozilla/5.0 ..." />
+        <input name="user_agent" value={app.config.user_agent ?? ''} placeholder="Mozilla/5.0 ..." />
       </label>
     </section>
 

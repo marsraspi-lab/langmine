@@ -1,8 +1,7 @@
 <script>
   import { fly } from 'svelte/transition';
-  import { updateSentenceField, markWordStatus } from './stores.js';
+  import { app, updateSentenceField, markWordStatus } from './stores.svelte.js';
   import { updateVocabWord } from './api.js';
-  import { currentView, vocabSearchQuery } from './stores.js';
 
   /** @type {{ sentence: Object, onkeep: Function, ondelete: Function, oniknowthis: Function }} */
   let { sentence, onkeep = () => {}, ondelete = () => {}, onmerge = () => {}, showMerge = false, wordStatuses = {} } = $props();
@@ -111,8 +110,8 @@
   }
 
   function showInDictionary(token) {
-    vocabSearchQuery.set(token);
-    currentView.set('vocab');
+    app.vocabSearchQuery = token;
+    app.currentView = 'vocab';
   }
 
   async function toggleWordStatus(wordObj, idx) {

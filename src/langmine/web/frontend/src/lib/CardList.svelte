@@ -1,7 +1,7 @@
 <script>
   import SentenceCard from './SentenceCard.svelte';
   import TranscriptView from './TranscriptView.svelte';
-  import { sentences, curatedSentences, currentFilter, readingMode, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, reclassifyOffset, addToast } from './stores.js';
+  import { app, curatedSentences, loadSentences, keepSentence, deleteSentence, markWordStatus, reclassifyAndLoad, addToast } from './stores.svelte.js';
   import { mergeWithPrevious } from './api.js';
 
   let { videoId } = $props();
@@ -28,14 +28,14 @@
 
   // Client-side filtered sentences — pure $derived
   let filtered = $derived(
-    $curatedSentences.filter(s => $currentFilter === 'all' || s.computedStatus === $currentFilter)
+    curatedSentences().filter(s => app.currentFilter === 'all' || s.computedStatus === app.currentFilter)
   );
 
   // Empty state precedes cards in DOM order so Playwright always finds .empty-state
   let showEmpty = $derived(!loading && filtered.length === 0);
 
   async function setFilter(key) {
-    currentFilter.set(key);
+    app.currentFilter = key;
   }
 
   function onKeep(id) {
@@ -49,7 +49,7 @@
   async function onMerge(id) {
     try {
       await mergeWithPrevious(id);
-      await loadSentences(videoId, $currentFilter);
+      await loadSentences(videoId, app.currentFilter);
       addToast('Merged', 'success');
     } catch (err) {
       addToast(`Merge failed: ${err.message}`, 'error');
@@ -57,7 +57,7 @@
   }
 
   function toggleReadingMode() {
-    readingMode.update(v => !v);
+    app.readingMode = !app.readingMode;
   }
 
   // M22: trigger reclassification + load next page
@@ -70,7 +70,7 @@
 
   async function onLoadMore() {
     reclassifyLoading = true;
-    const { hasMore } = await reclassifyAndLoad(videoId, reclassifyOffset, 50);
+    const { hasMore } = await reclassifyAndLoad(videoId, app.reclassifyOffset, 50);
     hasMoreSentences = hasMore;
     reclassifyLoading = false;
   }
@@ -83,22 +83,22 @@
     deleted: 'No deleted sentences.',
   };
 
-  let emptyMessage = $derived(EMPTY_MESSAGES[$currentFilter] || 'Nothing to show.');
+  let emptyMessage = $derived(EMPTY_MESSAGES[app.currentFilter] || 'Nothing to show.');
 </script>
 
 <nav class="tabs">
   {#each FILTERS as { key, label }}
     <button
       class="tab"
-      class:active={$currentFilter === key && !$readingMode}
-      onclick={() => { readingMode.set(false); setFilter(key); }}
+      class:active={app.currentFilter === key && !app.readingMode}
+      onclick={() => { app.readingMode = false; setFilter(key); }}
     >
       {label}
     </button>
   {/each}
   <button
     class="tab"
-    class:active={$readingMode}
+    class:active={app.readingMode}
     onclick={toggleReadingMode}
   >
     📖 Read
@@ -106,7 +106,7 @@
 </nav>
 
 <div class="cards-container">
-  {#if $readingMode}
+  {#if app.readingMode}
     <TranscriptView {videoId} />
   {:else}
     {#if loading}

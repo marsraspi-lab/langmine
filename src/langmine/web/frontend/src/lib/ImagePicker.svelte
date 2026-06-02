@@ -1,6 +1,6 @@
 <script>
   import { searchImages, setClozeImage } from './api.js';
-  import { addToast } from './stores.js';
+  import { addToast } from './stores.svelte.js';
 
   let { word, sentenceId, onClose } = $props();
 

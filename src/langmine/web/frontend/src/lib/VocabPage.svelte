@@ -1,6 +1,6 @@
 <script>
   import { fetchVocab, fetchVocabWord, updateVocabWord } from './api.js';
-  import { addToast, vocabSearchQuery } from './stores.js';
+  import { app, addToast } from './stores.svelte.js';
 
   let words = $state([]);
   let total = $state(0);
@@ -127,10 +127,10 @@
   }
 
   // Initial load
-  const q = $vocabSearchQuery;
+  const q = app.vocabSearchQuery;
   if (q) {
     searchQuery = q;
-    vocabSearchQuery.set('');
+    app.vocabSearchQuery = '';
   }
   loadWords(true);
 

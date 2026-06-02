@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Sidebar from './lib/Sidebar.svelte';
   import CardList from './lib/CardList.svelte';
-  import { loadVideos, selectedVideoId, toasts, removeToast, theme, toggleTheme, currentView, loadConfig, languages, currentLanguage, loadLanguages, selectLanguage, loadWordStatuses } from './lib/stores.js';
+  import { app, loadVideos, removeToast, toggleTheme, loadConfig, loadLanguages, selectLanguage, loadWordStatuses } from './lib/stores.svelte.js';
   import SettingsPage from './lib/SettingsPage.svelte';
   import VocabPage from './lib/VocabPage.svelte';
 
@@ -12,48 +12,55 @@
     loadLanguages();
     loadWordStatuses();
   });
+
+  // Theme persistence (moved from stores.svelte.js — module-level $effect
+  // is not supported by the Rolldown/Vite bundler)
+  $effect(() => {
+    document.documentElement.setAttribute('data-theme', app.theme);
+    localStorage.setItem('langmine-theme', app.theme);
+  });
 </script>
 
 <div class="app-layout">
   <header class="top-bar">
     <span class="brand">⛏️ LangMine</span>
     <div class="lang-selector">
-      <select value={$currentLanguage} onchange={(e) => selectLanguage(e.target.value)}>
-        {#each $languages as lang (lang.code)}
+      <select value={app.currentLanguage} onchange={(e) => selectLanguage(e.target.value)}>
+        {#each app.languages as lang (lang.code)}
           <option value={lang.code}>{lang.name}</option>
         {/each}
       </select>
     </div>
     <div class="top-actions">
-      <button class="nav-btn" class:active={$currentView === 'curation'} onclick={() => currentView.set('curation')}>
+      <button class="nav-btn" class:active={app.currentView === 'curation'} onclick={() => app.currentView = 'curation'}>
         📹 Curation
       </button>
-      <button class="nav-btn" class:active={$currentView === 'settings'} onclick={() => currentView.set('settings')}>
+      <button class="nav-btn" class:active={app.currentView === 'settings'} onclick={() => app.currentView = 'settings'}>
         ⚙️ Settings
       </button>
-      <button class="nav-btn" class:active={$currentView === 'vocab'} onclick={() => currentView.set('vocab')}>
+      <button class="nav-btn" class:active={app.currentView === 'vocab'} onclick={() => app.currentView = 'vocab'}>
         📚 Vocabulary
       </button>
       <button class="theme-btn" onclick={toggleTheme} title="Toggle theme">
-        {$theme === 'dark' ? '☀️' : '🌙'}
+        {app.theme === 'dark' ? '☀️' : '🌙'}
       </button>
     </div>
   </header>
 
   <div class="app-body">
-    {#if $currentView === 'settings'}
+    {#if app.currentView === 'settings'}
       <div class="settings-container">
         <SettingsPage />
       </div>
-    {:else if $currentView === 'vocab'}
+    {:else if app.currentView === 'vocab'}
       <div class="settings-container">
         <VocabPage />
       </div>
     {:else}
       <Sidebar />
       <main class="main-content">
-        {#if $selectedVideoId}
-          <CardList videoId={$selectedVideoId} />
+        {#if app.selectedVideoId}
+          <CardList videoId={app.selectedVideoId} />
         {:else}
           <div class="empty-state">
             <p>No video selected.</p>
@@ -67,7 +74,7 @@
 
 <!-- Toast notifications -->
 <div class="toast-container">
-  {#each $toasts as toast (toast.id)}
+  {#each app.toasts as toast (toast.id)}
     <div class="toast toast-{toast.type}" role="button" tabindex="0" onclick={() => removeToast(toast.id)} onkeydown={(e) => e.key === 'Enter' && removeToast(toast.id)}>
       {toast.message}
     </div>

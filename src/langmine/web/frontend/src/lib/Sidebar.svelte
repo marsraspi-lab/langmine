@@ -1,6 +1,6 @@
 <script>
-  import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo,
-    exportStatus, exporting, exportAnki, deleteVideo, currentLanguage } from './stores.js';
+  import { app, selectVideo, mineVideo,
+    exportAnki, deleteVideo } from './stores.svelte.js';
   import { previewVideo, fetchSubtitleInfo } from './api.js';
   import PreviewPanel from './PreviewPanel.svelte';
 
@@ -36,7 +36,7 @@
   async function handleMine() {
     const url = urlInput.trim();
     if (!url) {
-      mineStatus.set('Enter a YouTube URL.');
+      app.mineStatus = 'Enter a YouTube URL.';
       return;
     }
     await mineVideo(url, transcriptFile, selectedSubLang);
@@ -112,7 +112,7 @@
           subInfo = result.data;
           // Pre-select subtitle matching the current mining language.
           // Prefer manual, then auto, then fall back to first available.
-          const lang = $currentLanguage;
+          const lang = app.currentLanguage;
           const matchManual = sortedManualSubs.find(s => s.language_code.startsWith(lang));
           const matchAuto = sortedAutoSubs.find(s => s.language_code.startsWith(lang));
           const best = matchManual ?? matchAuto ?? sortedManualSubs[0] ?? sortedAutoSubs[0];
@@ -144,7 +144,7 @@
       bind:value={urlInput}
       oninput={handleUrlInput}
       onkeydown={handleKeydown}
-      disabled={$mining}
+      disabled={app.mining}
     />
     {#if subLoading}
       <div class="subtitle-chip loading">⏳ Checking subtitles…</div>
@@ -185,17 +185,17 @@
         type="file"
         accept=".srt,.vtt"
         onchange={handleFileChange}
-        disabled={$mining}
+        disabled={app.mining}
       />
     </label>
-    <button onclick={handleMine} disabled={$mining}>
-      {$mining ? '⏳' : 'Mine'}
+    <button onclick={handleMine} disabled={app.mining}>
+      {app.mining ? '⏳' : 'Mine'}
     </button>
     <button class="preview-btn" onclick={handlePreview} disabled={previewLoading}>
       {previewLoading ? '⏳' : '🔍'} Preview
     </button>
-    {#if $mineStatus}
-      <div class="mine-status">{$mineStatus}</div>
+    {#if app.mineStatus}
+      <div class="mine-status">{app.mineStatus}</div>
     {/if}
     {#if previewError}
       <div class="mine-status preview-error">{previewError}</div>
@@ -205,14 +205,14 @@
   <PreviewPanel data={previewData} />
 
   <nav class="video-list">
-    {#if $videos.length === 0}
+    {#if app.videos.length === 0}
       <div class="empty-videos">No videos yet. Paste a YouTube URL above.</div>
     {:else}
-      {#each $videos as video (video.id)}
+      {#each app.videos as video (video.id)}
         <div class="video-row">
           <button
             class="video-item"
-            class:active={$selectedVideoId === video.id}
+            class:active={app.selectedVideoId === video.id}
             onclick={() => selectVideo(video.id)}
           >
             <div class="video-title" title="{video.title || video.youtube_id} — {video.youtube_id}">
@@ -247,20 +247,20 @@
     {/if}
   </nav>
 
-  {#if $videos.length > 0}
+  {#if app.videos.length > 0}
     <div class="export-section">
       <button
         class="export-btn"
         onclick={() => exportAnki(null, forceUpdateModel, clozeMode ? 'cloze' : 'basic')}
-        disabled={$exporting}
+        disabled={app.exporting}
       >
-        {$exporting ? '⏳' : '📦'} Export to Anki
+        {app.exporting ? '⏳' : '📦'} Export to Anki
       </button>
       <label class="force-update-label">
         <input
           type="checkbox"
           bind:checked={forceUpdateModel}
-          disabled={$exporting}
+          disabled={app.exporting}
         />
         ⚡ Update card templates
       </label>
@@ -268,12 +268,12 @@
         <input
           type="checkbox"
           bind:checked={clozeMode}
-          disabled={$exporting}
+          disabled={app.exporting}
         />
         🕳️ Cloze deletion cards
       </label>
-      {#if $exportStatus}
-        <div class="export-status">{$exportStatus}</div>
+      {#if app.exportStatus}
+        <div class="export-status">{app.exportStatus}</div>
       {/if}
     </div>
   {/if}
