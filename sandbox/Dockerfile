@@ -16,6 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     gnupg \
     jq \
+    # Media: audio extraction + clipping
+    ffmpeg \
     # Faster search: ripgrep (rg) + fd-find (fd)
     ripgrep \
     fd-find \
