@@ -1,10 +1,35 @@
-.git/
+# ── Python ──
 __pycache__/
-*.pyc
-.eggs/
+*.py[cod]
 *.egg-info/
+.venv/
+dist/
+build/
+
+# ── Node ──
 node_modules/
-bin/
-.pytest_cache/
+
+# ── Git ──
+.git/
+
+# ── IDE / editor ──
+.vscode/
+.idea/
+
+# ── OS junk ──
+.DS_Store
+Thumbs.db
+
+# ── Test artifacts ──
+test-results/
+playwright-report/
+.coverage
+htmlcov/
+
+# ── Environment ──
+.env
+.env.*
+
+# ── Runtime state ──
+*.log
 .hermes/
-src/langmine/web/frontend/node_modules/
