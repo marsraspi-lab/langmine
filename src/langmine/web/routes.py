@@ -144,7 +144,6 @@ def register_routes(app: Flask):
                     language_processor=processor,
                     video_id=video_id,
                     output_dir=output_dir,
-                    subtitle_kind=subtitle_kind,
                     subtitle_language=language if not is_file_upload else "",
                 )
 
@@ -211,7 +210,6 @@ def register_routes(app: Flask):
                     video_id=video_id,
                     output_dir=output_dir,
                     progress_callback=_on_progress,
-                    subtitle_kind=subtitle_kind if not is_file_upload else "",
                     subtitle_language=language if not is_file_upload else "",
                 )
 

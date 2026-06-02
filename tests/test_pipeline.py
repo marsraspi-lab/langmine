@@ -1,86 +1,386 @@
-"""Integration tests for the full mining pipeline."""
-
-import os
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
+"""Tests for process_video() — full video mining with classification."""
 
 import pytest
 
-from langmine.pipeline import extract_one_sentence
-from langmine.transcript import TranscriptChunk
+from langmine.pipeline import process_video
+from langmine.domain.ports import (
+    TranscriptSource, AudioProcessor, Persistence, MergedSentence,
+    LanguageProcessor, Dictionary, Translator, FrequencySource,
+)
+from langmine.domain.models import Video, Sentence, VocabWord
 
 
-def _make_fake_transcript():
-    """Return mock TranscriptChunk objects."""
-    return [
-        TranscriptChunk(text="我们", start_ms=0.0, duration_ms=2000.0),
-        TranscriptChunk(text="一般", start_ms=2500.0, duration_ms=1500.0),
-        TranscriptChunk(text="早上起床", start_ms=4500.0, duration_ms=2000.0),
-    ]
+# === Fake ports with Chinese NLP ===
 
 
-def test_extract_one_sentence_returns_sentence_dict():
-    """extract_one_sentence should return a dict with text, timing, and audio path."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        fake_clip = os.path.join(tmpdir, "clips", "0001_dQw4w9WgXcQ.mp3")
-        os.makedirs(os.path.dirname(fake_clip), exist_ok=True)
-        # Create a tiny valid file so os.path.exists passes
-        with open(fake_clip, "wb") as f:
-            f.write(b"\xff\xfb\x90\x00")  # MP3 frame header
+class FakeChineseProcessor(LanguageProcessor):
+    """Returns predictable Chinese segmentation and frequency."""
+    def __init__(self):
+        self.bootstrap_calls = []
 
-        with (
-            patch("langmine.adapters.youtube_transcript.fetch_transcript", return_value=_make_fake_transcript()),
-            patch("langmine.adapters.ytdlp_audio.download_audio", return_value="/fake/audio.mp3"),
-            patch("langmine.adapters.ytdlp_audio.clip_audio", return_value=fake_clip),
-        ):
-            result = extract_one_sentence(
-                video_url="dQw4w9WgXcQ",
-                output_dir=tmpdir,
-            )
+    def segment(self, text: str) -> list[str]:
+        return text.split()
 
-        assert isinstance(result, dict)
-        assert "text" in result
-        assert "start_ms" in result
-        assert "end_ms" in result
-        assert "audio_path" in result
+    def get_reading(self, text: str) -> str:
+        return text
 
-        assert isinstance(result["text"], str)
-        assert len(result["text"]) > 0
-        assert isinstance(result["start_ms"], (int, float))
-        assert isinstance(result["end_ms"], (int, float))
-        assert result["end_ms"] > result["start_ms"]
-        assert result["audio_path"] == fake_clip
+    def lookup_word(self, word: str) -> dict | None:
+        return {"definition_de": f"def:{word}", "definition_en": f"def:{word}"}
 
+    def translate_sentence(self, text: str) -> str:
+        return f"[DE] {text}"
 
-def test_extract_one_sentence_uses_default_padding():
-    """The audio clip should be created with default padding from config."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        fake_clip = os.path.join(tmpdir, "clips", "0001_dQw4w9WgXcQ.mp3")
-        os.makedirs(os.path.dirname(fake_clip), exist_ok=True)
-        with open(fake_clip, "wb") as f:
-            f.write(b"\xff\xfb\x90\x00")
+    def get_frequency(self, word: str) -> int | None:
+        ranks = {"一般": 1847, "效率": 3412}
+        return ranks.get(word)
 
-        with (
-            patch("langmine.adapters.youtube_transcript.fetch_transcript", return_value=_make_fake_transcript()),
-            patch("langmine.adapters.ytdlp_audio.download_audio", return_value="/fake/audio.mp3"),
-            patch("langmine.adapters.ytdlp_audio.clip_audio", return_value=fake_clip),
-        ):
-            result = extract_one_sentence(
-                video_url="dQw4w9WgXcQ",
-                output_dir=tmpdir,
-            )
+    def is_non_word(self, token: str) -> bool:
+        return token in {"的", "了", "吗"}
 
-        # The clip should exist and be playable
-        assert os.path.getsize(result["audio_path"]) > 0
-        assert result["audio_path"].endswith(".mp3")
+    def is_proper_name(self, token: str) -> bool:
+        return False
+
+    def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
+        return []
+
+    def get_annotation(self, text: str) -> str:
+        return "[]"
+
+    def bootstrap_proficiency(self, persistence, max_level, language_code):
+        self.bootstrap_calls.append((max_level, language_code))
 
 
-def test_extract_one_sentence_fails_on_invalid_url():
-    """extract_one_sentence should raise on an invalid video."""
-    import pytest
-    with pytest.raises((ValueError, RuntimeError)):
-        extract_one_sentence(
-            video_url="invalid_url_xyz",
-            output_dir="/tmp",
+class FakeTranscript(TranscriptSource):
+    def __init__(self, chunks, fail_on_fetch=False):
+        from langmine.domain.ports import TranscriptChunk
+        # Spread chunks apart so they don't merge (1000ms gap between sentences)
+        self.chunks = [TranscriptChunk(text=t, start_ms=i * 2000, duration_ms=1000)
+                       for i, t in enumerate(chunks)]
+        self.fail_on_fetch = fail_on_fetch
+
+    def fetch(self, video_id: str, language: str = ""):
+        if self.fail_on_fetch:
+            raise RuntimeError("Fetch failed")
+        return self.chunks
+
+    def list_subtitles(self, video_id: str):
+        return []
+
+
+class FakeAudio(AudioProcessor):
+    def __init__(self):
+        self.captured_frames = []
+
+    def download(self, video_id: str, output_dir: str) -> str:
+        return f"{output_dir}/test.mp3"
+
+    def clip(self, audio_path, start_ms, end_ms, pad_before, pad_after, output_dir, sentence_id):
+        return f"{output_dir}/sentence_{sentence_id}.mp3"
+
+    def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
+        self.captured_frames.append((video_id, timestamp_ms))
+        return f"{output_dir}/frame_{sentence_id}.jpg"
+
+
+class FakePersistence(Persistence):
+    def __init__(self, known_words: set[str] | None = None):
+        self._known = known_words or set()
+        self._ignored = set()
+        self.videos: dict = {}
+        self.sentences: list[Sentence] = []
+        self._vocab: list[VocabWord] = []
+        self.events = []
+
+    def get_known_words(self) -> set[str]:
+        return self._known | self._ignored | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
+
+    def save_video(self, video):
+        if video.id is None:
+            video.id = len(self.videos) + 1
+        self.videos[video.youtube_id] = video
+    def get_video(self, yt_id): return self.videos.get(yt_id)
+    def list_videos(self): return list(self.videos.values())
+    def video_exists(self, yt_id): return yt_id in self.videos
+
+    def delete_video(self, video_id: int) -> bool:
+        return False  # not found in fake
+
+    def save_sentences(self, sentences):
+        for s in sentences:
+            s.id = len(self.sentences) + 1
+            self.sentences.append(s)
+
+    def get_sentences_by_video(self, vid, status=None):
+        result = [s for s in self.sentences if s.video_id == vid]
+        if status:
+            result = [s for s in result if s.status == status]
+        return result
+
+    def get_stash_candidates(self, limit=20): return []
+    def update_sentence(self, s): pass
+    def get_sentences_by_status(self, status): return []
+    def reclassify_stashed(self, vid): return 0
+    def save_vocab_word(self, w: VocabWord) -> None:
+        self._vocab.append(w)
+
+    def get_vocab_word(self, word_simplified: str) -> VocabWord | None:
+        for w in self._vocab:
+            if w.word_simplified == word_simplified:
+                return w
+        return None
+    def mark_word_known(self, w): pass
+    def mark_word_learning(self, w): pass
+    def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
+    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+        return [], 0
+    def get_sentences_by_word(self, word):
+        return [s for s in self.sentences
+                if s.unknown_word == word or word in s.text]
+
+    def mark_word_ignored(self, word_simplified: str) -> None:
+        self._ignored.add(word_simplified)
+
+    def log_event(
+        self,
+        entity_type: str,
+        entity_id: int,
+        action: str,
+        old_value: str = "",
+        new_value: str = "",
+        language_code: str = "",
+    ) -> None:
+        self.events.append({
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "action": action,
+            "new_value": new_value,
+            "language_code": language_code,
+        })
+
+
+# === Tests ===
+
+
+def test_process_video_saves_video():
+    """process_video should save the video in persistence."""
+    transcript = FakeTranscript(["你好世界", "我很好"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"我", "很好", "你", "好", "世界"})
+    processor = FakeChineseProcessor()
+
+    result = process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test123",
+        output_dir="/tmp/test",
+    )
+
+    assert persistence.video_exists("test123")
+    video = persistence.get_video("test123")
+    assert video.title == "test123"
+
+
+def test_process_video_classifies_sentences():
+    """process_video should classify sentences as i1/i0/stashed."""
+    transcript = FakeTranscript(["我们 一般 学习", "我 爱 你"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"我们", "学习", "我", "爱", "你"})
+    processor = FakeChineseProcessor()
+
+    result = process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test456",
+        output_dir="/tmp/test",
+    )
+
+    # "我们 一般 学习" — "一般" unknown → i1
+    i1 = result["i1_candidates"]
+    assert len(i1) == 1
+    assert i1[0].unknown_word == "一般"
+
+    # "我 爱 你" — all known → i0
+    i0_count = result["i0_count"]
+    assert i0_count == 1
+
+
+def test_process_video_applies_cap():
+    """process_video should respect max_cards from config for i+1 candidates."""
+    # Create 25 sentences each with one unique unknown word
+    texts = [f"我们 word{i} 学习" for i in range(25)]
+    transcript = FakeTranscript(texts)
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"我们", "学习"})
+    processor = FakeChineseProcessor()
+
+    from unittest.mock import patch
+    from langmine.config import Config
+    capped_config = Config()
+    capped_config.max_cards_per_video = 10
+    with patch("langmine.pipeline.load_config", return_value=capped_config):
+        result = process_video(
+            transcript_source=transcript,
+            audio_processor=audio,
+            persistence=persistence,
+            language_processor=processor,
+            video_id="test789",
+            output_dir="/tmp/test",
         )
+
+    assert len(result["i1_candidates"]) == 10
+
+
+def test_process_video_returns_summary():
+    """process_video should return a summary dict with counts."""
+    transcript = FakeTranscript(["我们 一般 学习", "我 爱 你", "今天 天气 很好"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"我们", "学习", "我", "爱", "你"})
+    processor = FakeChineseProcessor()
+
+    result = process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test000",
+        output_dir="/tmp/test",
+    )
+
+    assert "i1_candidates" in result
+    assert "i0_count" in result
+    assert "stash_count" in result
+    assert "total_sentences" in result
+
+    assert result["i0_count"] == 1
+    assert result["stash_count"] == 1
+    assert result["total_sentences"] == 3
+
+
+def test_process_video_passes_subtitle_language_to_fetch():
+    """subtitle_language should be passed to transcript_source.fetch()."""
+    transcript = FakeTranscript(["我们 学习"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"我们", "学习"})
+    processor = FakeChineseProcessor()
+
+    # Wrap fetch to capture the language argument
+    original_fetch = transcript.fetch
+    captured_language = []
+
+    def tracking_fetch(video_id, language=""):
+        captured_language.append(language)
+        return original_fetch(video_id, language=language)
+
+    transcript.fetch = tracking_fetch
+
+    process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_lang",
+        output_dir="/tmp/test",
+        subtitle_language="zh-Hans",
+    )
+
+    assert captured_language == ["zh-Hans"], (
+        f"Expected fetch(language='zh-Hans') but got {captured_language}"
+    )
+
+
+def test_process_video_bootstraps_proficiency():
+    """process_video should call bootstrap_proficiency with config values."""
+    transcript = FakeTranscript(["你好"])
+    audio = FakeAudio()
+    persistence = FakePersistence()
+    processor = FakeChineseProcessor()
+
+    from unittest.mock import patch
+    from langmine.config import Config
+    config = Config()
+    config.hsk_bootstrap_level = "3"
+    config.source_language = "zh"
+    with patch("langmine.pipeline.load_config", return_value=config):
+        process_video(
+            transcript_source=transcript,
+            audio_processor=audio,
+            persistence=persistence,
+            language_processor=processor,
+            video_id="test_boot",
+            output_dir="/tmp/test",
+        )
+
+    assert processor.bootstrap_calls == [(3, "zh")]
+
+
+def test_process_video_skips_i0_screenshots():
+    """Screenshots should only be captured for i1 or stashed sentences."""
+    transcript = FakeTranscript(["已知", "未知"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"已知"})
+    processor = FakeChineseProcessor()
+
+    process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_snap",
+        output_dir="/tmp/test",
+    )
+
+    # Only one frame should be captured (for "未知")
+    # "已知" is i0, so it's skipped
+    assert len(audio.captured_frames) == 1
+    # Check that it's the second sentence (timestamp_ms=2000)
+    assert audio.captured_frames[0][1] == 2000
+
+
+def test_process_video_logs_events():
+    """process_video should log classification events for each sentence."""
+    transcript = FakeTranscript(["已知", "未知"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"已知"})
+    processor = FakeChineseProcessor()
+
+    process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_events",
+        output_dir="/tmp/test",
+    )
+
+    # 2 sentences -> 2 events
+    assert len(persistence.events) == 2
+    actions = [e["action"] for e in persistence.events]
+    assert "classified_i0" in actions
+    assert "classified_i1" in actions
+
+
+def test_process_video_handles_stage_errors():
+    """MineError should be raised with the correct stage if a step fails."""
+    from langmine.pipeline import MineError
+    transcript = FakeTranscript([], fail_on_fetch=True)
+    audio = FakeAudio()
+    persistence = FakePersistence()
+    processor = FakeChineseProcessor()
+
+    with pytest.raises(MineError) as excinfo:
+        process_video(
+            transcript_source=transcript,
+            audio_processor=audio,
+            persistence=persistence,
+            language_processor=processor,
+            video_id="test_err",
+            output_dir="/tmp/test",
+        )
+
+    assert excinfo.value.stage == "transcript"
+    assert "Fetch failed" in str(excinfo.value)
+
