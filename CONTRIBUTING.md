@@ -42,15 +42,8 @@ cd src/langmine/web/frontend && npx playwright test
 Run the API server:
 
 ```bash
-langmine serve
+langmine
 # → http://127.0.0.1:8080
-```
-
-Export to Anki (requires Anki running with AnkiConnect addon):
-
-```bash
-langmine export --all-kept
-langmine export --all-kept --force-update-model  # push template changes
 ```
 
 Run tests:
@@ -68,7 +61,7 @@ Dev server with hot reload (proxies `/api` to Flask on `:8080`):
 
 ```bash
 # Terminal 1: Flask
-langmine serve
+langmine
 
 # Terminal 2: Svelte dev server
 cd src/langmine/web/frontend
@@ -117,8 +110,8 @@ grep -r "from langmine.adapters\|from langmine.web" src/langmine/domain/
 
 ```
 Allowed:
-  cli → domain ports + adapters        (wiring)
-  cli → language_factory → languages/  (single switch point)
+  server → domain ports + adapters     (wiring)
+  server → language_factory → languages/ (single switch point)
   web → domain ports                   (API uses ports)
   adapters → domain ports              (implements ports)
   adapters → external libs             (subprocess, sqlite3, requests)
@@ -231,10 +224,10 @@ API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET
 - **Python formatting:** follow PEP 8.
 - **Svelte:** Svelte 5 with runes (`$props()`, `$state()`). Scoped CSS per component.
 - **No build step for Python.** `pip install -e .` in editable mode.
-- **Frontend build step required.** `npm run build` before `langmine serve`.
+- **Frontend build step required.** `npm run build` before running `langmine`.
 - **Test isolation.** Domain tests use fakes; adapter tests mock external HTTP or use local data files. Audio tests use project-bundled ffmpeg binaries or system PATH fallback.
 - **Frequency tiers** are pure domain logic in `domain/models.py` — adapters delegate to `frequency_tier()`/`frequency_badge()` rather than duplicating thresholds.
-- **Version is a single source of truth** in `pyproject.toml`. Imported via `importlib.metadata.version("langmine")` in Python; exposed via `--version` CLI flag, `/api/version` endpoint, and Settings page footer. Docker build accepts `--build-arg VERSION=x.y.z` for OCI labels.
+- **Version is a single source of truth** in `pyproject.toml`. Imported via `importlib.metadata.version("langmine")` in Python; exposed via `--version` flag, `/api/version` endpoint, and Settings page footer. Docker build accepts `--build-arg VERSION=x.y.z` for OCI labels.
 
 ---
 

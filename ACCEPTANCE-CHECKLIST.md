@@ -1,13 +1,13 @@
 # LangMine Acceptance Test Checklist — M0–M18
 
 > Manual QA checklist. Run through these in order after a fresh deploy.
-> Each item is one observable pass/fail check. UI and CLI tests only.
+> Each item is one observable pass/fail check. UI and API tests only.
 
 ---
 
-## M0–M2: Mine, Classify, Pipeline (CLI)
+## M0–M2: Mine, Classify, Pipeline
 
-- [ ] **CLI mine succeeds** — `langmine mine "<youtube-url>"` downloads transcript, produces sentences with audio clips
+- [ ] **Mine succeeds** — paste URL in web UI, mining starts, progress updates appear
 - [ ] **Pipeline produces output** — `data/` directory fills with `.mp3` audio clips per sentence
 - [ ] **i+1 classifier runs** — sentences are classified (known=1-unknown, learnable=i+1, too-hard=i+2+)
 - [ ] **HSK bootstrap works** — words in HSK 1–3 are treated as "known" by default
@@ -16,7 +16,7 @@
 
 ## M3: Curate in Browser (Web UI)
 
-- [ ] **App loads** — `langmine serve` → `http://localhost:8080` shows sidebar + empty state
+- [ ] **App loads** — `langmine` → `http://localhost:8080` shows sidebar + empty state
 - [ ] **Sidebar shows video list** — mined videos appear in the left sidebar
 - [ ] **Click video loads sentences** — selecting a video populates the card list
 - [ ] **Filter tabs work** — All / i+1 / Kept / Deleted / Stash tabs show correct sentence subsets
@@ -36,13 +36,11 @@
 
 ---
 
-## M5: Export to Anki (CLI + UI)
+## M5: Export to Anki
 
-- [ ] **Export All Kept (CLI)** — `langmine export --all-kept` pushes cards to Anki via AnkiConnect
-- [ ] **Export by video (CLI)** — `langmine export --video-id <id>` exports single-video cards
-- [ ] **Cards appear in Anki** — deck "Chinese::Sentence Mining" receives cards with audio + translation
-- [ ] **Force-update model (CLI)** — `--force-update-model` pushes template changes from `config.yaml`
 - [ ] **Web UI export button** — "📦 Export to Anki" button in sidebar triggers export
+- [ ] **Update card templates** — checking "⚡ Update card templates" in sidebar pushes template changes from language extension
+- [ ] **Cards appear in Anki** — deck "Chinese::Sentence Mining" receives cards with audio + translation
 
 ---
 
@@ -69,7 +67,7 @@
 
 ---
 
-## M8: Docker Deployment (CLI)
+## M8: Docker Deployment
 
 - [ ] **docker compose up** — `docker compose up` starts the app on port 8080
 - [ ] **AnkiConnect reachable** — export to Anki works from inside Docker (`host.docker.internal`)

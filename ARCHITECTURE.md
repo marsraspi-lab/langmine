@@ -87,8 +87,8 @@ pytest tests/ --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py -v
 
 ```text
 Allowed:
-  cli → pipeline → domain
-  cli → language_factory → languages/<lang>         (single switch point)
+  web → pipeline → domain
+  web → language_factory → languages/<lang>         (single switch point)
   adapters → domain (implements ports)
   adapters → external libs (subprocess, sqlite3, requests)
   languages/<lang> → domain ports (implements LanguageProcessor)
@@ -115,7 +115,7 @@ Forbidden:
 |-----------|------|--------|-------|
 | Post-refactor review | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: 21 abstract methods. Check 4: 8 port references in pipeline. Check 6: 36/36 domain tests pass without ffmpeg. |
 | Chinese service split | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: ChineseLanguageService has zero I/O imports (jieba/pypinyin are pure in-memory algorithms). Check 3: LanguageProcessor in domain/ports.py. Check 4: 7 port references in ChineseLanguageService (self._dict/_translator/_frequency). Check 5: 48/48 domain tests pass. |
-| M3: Web UI | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: web module at edge — injects ports from config, no adapter imports. Check 4: web imports domain ports only, adapters wired in CLI. Check 6: 83/83 domain tests pass without ffmpeg/network. New: 21 web API tests (fake ports), 1 serve wiring test. |
+| M3: Web UI | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: web module at edge — injects ports from config, no adapter imports. Check 4: web imports domain ports only, adapters wired in web/app.py. Check 6: 83/83 domain tests pass without ffmpeg/network. New: 21 web API tests (fake ports), 1 serve wiring test. |
 | M4–M9 (Translate, Export, Stash, Polish, Docker, Vocab) | ✅ Pass | All milestones: domain imports checked, adapters isolated, E2E coverage grows (37 tests). Cardinal rule preserved across all additions. |
 | M10–M14 (Reading, Cloze, Image, Preview, Ruby) | ✅ Pass | All milestones: 203 pytest + 42 E2E. `ImageSearch` port added, `ruby_json` on Sentence model, VocabPage deep-dive. No domain→adapter violations. |
 || Decouple Chinese | ✅ Pass | Check 0 (new): zero domain→languages, zero web→languages, no cross-language imports. `language_factory.py` as single switch point. `languages/chinese/` has 6 source files + 4 tests. 217 tests pass. |
