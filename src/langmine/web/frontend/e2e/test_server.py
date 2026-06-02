@@ -204,7 +204,7 @@ class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir): return f"{output_dir}/{video_id}.mp3"
     def clip(self, *args, **kwargs): return "/tmp/clip.mp3"
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
-        return f"{output_dir}/frame_{sentence_id}.jpg"
+        return None  # no real screenshots in E2E tests
 
 
 # === Create app ===
