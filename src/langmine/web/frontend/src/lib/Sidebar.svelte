@@ -1,6 +1,6 @@
 <script>
   import { videos, selectedVideoId, mineStatus, mining, selectVideo, mineVideo,
-    exportStatus, exporting, exportAnki, deleteVideo } from './stores.js';
+    exportStatus, exporting, exportAnki, deleteVideo, currentLanguage } from './stores.js';
   import { previewVideo, fetchSubtitleInfo } from './api.js';
   import PreviewPanel from './PreviewPanel.svelte';
 
@@ -110,9 +110,13 @@
         const result = await fetchSubtitleInfo(url);
         if (result.ok) {
           subInfo = result.data;
-          // Auto-select first manual sub, fall back to first auto
-          const firstChoice = sortedManualSubs[0] ?? sortedAutoSubs[0];
-          if (firstChoice) selectedSubLang = firstChoice.language_code;
+          // Pre-select subtitle matching the current mining language.
+          // Prefer manual, then auto, then fall back to first available.
+          const lang = $currentLanguage;
+          const matchManual = sortedManualSubs.find(s => s.language_code.startsWith(lang));
+          const matchAuto = sortedAutoSubs.find(s => s.language_code.startsWith(lang));
+          const best = matchManual ?? matchAuto ?? sortedManualSubs[0] ?? sortedAutoSubs[0];
+          if (best) selectedSubLang = best.language_code;
         }
       } catch (e) {
         // best-effort — ignore failures
