@@ -1,4 +1,5 @@
 <script>
+  import { slide } from 'svelte/transition';
   import { fetchVocab, fetchVocabWord, updateVocabWord } from './api.js';
   import { app, addToast } from './stores.svelte.js';
 

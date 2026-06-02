@@ -204,10 +204,45 @@ class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir): return f"{output_dir}/{video_id}.mp3"
     def clip(self, *args, **kwargs): return "/tmp/clip.mp3"
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
-        return f"{output_dir}/frame_{sentence_id}.jpg"
+        return None  # no real screenshots in E2E tests
 
 
 # === Create app ===
+
+import struct
+import zlib
+import tempfile
+
+# Create a valid 1×1 white PNG for the screenshot test fixture.
+# Generated with Python stdlib only (no Pillow dependency).
+_SCREENSHOT_PATH = os.path.join(tempfile.gettempdir(), "e2e_test_screenshot.png")
+
+
+def _png_pack(png_tag, data):
+    """Pack data into a PNG chunk."""
+    chunk = png_tag + data
+    return (
+        struct.pack("!I", len(data))
+        + chunk
+        + struct.pack("!I", zlib.crc32(chunk) & 0xFFFFFFFF)
+    )
+
+
+def _make_1x1_png():
+    """Return bytes for a valid 1×1 white PNG."""
+    signature = b"\x89PNG\r\n\x1a\n"
+    ihdr_data = struct.pack("!IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    raw = b"\x00\xFF\xFF\xFF"  # filter=0, R=255, G=255, B=255
+    return (
+        signature
+        + _png_pack(b"IHDR", ihdr_data)
+        + _png_pack(b"IDAT", zlib.compress(raw))
+        + _png_pack(b"IEND", b"")
+    )
+
+
+with open(_SCREENSHOT_PATH, "wb") as f:
+    f.write(_make_1x1_png())
 
 persistence = FakePersistence()
 
@@ -225,8 +260,8 @@ sentences = [
         annotation_json="[]",
         translation_de="Wir stehen normalerweise morgens auf",
         unknown_word="一般", unknown_word_rank=1847,
-        audio_clip_path="/tmp/clip1.mp3",
-        screenshot_path="/api/sentences/1/screenshot",
+        audio_clip_path="",
+        screenshot_path=_SCREENSHOT_PATH,
         screenshot_enabled=True,
         status="i1",
     ),

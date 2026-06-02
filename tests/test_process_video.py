@@ -190,7 +190,7 @@ def test_process_video_classifies_sentences():
 
 
 def test_process_video_applies_cap():
-    """process_video should respect max_cards for i+1 candidates."""
+    """process_video should respect max_cards from config for i+1 candidates."""
     # Create 25 sentences each with one unique unknown word
     texts = [f"我们 word{i} 学习" for i in range(25)]
     transcript = FakeTranscript(texts)
@@ -198,15 +198,19 @@ def test_process_video_applies_cap():
     persistence = FakePersistence(known_words={"我们", "学习"})
     processor = FakeChineseProcessor()
 
-    result = process_video(
-        transcript_source=transcript,
-        audio_processor=audio,
-        persistence=persistence,
-        language_processor=processor,
-        video_id="test789",
-        output_dir="/tmp/test",
-        max_cards=10,
-    )
+    from unittest.mock import patch
+    from langmine.config import Config
+    capped_config = Config()
+    capped_config.max_cards_per_video = 10
+    with patch("langmine.pipeline.load_config", return_value=capped_config):
+        result = process_video(
+            transcript_source=transcript,
+            audio_processor=audio,
+            persistence=persistence,
+            language_processor=processor,
+            video_id="test789",
+            output_dir="/tmp/test",
+        )
 
     assert len(result["i1_candidates"]) == 10
 

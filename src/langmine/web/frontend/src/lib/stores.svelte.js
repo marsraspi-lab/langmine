@@ -47,14 +47,27 @@ export const app = $state({
 // --- Word status helpers ---
 
 export function setWordStatus(word, newStatus) {
-  const allStores = { known: app.knownWords, learning: app.learningWords, ignored: app.ignoredWords };
-  for (const [status, setObj] of Object.entries(allStores)) {
-    if (status === newStatus) {
-      setObj.add(word);
-    } else {
-      setObj.delete(word);
-    }
-  }
+  // Re-create Sets to guarantee Svelte 5 $state reactivity.
+  // Mutating Sets in place (.add/.delete) may not always trigger
+  // $derived recomputation in all bundler/runtime versions.
+  const nextKnown = new Set(app.knownWords);
+  const nextLearning = new Set(app.learningWords);
+  const nextIgnored = new Set(app.ignoredWords);
+
+  // Clear all statuses for this word
+  nextKnown.delete(word);
+  nextLearning.delete(word);
+  nextIgnored.delete(word);
+
+  // Set the new status
+  if (newStatus === 'known') nextKnown.add(word);
+  else if (newStatus === 'learning') nextLearning.add(word);
+  else if (newStatus === 'ignored') nextIgnored.add(word);
+
+  // Assign back — triggers reactivity via property reassignment
+  app.knownWords = nextKnown;
+  app.learningWords = nextLearning;
+  app.ignoredWords = nextIgnored;
 }
 
 // --- Toast functions ---
