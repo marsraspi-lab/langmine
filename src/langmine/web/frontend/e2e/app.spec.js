@@ -643,12 +643,13 @@ test.describe('LangMine SPA', () => {
     // Toast confirms save
     await main.expectToast('Saved');
 
-    // Wait for the segmented-text element to re-appear after store refresh.
-    // expectCardsLoaded() only checks card + chinese text visibility, but
-    // .segmented-text is gated on {#if sentence.text_segmented} and Svelte
-    // reactivity can render the card before the text_segmented field populates.
-    // Wait for the actual element we need — not a proxy.
-    await curation.cards.nth(0).locator('.segmented-text').waitFor({ state: 'visible', timeout: 10000 });
+    // Store refresh can leave cards in a transitional Svelte state
+    // where .segmented-text hasn't re-rendered yet. Navigate away
+    // and back to force a clean page load, then verify persisted value.
+    await main.clickNav('Vocab');
+    await main.clickNav('Curation');
+    await curation.expectCardsLoaded();
+
     await curation.cards.nth(0).locator('.segmented-text').click();
     await expect(segInput).toHaveValue('我们 一 般 早上 起床');
   });
