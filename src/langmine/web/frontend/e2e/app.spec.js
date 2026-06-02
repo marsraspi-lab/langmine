@@ -648,6 +648,7 @@ test.describe('LangMine SPA', () => {
     // and back to force a clean page load, then verify persisted value.
     await main.clickNav('Vocab');
     await main.clickNav('Curation');
+    await main.selectFirstVideo();
     await curation.expectCardsLoaded();
 
     await curation.cards.nth(0).locator('.segmented-text').click();
