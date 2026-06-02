@@ -195,22 +195,26 @@ App.svelte
 └── Toast overlay        — success/error notifications
 ```
 
-State management via Svelte 5 stores (`src/lib/stores.js`):
-- `videos`, `sentences` — writable stores
-- `selectedVideoId`, `currentFilter` — writable stores
-- `selectedVideo` — derived store
-- `mineStatus`, `exportStatus` — writable stores (UI feedback)
-- `mining`, `exporting` — writable stores (loading states)
-- `toasts` — writable store (notification queue)
-- `config` — writable store (settings data)
-- `theme` — writable store (dark/light, persisted to localStorage)
-- `currentView` — writable store (curation | settings | vocab)
-- `languages` — writable store (available languages from GET /api/languages)
-- `currentLanguage` — writable store (active language code, synced with config)
-- `readingMode` — writable store (reading view toggle)
-- `clozeMode` — writable store (cloze deletion checkbox)
-- `previewResult` — writable store (difficulty preview data)
-- `imageSearchActive` — writable store (image picker open state)
+State management via Svelte 5 runes (`src/lib/stores.svelte.js`):
+
+All shared state lives in a single `$state({})` object exported as `app`:
+- `app.videos`, `app.sentences` — reactive arrays
+- `app.selectedVideoId`, `app.currentFilter`, `app.currentView` — reactive primitives
+- `app.mineStatus`, `app.exportStatus` — UI feedback strings
+- `app.mining`, `app.exporting`, `app.readingMode` — boolean flags
+- `app.toasts` — notification queue array
+- `app.config` — settings data object
+- `app.theme` — dark/light, persisted via `$effect` in App.svelte
+- `app.languages`, `app.currentLanguage` — available + active language
+- `app.knownWords`, `app.learningWords`, `app.ignoredWords` — reactive Sets
+- `app.reclassifyOffset` — pagination state
+- `app.vocabSearchQuery` — cross-component search prefilling
+
+Derived values via `$state` + `$effect` getter functions:
+- `curatedSentences()` — client-computed i+1/i0/stashed statuses with per-word highlighting
+- `selectedVideo()` — currently selected video object
+
+All mutations are direct property assignments (`app.currentView = 'vocab'`) or in-place mutations (`app.knownWords.add(word)`, `app.toasts.push(...)`) — no `.set()` / `.update()` / `.subscribe()` calls. Components read values as `app.storeName` (no `$` prefix needed).
 
 API calls via `src/lib/api.js` — thin wrappers around `fetch()`. Supports `GET`, `POST`, `PATCH`, and `PUT`.
 

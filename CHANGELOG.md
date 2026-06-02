@@ -2,6 +2,12 @@
 
 All notable changes to LangMine.
 
+## [1.7.3] — 2026-06-02
+
+### Changed
+
+- **Svelte 5 runes migration** — Replaced `svelte/store` (writable/derived/.set/.subscribe) with Svelte 5 runes (`$state`/`$effect`). All shared state consolidated into a single `$state({})` object exported as `app`. Components use direct property access (`app.currentView`) instead of `$` auto-subscription prefix. Derived values via `$state` + `$effect` getter functions. Old `stores.js` deleted, replaced by `stores.svelte.js`.
+
 ## [1.7.2] — 2026-06-01
 
 ### Fixed

@@ -1,10 +1,11 @@
-# Handoff — 2026-06-01 (Sentence Joining)
+# Handoff — 2026-06-02 (Svelte 5 Runes Migration)
 
 ## Where We Are
 
-**Sentence joining complete.** Merged to `main` (PR #21).
+**Svelte 5 runes migration complete.** Merged to `main`.
 
-- **`main`:** v1.6.0 — M0–M24. 234 pytest + 51 E2E.
+- **`main`:** v1.7.3 — 248 pytest + 57 E2E.
+- **What's new (Runes):** `stores.js` → `stores.svelte.js`. All shared state in single `$state({})` object exported as `app`. Components use `app.storeName` (no `$` prefix). Derived values via `$state` + `$effect` getter functions. Direct property assignment replaces `.set()`/`.update()`. See CONTRIBUTING.md for full state reference.
 - **What's new (M24):** `POST /api/sentences/<id>/merge-with-previous` — merges sentence B into the previous sentence A. Concatenates `text`, `text_segmented`, `reading`, `translation_de`. Spans timing from A's `start_ms` to B's `end_ms`. Soft-deletes B. Reclassifies the merged sentence. Frontend: ⬆️ Merge button on non-first sentence cards in curation view.
 - **What's new (M23):** Word splitting via editable `text_segmented` — click the segmented text to edit word boundaries with spaces. Spaces converted to ` / ` separator on save. Sentence reclassified after split.
 - **What's new (M22):** "Add Sentences" — `reclassify_all()` endpoint reclassifies all sentences for a video, paginated (offset/limit). "🔄 Reclassify & sort" and "+ Add more sentences" buttons in curation view.
