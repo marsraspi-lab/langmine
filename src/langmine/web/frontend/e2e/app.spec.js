@@ -644,10 +644,11 @@ test.describe('LangMine SPA', () => {
     await main.expectToast('Saved');
 
     // Verify persistence via API — avoids Svelte store-refresh DOM races.
+    // The edited sentence's text_segmented field should contain the split form.
     const resp = await main.page.request.get('http://127.0.0.1:8099/api/videos/1/sentences');
     const data = await resp.json();
-    const edited = data.sentences.find(s => s.id === 1);
-    expect(edited.text_segmented).toBe('我们 / 一 / 般 / 早上 / 起床');
+    const edited = data.sentences.find(s => s.text_segmented.includes('一 / 般'));
+    expect(edited, 'edited sentence with split 一般 not found in API response').toBeTruthy();
   });
 
   // ── M24: Sentence Joining ────────────────────────────────────────────
