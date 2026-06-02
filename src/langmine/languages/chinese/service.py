@@ -185,3 +185,43 @@ class ChineseLanguageService(LanguageProcessor):
                 "tone": tone,
             })
         return _json.dumps(entries)
+
+    def bootstrap_proficiency(
+        self, persistence, max_level: int, language_code: str,
+    ) -> None:
+        """Pre-mark HSK words up to max_level as known (M21).
+
+        Only marks words that don't already exist in the vocab table —
+        respects user modifications to existing words.  A no-op when
+        max_level is 0 or the HSK data file is missing.
+        """
+        if max_level < 1:
+            return
+
+        import json as _json
+        from pathlib import Path
+        from langmine.domain.models import VocabWord
+
+        # service.py → chinese/ → languages/ → langmine/ → src/ → project root
+        hsk_path = (
+            Path(__file__).resolve().parents[4]
+            / "data" / "hsk" / "hsk_levels.json"
+        )
+        if not hsk_path.exists():
+            return
+
+        with open(hsk_path, encoding="utf-8") as f:
+            hsk_words: dict[str, int] = _json.load(f)
+
+        for word, word_level in hsk_words.items():
+            if word_level > max_level:
+                continue
+            existing = persistence.get_vocab_word(word)
+            if existing is not None:
+                continue  # Don't overwrite user modifications
+            persistence.save_vocab_word(VocabWord(
+                word_simplified=word,
+                hsk_level=word_level,
+                status="known",
+                language_code=language_code,
+            ))

@@ -106,6 +106,24 @@ class LanguageProcessor(ABC):
         For other languages: may return "[]" or language-specific annotations.
         """
 
+    def bootstrap_proficiency(
+        self, persistence: "Persistence", max_level: int, language_code: str,
+    ) -> None:
+        """Pre-mark words from a proficiency framework as known.
+
+        Called once per video during mining. The implementation decides which
+        proficiency framework to use (HSK for Chinese, JLPT for Japanese, etc.)
+        and marks words at or below max_level as known in the vocabulary.
+
+        Default: no-op. Override in language-specific services.
+        Args:
+            persistence: Vocab persistence to mark words.
+            max_level: Maximum proficiency level to bootstrap (e.g. 3 = HSK 1-3).
+                No-op when <= 0.
+            language_code: Language to scope the bootstrap to (e.g. 'zh').
+        """
+        return  # default no-op
+
 
 class TranscriptSource(ABC):
     """Port for fetching video subtitles.
