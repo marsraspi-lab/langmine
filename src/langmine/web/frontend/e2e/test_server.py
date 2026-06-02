@@ -260,7 +260,7 @@ sentences = [
         annotation_json="[]",
         translation_de="Wir stehen normalerweise morgens auf",
         unknown_word="一般", unknown_word_rank=1847,
-        audio_clip_path="/tmp/clip1.mp3",
+        audio_clip_path="",
         screenshot_path=_SCREENSHOT_PATH,
         screenshot_enabled=True,
         status="i1",
