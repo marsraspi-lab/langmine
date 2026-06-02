@@ -2,7 +2,7 @@
 
 import pytest
 
-from langmine.pipeline import process_video, _bootstrap_hsk
+from langmine.pipeline import process_video
 from langmine.domain.ports import (
     TranscriptSource, AudioProcessor, Persistence, MergedSentence,
     LanguageProcessor, Dictionary, Translator, FrequencySource,
@@ -267,72 +267,3 @@ def test_process_video_passes_subtitle_language_to_fetch():
     assert captured_language == ["zh-Hans"], (
         f"Expected fetch(language='zh-Hans') but got {captured_language}"
     )
-
-
-# === HSK Bootstrap Tests (M21) ===
-
-
-class BootstrapConfig:
-    """Fake config for _bootstrap_hsk tests."""
-
-    def __init__(self, hsk_bootstrap_level: int = 0, source_language: str = "zh"):
-        self.hsk_bootstrap_level = hsk_bootstrap_level
-        self.source_language = source_language
-
-
-def test_bootstrap_hsk_disabled_when_level_zero():
-    """_bootstrap_hsk should do nothing when hsk_bootstrap_level is 0."""
-    persistence = FakePersistence()
-    config = BootstrapConfig(hsk_bootstrap_level=0)
-
-    _bootstrap_hsk(persistence, config)
-
-    assert len(persistence._vocab) == 0
-
-
-def test_bootstrap_hsk_marks_hsk1_words_as_known():
-    """HSK level 1 words should be saved as known when bootstrap level is 1."""
-    persistence = FakePersistence()
-    config = BootstrapConfig(hsk_bootstrap_level=1)
-
-    _bootstrap_hsk(persistence, config)
-
-    # HSK 1 has ~150 words — all should be saved
-    assert len(persistence._vocab) > 0
-    for w in persistence._vocab:
-        assert w.status == "known"
-        assert w.hsk_level <= 1
-        assert w.language_code == "zh"
-
-
-def test_bootstrap_hsk_skips_existing_words():
-    """Words already in vocab should not be overwritten."""
-    persistence = FakePersistence()
-    # Pre-populate with a known word
-    persistence._vocab.append(VocabWord(
-        word_simplified="我们",
-        hsk_level=1,
-        status="learning",  # user marked as learning, not known
-        language_code="zh",
-    ))
-    config = BootstrapConfig(hsk_bootstrap_level=1)
-
-    _bootstrap_hsk(persistence, config)
-
-    # "我们" should still be "learning" (not overwritten)
-    existing = persistence.get_vocab_word("我们")
-    assert existing is not None
-    assert existing.status == "learning"
-
-
-def test_bootstrap_hsk_respects_level_boundary():
-    """Only words up to the bootstrap level should be marked."""
-    persistence = FakePersistence()
-    config = BootstrapConfig(hsk_bootstrap_level=3)
-
-    _bootstrap_hsk(persistence, config)
-
-    for w in persistence._vocab:
-        assert w.hsk_level <= 3
-        # No HSK 4+ words
-        assert not (w.hsk_level and w.hsk_level > 3)

@@ -25,49 +25,7 @@ class MineError(Exception):
         self.stage = stage
 
 
-def _bootstrap_hsk(persistence: Persistence, config) -> None:
-    """Pre-mark HSK words up to config.hsk_bootstrap_level as known (M21).
 
-    Only marks words that don't already exist in the vocab table —
-    respects user modifications to existing words. A no-op when
-    hsk_bootstrap_level is 0 or the HSK data file is missing
-    (non-Chinese languages).
-    """
-    from langmine.domain.models import VocabWord
-
-    level = getattr(config, "hsk_bootstrap_level", 0)
-    if not level or level < 1:
-        return
-
-    # Load HSK word list (Chinese-specific — file won't exist for other languages)
-    import json
-    from pathlib import Path
-
-    # pipeline.py → langmine/ → src/ → project root → data/hsk/
-    hsk_path = (
-        Path(__file__).resolve().parent.parent.parent
-        / "data" / "hsk" / "hsk_levels.json"
-    )
-    if not hsk_path.exists():
-        return
-
-    with open(hsk_path, encoding="utf-8") as f:
-        hsk_words: dict[str, int] = json.load(f)
-
-    language_code = getattr(config, "source_language", "zh")
-
-    for word, word_level in hsk_words.items():
-        if word_level > level:
-            continue
-        existing = persistence.get_vocab_word(word)
-        if existing is not None:
-            continue  # Don't overwrite user modifications
-        persistence.save_vocab_word(VocabWord(
-            word_simplified=word,
-            hsk_level=word_level,
-            status="known",
-            language_code=language_code,
-        ))
 
 
 def mine_one_sentence(
@@ -233,8 +191,8 @@ def process_video(
     for s in sentences:
         s.language_code = config.source_language
 
-    # 3c. HSK bootstrap: pre-mark HSK words as known (M21)
-    _bootstrap_hsk(persistence, config)
+    # 3c. Proficiency bootstrapping: pre-mark proficiency-framework words as known
+    language_processor.bootstrap_proficiency(persistence, max_level=int(config.hsk_bootstrap_level), language_code=config.source_language)
 
     # 4. Enrich with NLP (pinyin, translation, definitions)
     _progress("Enriching with translations…")
