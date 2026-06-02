@@ -18,7 +18,7 @@ def test_default_config_values():
         assert config.source_language == "zh"
         assert config.target_language == "de"
         assert config.translation_api == "google"
-        assert config.sentence_gap_ms == 500
+        assert config.sentence_gap_ms == 0
         assert config.audio_pad_before_ms == 250
         assert config.audio_pad_after_ms == 300
         assert config.max_cards_per_video == 20

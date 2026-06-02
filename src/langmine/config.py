@@ -52,7 +52,7 @@ class Config:
     deepl_api_key: str = ""
 
     # Mining
-    sentence_gap_ms: int = 500
+    sentence_gap_ms: int = 0
     audio_pad_before_ms: int = 250
     audio_pad_after_ms: int = 300
     max_cards_per_video: int = 20
