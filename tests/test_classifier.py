@@ -37,8 +37,16 @@ class FakeLanguageProcessor(LanguageProcessor):
         ranks = {"一般": 1847, "效率": 3412, "斟酌": 8203, "爬山": 5000}
         return ranks.get(word)
 
+    _FAKE_PARTICLES = {"的", "了", "吗", "吧", "呢", "啊"}
+    _FAKE_NUMERALS = {"零", "一", "二", "三", "四", "五", "六", "七", "八",
+                       "九", "十", "百", "千", "万", "亿", "两"}
+
     def is_non_word(self, token: str) -> bool:
-        return token in {"的", "了", "吗", "123", "七点"}
+        """Mirrors ChineseLanguageService.is_non_word."""
+        import re
+        return (token in self._FAKE_PARTICLES
+                or token in self._FAKE_NUMERALS
+                or bool(re.match(r"^\d+$", token)))
 
     def is_proper_name(self, token, context_sentence=""): return False
 

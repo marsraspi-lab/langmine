@@ -150,6 +150,7 @@ export class SettingsPage {
 
   get heading()          { return this.page.locator('h2'); }
   get ankiUrlInput()     { return this.page.locator('input[name="anki_connect_url"]'); }
+  get sentenceGapInput() { return this.page.locator('input[name="sentence_gap_ms"]'); }
   get maxCardsInput()    { return this.page.locator('input[name="max_cards_per_video"]'); }
   get saveBtn()          { return this.page.locator('.save-btn'); }
 
