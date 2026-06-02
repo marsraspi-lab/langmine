@@ -340,6 +340,57 @@ def client_with_anki(client, persistence, processor, transcript, audio):
     return app.test_client()
 
 
+@pytest.fixture
+def client_for_merge(client, persistence):
+    """Test client with sentences configured for merge testing.
+
+    Five sentences with readings and translations:
+      s1 (i1): "我们 学习" — reading="wo3men xue2xi2", translation="Wir lernen"
+      s2 (i0): "今天 天气 好" — reading="jin1tian tian1qi4 hao3", translation="Heute ist schönes Wetter"
+      s3 (i1): "我 爱 你" — reading empty, translation="Ich liebe dich"
+      s4 (i0): "你好" — reading="ni3hao3", translation empty
+      s5 (deleted): "再见" — reading="zai4jian4", translation="Tschüss" (should be skipped as predecessor)
+    """
+    video = Video(youtube_id="merge_test_vid", title="Merge Test",
+                  audio_path="/tmp/test_audio.mp3")
+    persistence.save_video(video)
+
+    s1 = Sentence(
+        video_id=video.id, start_ms=1000, end_ms=3000,
+        text="我们 学习", text_segmented="我们 / 学习",
+        reading="wo3men xue2xi2", translation_de="Wir lernen",
+        unknown_word="学习", status="i1",
+    )
+    s2 = Sentence(
+        video_id=video.id, start_ms=4000, end_ms=6000,
+        text="今天 天气 好", text_segmented="今天 / 天气 / 好",
+        reading="jin1tian tian1qi4 hao3", translation_de="Heute ist schönes Wetter",
+        status="i0",
+    )
+    s3 = Sentence(
+        video_id=video.id, start_ms=7000, end_ms=9000,
+        text="我 爱 你", text_segmented="我 / 爱 / 你",
+        reading="", translation_de="Ich liebe dich",
+        unknown_word="爱", status="i1",
+    )
+    s4 = Sentence(
+        video_id=video.id, start_ms=10000, end_ms=12000,
+        text="你好", text_segmented="你好",
+        reading="ni3hao3", translation_de="",
+        status="i0",
+    )
+    s5 = Sentence(
+        video_id=video.id, start_ms=13000, end_ms=15000,
+        text="再见", text_segmented="再见",
+        reading="zai4jian4", translation_de="Tschüss",
+        status="deleted",
+    )
+    for s in [s1, s2, s3, s4, s5]:
+        persistence.save_sentences([s])
+
+    return client, persistence
+
+
 # === Tests ===
 
 
@@ -781,3 +832,150 @@ class TestConfigPersistence:
         )
         resp = client.get("/api/config")
         assert json.loads(resp.get_data(as_text=True))["hsk_bootstrap_level"] == 0
+
+
+class TestMergeWithPrevious:
+    """POST /api/sentences/<id>/merge-with-previous"""
+
+    # ── helpers ──
+
+    def _merge(self, client, sentence_b_id):
+        """POST merge and return the response JSON."""
+        resp = client.post(f"/api/sentences/{sentence_b_id}/merge-with-previous")
+        return resp.status_code, json.loads(resp.data)
+
+    def _get_sentence_ids(self, persistence, video_id):
+        """Return sorted list of non-deleted sentence IDs for a video."""
+        sentences = persistence.get_sentences_by_video(video_id)
+        active = sorted(
+            [s for s in sentences if s.status != "deleted"],
+            key=lambda s: s.start_ms,
+        )
+        return [s.id for s in active]
+
+    # ── tests ──
+
+    def test_merge_basic(self, client_for_merge):
+        """Merging s2 into s1 concatenates text and spans timing."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)  # video_id=1
+
+        # Merge s2 (id=ids[1]) into s1
+        status, data = self._merge(client, ids[1])
+        assert status == 200
+        assert data["ok"] is True
+        merged = data["sentence"]
+
+        assert merged["text"] == "我们 学习 今天 天气 好"
+        assert merged["text_segmented"] == "我们 / 学习 / 今天 / 天气 / 好"
+        assert merged["start_ms"] == 1000
+        assert merged["end_ms"] == 6000  # s2's end_ms
+        assert merged["id"] == ids[0]   # A's id preserved
+
+        # Sentence B should be deleted
+        s2 = next(s for s in persistence.get_sentences_by_video(1) if s.id == ids[1])
+        assert s2.status == "deleted"
+
+    def test_merge_no_previous(self, client_for_merge):
+        """Merging the first sentence returns 400."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+        status, data = self._merge(client, ids[0])
+        assert status == 400
+        assert "No previous" in data["error"]
+
+    def test_merge_skips_deleted_predecessor(self, client_for_merge):
+        """When sentence before B is deleted, merge into the one before that."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+
+        # Mark s1 as deleted
+        all_s = persistence.get_sentences_by_video(1)
+        s1 = next(s for s in all_s if s.id == ids[0])
+        s1.status = "deleted"
+        persistence.update_sentence(s1)
+
+        # Now merge s3 (id=ids[2]) — should merge into s2 (ids[1]), skipping
+        # deleted s1 AND skipping s5 (which was already deleted)
+        status, data = self._merge(client, ids[2])
+        assert status == 200
+        merged = data["sentence"]
+        assert merged["id"] == ids[1]  # merged into s2
+
+    def test_merge_reading_both_have(self, client_for_merge):
+        """When both A and B have readings, they are concatenated then
+        regenerated by enrich()."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+
+        status, data = self._merge(client, ids[1])
+        assert status == 200
+        merged = data["sentence"]
+
+        # enrich() regenerates reading from merged text:
+        # "我们 学习 今天 天气 好" → "py:我们 py:学习 py:今天 py:天气 py:好"
+        assert "py:我们" in merged["reading"]
+        assert "py:学习" in merged["reading"]
+        assert "py:今天" in merged["reading"]
+
+    def test_merge_reading_a_empty(self, client_for_merge):
+        """When A has no reading but B does, B's reading is preserved
+        then regenerated by enrich()."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+
+        # Merge s3 (empty reading) into s2
+        status, data = self._merge(client, ids[2])
+        assert status == 200
+        merged = data["sentence"]
+
+        # enrich() regenerates: "今天 天气 好 我 爱 你" → py: tokens
+        assert "py:我" in merged["reading"]
+        assert "py:爱" in merged["reading"]
+        assert "py:你" in merged["reading"]
+
+    def test_merge_translation_a_empty(self, client_for_merge):
+        """When A has no translation but B does, B's translation is preserved
+        then regenerated by enrich()."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+
+        # Merge s4 (empty translation) into s3
+        # s3 is idx 2, s4 is idx 3
+        status, data = self._merge(client, ids[3])
+        assert status == 200
+        merged = data["sentence"]
+
+        # enrich() regenerates translation for merged text:
+        # "我 爱 你 你好" → "[DE] ..."
+        assert "[DE]" in merged["translation_de"]
+
+    def test_merge_reclassifies(self, client_for_merge):
+        """After merge, the sentence is reclassified based on word statuses."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+
+        # s2 (i0, all words unknown in vocab) merged into s1 (i1, "学习" known)
+        # Merged: 我们 / 学习 / 今天 / 天气 / 好
+        # Known: {"我们", "学习"} → "今天", "天气", "好" are unknown → stashed (3 unknowns)
+        status, data = self._merge(client, ids[1])
+        assert status == 200
+        # Multiple unknown → stashed, not i0 or i1
+        assert data["sentence"]["status"] == "stashed"
+
+    def test_merge_audio_clip(self, client_for_merge):
+        """Audio clip is regenerated for the merged span."""
+        client, persistence = client_for_merge
+        ids = self._get_sentence_ids(persistence, 1)
+
+        status, data = self._merge(client, ids[1])
+        assert status == 200
+
+        # FakeAudioProcessor returns f"{output_dir}/{sentence_id}.mp3"
+        clip = data["sentence"]
+        assert clip["has_audio"] is True
+
+        # Verify the stored sentence has the clip path
+        all_s = persistence.get_sentences_by_video(1)
+        s_a = next(s for s in all_s if s.id == ids[0])
+        assert s_a.audio_clip_path.endswith(".mp3")

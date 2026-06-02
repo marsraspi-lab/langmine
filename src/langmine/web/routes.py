@@ -144,7 +144,6 @@ def register_routes(app: Flask):
                     language_processor=processor,
                     video_id=video_id,
                     output_dir=output_dir,
-                    gap_ms=0 if is_file_upload else None,
                     subtitle_kind=subtitle_kind,
                     subtitle_language=language if not is_file_upload else "",
                 )
@@ -211,7 +210,6 @@ def register_routes(app: Flask):
                     language_processor=processor,
                     video_id=video_id,
                     output_dir=output_dir,
-                    gap_ms=0 if is_file_upload else None,
                     progress_callback=_on_progress,
                     subtitle_kind=subtitle_kind if not is_file_upload else "",
                     subtitle_language=language if not is_file_upload else "",
@@ -558,7 +556,7 @@ def register_routes(app: Flask):
         """Merge sentence B into the previous sentence A (M24).
 
         Concatenates text, text_segmented, reading, translation_de.
-        Keeps sentence A's media (audio, screenshot), spans timing.
+        Re-enriches NLP fields. Re-generates audio clip for merged span.
         Marks sentence B as deleted.
         """
         persistence = _get_persistence()
@@ -566,40 +564,86 @@ def register_routes(app: Flask):
 
         sentence_b = _get_sentence_or_404(persistence, sentence_id)
 
-        # Find the previous sentence (A) — same video, earlier start_ms
+        # Find the previous non-deleted sentence (A) — same video, earlier start_ms
         all_sentences = persistence.get_sentences_by_video(
             sentence_b.video_id, language_code=lang
         )
-        # Sort by start_ms to find predecessor
-        sorted_sentences = sorted(all_sentences, key=lambda s: s.start_ms)
+        # Exclude deleted sentences from predecessor search
+        active = sorted(
+            [s for s in all_sentences if s.status != "deleted"],
+            key=lambda s: s.start_ms,
+        )
         b_idx = None
-        for i, s in enumerate(sorted_sentences):
+        for i, s in enumerate(active):
             if s.id == sentence_b.id:
                 b_idx = i
                 break
         if b_idx is None or b_idx == 0:
             return jsonify({"error": "No previous sentence to merge with"}), 400
 
-        sentence_a = sorted_sentences[b_idx - 1]
+        sentence_a = active[b_idx - 1]
 
         # Merge text fields
         sentence_a.text += " " + sentence_b.text
         sentence_a.text_segmented += " / " + sentence_b.text_segmented
-        if sentence_a.reading:
-            sentence_a.reading += " " + sentence_b.reading if sentence_b.reading else ""
-        if sentence_a.translation_de:
-            sentence_a.translation_de += " " + sentence_b.translation_de if sentence_b.translation_de else ""
+
+        # Merge reading and translation (preserve even if A was empty)
+        if sentence_b.reading:
+            if sentence_a.reading:
+                sentence_a.reading += " " + sentence_b.reading
+            else:
+                sentence_a.reading = sentence_b.reading
+        if sentence_b.translation_de:
+            if sentence_a.translation_de:
+                sentence_a.translation_de += " " + sentence_b.translation_de
+            else:
+                sentence_a.translation_de = sentence_b.translation_de
 
         # Span timing
         sentence_a.end_ms = sentence_b.end_ms
 
-        # Mark B as deleted
+        # Re-enrich NLP for the merged text (reading, translation, annotations)
+        processor = _get_processor()
+        if processor:
+            from langmine.domain.classifier import SentenceClassifier
+            classifier = SentenceClassifier(processor, persistence)
+            classifier.enrich([sentence_a])
+
+        # Re-classify based on merged word segmentation
+        _reclassify_from_segmented(persistence, sentence_a)
+
+        # Regenerate audio clip for the merged span (best effort)
+        audio = _get_audio_processor()
+        if audio:
+            from langmine.config import load_config
+            from pathlib import Path
+            import os
+            config = load_config()
+            videos = persistence.list_videos()
+            video = next((v for v in videos if v.id == sentence_a.video_id), None)
+            if video and video.audio_path:
+                data_dir = str(Path(config.data_dir).expanduser())
+                clip_dir = os.path.join(data_dir, "clips")
+                os.makedirs(clip_dir, exist_ok=True)
+                try:
+                    clip_path = audio.clip(
+                        audio_path=video.audio_path,
+                        start_ms=sentence_a.start_ms,
+                        end_ms=sentence_a.end_ms,
+                        pad_before_ms=config.audio_pad_before_ms,
+                        pad_after_ms=config.audio_pad_after_ms,
+                        output_dir=clip_dir,
+                        sentence_id=str(sentence_a.id).zfill(4),
+                    )
+                    sentence_a.audio_clip_path = clip_path
+                except Exception:
+                    pass  # best effort — audio clipping may not be available
+
+        # Persist A first, then mark B as deleted (rollback-safe ordering)
+        persistence.update_sentence(sentence_a)
+
         sentence_b.status = "deleted"
         persistence.update_sentence(sentence_b)
-
-        # Re-classify A
-        _reclassify_from_segmented(persistence, sentence_a)
-        persistence.update_sentence(sentence_a)
 
         persistence.log_event(
             entity_type="sentence", entity_id=sentence_a.id,
@@ -609,7 +653,7 @@ def register_routes(app: Flask):
         )
 
         return jsonify({
-            "sentence": _sentence_to_dict(sentence_a, persistence, processor=_get_processor()),
+            "sentence": _sentence_to_dict(sentence_a, persistence, processor=processor),
             "merged_id": sentence_b.id,
             "ok": True,
         })

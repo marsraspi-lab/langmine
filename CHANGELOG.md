@@ -2,6 +2,22 @@
 
 All notable changes to LangMine.
 
+## [1.7.4] — 2026-06-03
+
+### Fixed
+
+- **Config always wins** — `sentence_gap_ms`, `audio_pad_before_ms`, `audio_pad_after_ms`, and `max_cards_per_video` now always take their configured values. Removed hardcoded overrides (700ms auto / 300ms manual for gap_ms) and `if None` guards that allowed callers to bypass config.
+- **M24 merge bug fixes** — Sentence merging endpoint (`/api/sentences/<id>/merge-with-previous`):
+  - Reading/translation no longer silently dropped when sentence A had empty fields
+  - NLP enrichment runs after merge (regenerates reading, translation, annotations)
+  - Audio clip regenerated for merged span (best effort)
+  - Deleted sentences excluded from predecessor search
+  - Rollback-safe ordering: A persisted before B marked deleted
+
+### Added
+
+- **Merge endpoint tests** — 8 new pytest tests for `merge-with-previous` covering basic merge, empty-field preservation, deleted predecessor skipping, reclassification, and audio clip regeneration.
+
 ## [1.7.3] — 2026-06-02
 
 ### Changed

@@ -52,12 +52,9 @@ def mine_one_sentence(
     """
     config = load_config()
 
-    if gap_ms is None:
-        gap_ms = config.sentence_gap_ms
-    if pad_before_ms is None:
-        pad_before_ms = config.audio_pad_before_ms
-    if pad_after_ms is None:
-        pad_after_ms = config.audio_pad_after_ms
+    gap_ms = config.sentence_gap_ms
+    pad_before_ms = config.audio_pad_before_ms
+    pad_after_ms = config.audio_pad_after_ms
 
     # 1. Fetch transcript through the TranscriptSource port
     chunks = transcript_source.fetch(video_id)
@@ -146,15 +143,8 @@ def process_video(
             progress_callback(msg)
     config = load_config()
 
-    if max_cards is None:
-        max_cards = config.max_cards_per_video
-    if gap_ms is None:
-        if subtitle_kind == "auto":
-            gap_ms = 700   # auto-generated subs have no punctuation cues
-        elif subtitle_kind == "manual":
-            gap_ms = 300   # manual subs are well-punctuated
-        else:
-            gap_ms = config.sentence_gap_ms
+    max_cards = config.max_cards_per_video
+    gap_ms = config.sentence_gap_ms
 
     # 1. Fetch and merge transcript
     _progress("Fetching transcript…")
