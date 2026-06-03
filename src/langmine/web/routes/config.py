@@ -12,7 +12,7 @@ config_bp = Blueprint("config", __name__)
 @config_bp.route("/")
 def index():
     """Serve the Svelte SPA."""
-    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
     return send_from_directory(static_dir, "index.html")
 
 # === API Routes ===
