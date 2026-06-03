@@ -18,6 +18,9 @@ pytest tests/ -v
 # Domain-only tests (no ffmpeg/network — always pass)
 pytest tests/ -v --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
 
+# Architecture tests (AST-based, 0.4s)
+pytest tests/test_architecture.py -v
+
 # Single test file
 pytest tests/test_web_api.py -v
 
@@ -137,9 +140,11 @@ def test_something(client):
 
 ## Pre-Commit Checks
 
-CI runs these architecture checks. Run them locally before committing:
+CI runs both bash grep checks (fast gate) and AST-based Python tests (precise, no false positives). Run them locally before committing:
 
 ```bash
+# Fast bash checks (anchored — won't match docstrings)
+```
 # --- 1. domain/ is pure ---
 ! grep -rn "^\s*(from.*adapters\|import.*adapters)" src/langmine/domain/
 ! grep -rn "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
@@ -171,6 +176,12 @@ for f in src/langmine/pipeline.py src/langmine/config.py src/langmine/db.py \
          src/langmine/transcript.py src/langmine/transcript_parser.py src/langmine/audio.py; do
   grep -q "^\s*(from langmine.adapters\|import langmine.adapters)" "$f" 2>/dev/null && echo "FAIL: $f"
 done
+```
+
+Or run the AST-based tests for precise, false-positive-free results:
+
+```bash
+pytest tests/test_architecture.py -v   # 11 architecture rules, ~0.4s
 ```
 
 ## Conventions
