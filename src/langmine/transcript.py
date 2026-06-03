@@ -1,4 +1,10 @@
-"""Transcript fetching and sentence merging for YouTube videos."""
+"""Transcript utilities — YouTube subtitle download, SRT parsing, sentence merging.
+
+Concrete functions (not a port/adapter): fetches subtitles via yt-dlp --write-sub,
+parses SRT format into TranscriptChunks, merges adjacent chunks into sentences
+based on a pause threshold, and lists available subtitle tracks.
+Used by YouTubeTranscriptAdapter and the inline-transcript upload path.
+"""
 
 import re
 import subprocess

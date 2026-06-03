@@ -87,7 +87,7 @@ cd src/langmine/web/frontend && npm install && npm run build && cd -
 ```
 
 This installs LangMine in editable mode with all Python dependencies:
-`yt-dlp`, `youtube-transcript-api`, `jieba`, `pypinyin`, `deep-translator`, `flask`, `pyyaml`, `requests`, `pytest`, `pytest-cov`
+`yt-dlp`, `jieba`, `pypinyin`, `deep-translator`, `flask`, `pyyaml`, `requests`, `pytest`, `pytest-cov`
 
 Chinese language processing uses `jieba` (segmentation), `pypinyin` (reading), and CC-CEDICT. Other languages use their own NLP toolchain — see `languages/` directory.
 
@@ -95,46 +95,25 @@ Chinese language processing uses `jieba` (segmentation), `pypinyin` (reading), a
 
 ## Usage
 
-### Mine a video (CLI)
-
-```bash
-langmine mine "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-```
-
 ### Start the web UI
 
 ```bash
-langmine serve                  # → http://127.0.0.1:8080
-langmine serve --port 9000      # custom port
+langmine                  # → http://127.0.0.1:8080
+langmine --port 9000      # custom port
 ```
 
 The web UI lets you browse mined sentences, edit readings/translations/segmentation inline, keep or delete sentences, mark words as known, learning, or ignored, and configure settings. Ignored words (proper names, noise) are excluded from the i+1 unknown count, and words marked ignored trigger automatic stash reclassification — sentences with only one remaining unknown word are promoted to i+1. Use the **language selector** in the top bar to switch between languages — each language has its own isolated vocabulary, sentences, and videos.
 
 ### Export to Anki
 
-```bash
-# Export all kept sentences
-langmine export --all-kept
-
-# Export from a specific video
-langmine export --video-id 1
-
-# Force-update card templates
-langmine export --all-kept --force-update-model
-```
-
-Or use the **📦 Export to Anki** button in the sidebar. Check "⚡ Update card templates" to push template changes from the language extension (`languages/<lang>/anki/`).
+Use the **📦 Export to Anki** button in the sidebar. Check "⚡ Update card templates" to push template changes from the language extension (`languages/<lang>/anki/`).
 
 Anki must be running with the AnkiConnect addon installed.
 
-### View help and version
+### View version
 
 ```bash
-langmine --help
-langmine --version                  # e.g. "langmine 1.2.0"
-langmine mine --help
-langmine serve --help
-langmine export --help
+langmine --version                  # e.g. "langmine 1.7.2"
 ```
 
 ---
@@ -253,7 +232,6 @@ src/langmine/
 │   ├── static/           # Built Svelte output (served by Flask)
 │   └── frontend/         # Svelte 5 + Vite source (language-agnostic + selector)
 ├── pipeline.py           # End-to-end mining (accepts ports)
-├── cli.py                # CLI entry point (mine, serve, export)
 ├── config.py             # YAML config with defaults (templates removed)
 ├── audio.py              # yt-dlp/ffmpeg helpers (uses project binaries)
 └── bin/                  # Static ffmpeg/ffprobe (downloaded via setup script)
@@ -322,7 +300,8 @@ Also add to the `LANGUAGES` list in `language_factory.py`:
 {"code": "es", "name": "Spanish"},
 ```
 
-No changes needed in `domain/`, `web/`, `adapters/`, `pipeline.py`, or `cli.py` — the factory handles everything. The Svelte frontend is fully language-agnostic — it renders whatever JSON the API returns. The language selector auto-populates from `GET /api/languages`.
+No changes needed in `domain/`, `web/`, `adapters/`, or `pipeline.py` — the factory handles everything.
+ The Svelte frontend is fully language-agnostic — it renders whatever JSON the API returns. The language selector auto-populates from `GET /api/languages`.
 
 ### Frequency tiers
 

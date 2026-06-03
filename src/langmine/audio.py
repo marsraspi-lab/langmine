@@ -1,4 +1,8 @@
-"""Audio downloading and clipping using yt-dlp and ffmpeg.
+"""Audio and video frame utilities — concrete yt-dlp + ffmpeg operations.
+
+Downloads YouTube audio as MP3, clips sentence segments, captures video
+frames as JPEG screenshots, and fetches video metadata. These are standalone
+functions (not a port/adapter) used by YtdlpAudioAdapter and pipeline.py.
 
 Uses project-bundled ffmpeg/ffprobe binaries from ../../bin/ so tests
 work even when the system ffmpeg gets wiped by container resets.

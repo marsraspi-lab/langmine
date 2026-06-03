@@ -1,4 +1,9 @@
-"""Flask routes for the LangMine curation API."""
+"""Flask routes — all REST endpoints and SSE streaming for the LangMine API.
+
+Registers routes for: video mining (sync + SSE), sentence CRUD, reclassification,
+merge, vocab management, Anki export, image search, config, and audio/screenshot
+serving. All routes retrieve ports from current_app.config — never import adapters.
+"""
 
 import json
 import os
@@ -144,7 +149,6 @@ def register_routes(app: Flask):
                     language_processor=processor,
                     video_id=video_id,
                     output_dir=output_dir,
-                    subtitle_kind=subtitle_kind,
                     subtitle_language=language if not is_file_upload else "",
                 )
 
@@ -211,7 +215,6 @@ def register_routes(app: Flask):
                     video_id=video_id,
                     output_dir=output_dir,
                     progress_callback=_on_progress,
-                    subtitle_kind=subtitle_kind if not is_file_upload else "",
                     subtitle_language=language if not is_file_upload else "",
                 )
 

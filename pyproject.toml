@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-langmine = "langmine.cli:main"
+langmine = "langmine.web.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

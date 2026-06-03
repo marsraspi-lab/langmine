@@ -1,7 +1,10 @@
-"""Adapters: concrete implementations of domain ports.
+"""Adapters package — concrete implementations of every domain port.
 
-Each adapter wraps an external system behind a port interface.
-Language-specific adapters live under languages/<lang>/.
+Each adapter wraps one external system (YouTube, SQLite, AnkiConnect, etc.)
+behind a port interface from domain.ports. Language-specific adapters
+(dictionary, frequency) live under languages/<lang>/, not here.
+
+Re-exports all adapter classes for convenient single-import wiring.
 """
 
 from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter

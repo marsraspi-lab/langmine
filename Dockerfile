@@ -41,4 +41,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 VOLUME /root/.langmine
 
-CMD ["langmine", "serve", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["langmine", "--host", "0.0.0.0", "--port", "8080"]

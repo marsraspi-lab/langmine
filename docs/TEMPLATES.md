@@ -21,10 +21,7 @@ languages/chinese/anki/
 ## How to Customize
 
 1. **Edit the template files** in `languages/<lang>/anki/` directly.
-2. **Push to Anki** — check "⚡ Update card templates" in the web UI sidebar, or use CLI:
-   ```bash
-   langmine export --all-kept --force-update-model
-   ```
+2. **Push to Anki** — check "⚡ Update card templates" in the web UI sidebar before clicking "📦 Export to Anki".
    This calls `updateModelTemplates` and `updateModelStyling` on the AnkiConnect API.
 
 3. **Editing in Anki** — you can also edit directly in Anki: **Tools → Manage Note Types → "LangMine Sentence" → Cards...**. Changes in Anki survive future exports unless you check "⚡ Update card templates".

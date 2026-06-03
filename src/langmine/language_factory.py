@@ -3,9 +3,13 @@
 This is the ONLY module allowed to import from languages/.
 Core code (domain/, pipeline.py, web/) uses the factory to get
 a LanguageProcessor without knowing which language is configured.
+
+All port implementations (Translator, Dictionary, FrequencySource) are
+resolved from config — no adapter is hardcoded.  Callers can also inject
+ports directly for testing.
 """
 
-from langmine.domain.ports import LanguageProcessor
+from langmine.domain.ports import LanguageProcessor, Translator
 from langmine.config import Config
 
 
@@ -38,9 +42,13 @@ def get_available_languages() -> list[dict]:
 
 
 def _try_load_processor(lang_code: str) -> None:
-    """Try to instantiate a processor for lang_code. Raises if not possible."""
+    """Try to instantiate a processor for lang_code. Raises if not possible.
+
+    Uses a lightweight translator just for the load check — the real
+    translator is wired by the caller (app.py).
+    """
     from langmine.adapters.google_translate import GoogleTranslateAdapter
-    translator = GoogleTranslateAdapter()
+    translator = GoogleTranslateAdapter()  # any Translator works for this check
 
     match lang_code:
         case "zh":
@@ -58,15 +66,21 @@ def _try_load_processor(lang_code: str) -> None:
             )
 
 
-def create_language_processor(config: Config) -> LanguageProcessor:
+def create_language_processor(
+    config: Config,
+    translator: Translator,
+) -> LanguageProcessor:
     """Create a LanguageProcessor for the configured source language.
 
-    Each language extension provides its own service + adapters.
+    Each language extension provides its own language-specific adapters
+    (Dictionary, FrequencySource).  The Translator is a cross-cutting port
+    — wired by the caller (app.py), not by this factory.
+
+    Args:
+        config: LangMine configuration.
+        translator: Translator port implementation (required — inject a
+            real adapter for production, a fake for testing).
     """
-    from langmine.adapters.google_translate import GoogleTranslateAdapter
-
-    translator = GoogleTranslateAdapter()
-
     match config.source_language:
         case "zh":
             from langmine.languages.chinese import (

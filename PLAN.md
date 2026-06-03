@@ -386,10 +386,10 @@ paths:
 - [ ] Config loading: read `~/.langmine/config.yaml` with defaults, create on first run
 - [ ] SQLite schema creation with migration system (version-based)
 - [ ] `LanguageProcessor` abstract base class + registry
-- [ ] CLI entry point: `langmine --help`
+- [ ] Entry point: `langmine` (web server)
 - [ ] TDD infrastructure: `pytest` configured, test DB fixture, first passing test (config loads)
 
-**Acceptance:** `pip install -e . && langmine --help && pytest tests/ -v` all green.
+**Acceptance:** `pip install -e . && langmine --version && pytest tests/ -v` all green.
 
 ---
 
@@ -409,9 +409,9 @@ paths:
 - [ ] Sentence merger: time-gap heuristic (500ms), spaces as soft boundaries
 - [ ] yt-dlp audio download: full MP3, cached per video
 - [ ] ffmpeg audio clipping: trim first merged sentence with padding
-- [ ] CLI: `langmine mine <URL>` — prints one sentence with timestamp + audio path
+- [ ] Pipeline produces sentences with audio clips
 
-**Acceptance:** `langmine mine <REAL_VIDEO_URL>` prints a valid sentence. `ffplay <audio_path>` plays the correct sentence.
+**Acceptance:** Sentences with audio clips are produced.
 
 ---
 
@@ -438,7 +438,6 @@ paths:
 - [ ] CC-CEDICT lookup for each HSK word: German preferred, English fallback
 - [ ] i+1 classification pipeline: segment → filter non-words → count unknowns → classify
 - [ ] Frequency cap: sort i+1 by SUBTLEX-CH, cap at 20
-- [ ] CLI: `langmine mine <URL>` — prints classified sentences grouped by status
 
 **Acceptance:** Process a video. i+1 sentences have exactly one unknown non-HSK-3 word. i+0 sentences exist. Stash shows i+2+ count. Frequency cap respected.
 
@@ -466,9 +465,9 @@ paths:
 - [ ] Minimal SPA (vanilla HTML/JS or lightweight framework)
 - [ ] Sentence cards with text, audio player, action buttons
 - [ ] Video library sidebar: list processed videos, gray out already-mined
-- [ ] CLI: `langmine serve` starts the web server
+- [ ] App starts on port 8080
+**Acceptance:** `langmine` → open `localhost:8080`
 
-**Acceptance:** `langmine serve` → open `localhost:8080` → paste video URL → cards appear → click Keep/Delete/I Know This. Audio plays. Kept counter updates. Deleted sentences' media files are gone from disk.
 
 ---
 

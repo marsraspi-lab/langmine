@@ -1,4 +1,9 @@
-"""Configuration management for LangMine."""
+"""Configuration management — YAML-backed settings for LangMine.
+
+Defines the Config dataclass (all tunables with defaults), loads from
+~/.langmine/config.yaml (merging onto defaults), and saves back.
+No dependency on adapters or domain — safe to import from any layer.
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
