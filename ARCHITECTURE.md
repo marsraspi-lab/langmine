@@ -1,108 +1,163 @@
 # Architecture Review Checklist
 
 Run after every milestone. If any check fails, fix before proceeding.
-
-## Rule: Domain code knows nothing about the outside world.
+All checks are enforced in CI (`.github/workflows/ci.yml`).
 
 ---
 
-## 0. Language Extension Isolation
+## 0. Domain Purity
+
+The cardinal rule: domain knows nothing about the outside world.
 
 ```bash
-# domain/ must NEVER import from languages/
-grep -r "from langmine.languages" src/langmine/domain/      # must be empty
+# domain/ must NEVER import adapters, languages, web, or external I/O
+! grep -rn "^\s*(from.*adapters\|import.*adapters)" src/langmine/domain/
+! grep -rn "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/domain/
+! grep -rn "^\s*(from langmine.web\|import langmine.web)" src/langmine/domain/
+! grep -rn "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
+```
 
+- [ ] `domain/` imports nothing from `adapters/`, `languages/`, or `web/`
+- [ ] `domain/` contains no I/O calls (sqlite3, subprocess, requests, urllib)
+- [ ] `domain/models.py` — pure dataclasses, no methods that touch external systems
+- [ ] `domain/ports.py` — all ports inherit `ABC`, all methods `@abstractmethod`, no implementation code
+- [ ] `domain/classifier.py` — accepts ports as arguments, never instantiates adapters
+
+---
+
+## 1. Web Layer
+
+Web sits at the outermost edge. It talks to domain ports, never to adapters directly.
+
+```bash
 # web/ must NEVER import from languages/
-grep -r "from langmine.languages" src/langmine/web/         # must be empty
+! grep -rn "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/web/
 
-# Language packages must NEVER cross-import each other
-grep -r "from langmine.languages" src/langmine/languages/chinese/ | grep -v languages.chinese  # must be empty
-
-# Language packages must NEVER import from web/
-grep -r "from langmine.web" src/langmine/languages/          # must be empty
+# Only app.py may import adapters (wiring point)
+WEB_ADAPTERS=$(grep -rl "^\s*from langmine.adapters" src/langmine/web/ || true)
+for f in $WEB_ADAPTERS; do case "$f" in */app.py) ;; *) echo "FAIL: $f" ;; esac; done
 ```
 
-- [ ] `domain/` imports nothing from `languages/`
-- [ ] `web/` imports nothing from `languages/`
-- [ ] No cross-imports between language packages
-- [ ] `languages/` imports nothing from `web/`
+- [ ] `web/` imports nothing from `languages/` (use `language_factory`)
+- [ ] Only `web/app.py` imports from `adapters/`
+- [ ] `web/routes.py` retrieves ports from `current_app.config`, never imports adapters
+- [ ] `web/server.py` imports nothing from adapters — just calls `create_production_app()`
 
 ---
 
-## 1. Import Direction
+## 2. Language Factory Gate
+
+`language_factory.py` is the ONLY module allowed to import from `languages/`.
 
 ```bash
-# Domain code must NEVER import from adapters
-# This should produce ZERO results:
-grep -r "from langmine.adapters" src/langmine/domain/    # must be empty
-grep -r "import.*adapters" src/langmine/domain/          # must be empty
+# Only language_factory.py + intra-package imports are allowed
+LANG_IMPORTERS=$(grep -rl "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/ --include="*.py" || true)
+for f in $LANG_IMPORTERS; do
+  case "$f" in */language_factory.py|*/languages/*) ;; *) echo "FAIL: $f" ;; esac; done
 ```
 
-- [ ] `domain/` imports nothing from `adapters/`
-- [ ] `domain/` imports nothing from `audio.py`, `transcript.py`, `db.py` (old modules)
+- [ ] No file outside `language_factory.py` or `languages/` imports from `languages/`
+- [ ] New languages added via match/case blocks in `language_factory.py`
+- [ ] `Translator` is injected as a port (wired in `app.py`), not hardcoded in the factory
 
-## 2. Domain Models Are Pure
+---
+
+## 3. Language Extension Isolation
+
+Each language extension is self-contained.
 
 ```bash
-# Domain models must have zero I/O in their definitions
-# Check for: sqlite3, subprocess, requests, open(), Path.write, etc.
-grep -r "sqlite3\|subprocess\|requests\|open(\|\.write(" src/langmine/domain/models.py
+# languages/ must never import from web/
+! grep -rn "^\s*(from langmine.web\|import langmine.web)" src/langmine/languages/
+
+# languages/ must never import from adapters/ (use ports, not shared adapters)
+! grep -rn "^\s*(from langmine.adapters\|import langmine.adapters)" src/langmine/languages/
+
+# No cross-language imports
+LANGS=$(ls -d src/langmine/languages/*/ 2>/dev/null || true)
+for d1 in $LANGS; do n1=$(basename "$d1"); for d2 in $LANGS; do n2=$(basename "$d2")
+  if [ "$n1" != "$n2" ] && grep -rq "from langmine.languages.$n2\|import langmine.languages.$n2" "$d1" 2>/dev/null
+  then echo "FAIL: $n1 imports $n2"; fi
+done; done
 ```
 
-- [ ] `Video`, `Sentence`, `VocabWord` are plain dataclasses
-- [ ] No database imports, no API calls, no file I/O in model definitions
-- [ ] No methods that touch external systems
+- [ ] `languages/` imports nothing from `web/`
+- [ ] `languages/` imports nothing from `adapters/` (defines its own adapters)
+- [ ] No cross-imports between language packages
+- [ ] Language service depends on ports (`Dictionary`, `Translator`, `FrequencySource`), not concrete adapters
 
-## 3. Domain Ports Are Abstract
+---
 
-- [ ] All port classes inherit from `ABC`
-- [ ] All port methods are decorated with `@abstractmethod`
-- [ ] No port contains implementation code (no `subprocess.run`, no `sqlite3.connect`)
+## 4. Adapter Independence
 
-## 4. Domain Logic (pipeline, classifier, etc.)
+Each adapter stands alone — no adapter imports another adapter.
 
-- [ ] Domain modules accept ports as arguments, never instantiate adapters directly
-- [ ] Convenience wrappers (like `extract_one_sentence()`) live at the edge, not in domain
-- [ ] All tests for domain logic use `InMemoryPersistence` or mocks, not SQLite
-
-## 5. Adapter Boundaries
+```bash
+# Adapter files must not import from sibling adapters (__init__.py re-exports are fine)
+for f in src/langmine/adapters/*.py; do
+  case "$(basename "$f")" in __init__.py) continue ;; esac
+  grep -q "^\s*from langmine.adapters" "$f" && echo "FAIL: $(basename "$f") imports another adapter"
+done
+```
 
 - [ ] Each adapter implements exactly one port
 - [ ] Adapters contain ALL external system specifics (API keys, paths, subprocess calls)
-- [ ] No adapter imports another adapter
 - [ ] No business logic in adapters (only translation between port ↔ external system)
+- [ ] No adapter imports another adapter
+
+---
+
+## 5. Leaf Module Purity
+
+Top-level utility modules must not import adapters.
+
+```bash
+for f in src/langmine/pipeline.py src/langmine/config.py src/langmine/db.py \
+         src/langmine/transcript.py src/langmine/transcript_parser.py src/langmine/audio.py; do
+  grep -q "^\s*(from langmine.adapters\|import langmine.adapters)" "$f" 2>/dev/null && echo "FAIL: $f"
+done
+```
+
+- [ ] `pipeline.py` uses ports only, no adapter imports
+- [ ] `config.py`, `db.py`, `transcript.py`, `transcript_parser.py`, `audio.py` are adapter-free
+
+---
 
 ## 6. Test Isolation
 
 ```bash
-# Domain tests should NOT require network/ffmpeg/SQLite
-# They should pass with --ignore for adapter tests
+# Domain tests must pass without ffmpeg/network/SQLite
 pytest tests/ --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py -v
 ```
 
 - [ ] Domain logic tests pass without ffmpeg, yt-dlp, or internet
 - [ ] At least one test exercises each port with an in-memory fake
+- [ ] Fakes live inline in test files (not a shared test-utils module)
+
+---
 
 ## 7. Dependency Graph
 
 ```text
 Allowed:
-  web → pipeline → domain
-  web → language_factory → languages/<lang>         (single switch point)
-  adapters → domain (implements ports)
-  adapters → external libs (subprocess, sqlite3, requests)
-  languages/<lang> → domain ports (implements LanguageProcessor)
-  languages/<lang> → external NLP libs (jieba, pypinyin, etc.)
+  app.py → domain ports + adapters               (wiring)
+  app.py → language_factory → languages/<lang>   (single switch point)
+  web/routes.py → domain ports                   (API uses ports via app.config)
+  adapters/ → domain ports                       (implements ports)
+  languages/<lang>/ → domain ports               (implements LanguageProcessor)
+  pipeline.py → domain ports                     (pure domain logic at top level)
 
 Forbidden:
-  domain → adapters        ← THE CARDINAL SIN
-  domain → languages       ← must go through factory
-  domain → external libs
-  web → languages          ← must go through factory
-  port → port              (ports are independent)
-  adapter → adapter
-  languages/<lang> → languages/<other_lang>    ← cross-language
-  languages/<lang> → web
+  domain → adapters          ← THE CARDINAL SIN
+  domain → languages         ← must go through factory
+  domain → external libs     ← sqlite3, subprocess, requests, urllib
+  web → languages            ← must go through factory
+  web → adapters             ← except app.py (wiring)
+  languages → web            ← languages are inner layer
+  languages → adapters       ← languages define their own adapters, use ports
+  languages/<X> → languages/<Y>  ← cross-language
+  adapter → adapter          ← each adapter stands alone
+  leaf modules → adapters    ← pipeline, config, db, transcript, transcript_parser, audio
 ```
 
 - [ ] No forbidden dependency edges exist
@@ -113,10 +168,11 @@ Forbidden:
 
 | Milestone | Date | Result | Notes |
 |-----------|------|--------|-------|
-| Post-refactor review | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: 21 abstract methods. Check 4: 8 port references in pipeline. Check 6: 36/36 domain tests pass without ffmpeg. |
-| Chinese service split | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: ChineseLanguageService has zero I/O imports (jieba/pypinyin are pure in-memory algorithms). Check 3: LanguageProcessor in domain/ports.py. Check 4: 7 port references in ChineseLanguageService (self._dict/_translator/_frequency). Check 5: 48/48 domain tests pass. |
-| M3: Web UI | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: web module at edge — injects ports from config, no adapter imports. Check 4: web imports domain ports only, adapters wired in web/app.py. Check 6: 83/83 domain tests pass without ffmpeg/network. New: 21 web API tests (fake ports), 1 serve wiring test. |
-| M4–M9 (Translate, Export, Stash, Polish, Docker, Vocab) | ✅ Pass | All milestones: domain imports checked, adapters isolated, E2E coverage grows (37 tests). Cardinal rule preserved across all additions. |
-| M10–M14 (Reading, Cloze, Image, Preview, Ruby) | ✅ Pass | All milestones: 203 pytest + 42 E2E. `ImageSearch` port added, `ruby_json` on Sentence model, VocabPage deep-dive. No domain→adapter violations. |
-|| Decouple Chinese | ✅ Pass | Check 0 (new): zero domain→languages, zero web→languages, no cross-language imports. `language_factory.py` as single switch point. `languages/chinese/` has 6 source files + 4 tests. 217 tests pass. |
-|| Multi-Language | ✅ Pass | Check 0: `language_code` column on videos, sentences, vocab. DB schema v2. `GET /api/languages` endpoint. Language selector in Svelte top bar. Anki templates moved to `languages/<lang>/anki/` as files. Factory exposes `get_anki_templates()` + `get_language_manifest()`. Config surface cleaned — `deck_name`/`note_type` no longer in `/api/config`. 200 tests pass. |
+| Post-refactor review | | ✅ Pass | Check 1: zero domain→adapter imports. Check 2: models pure. Check 3: 21 abstract methods. Check 4: 8 port references in pipeline. Check 6: 36/36 domain tests pass without ffmpeg. |
+| Chinese service split | | ✅ Pass | ChineseLanguageService has zero I/O imports. LanguageProcessor in domain/ports.py. 48/48 domain tests pass. |
+| M3: Web UI | | ✅ Pass | Web module at edge — injects ports from config. 83/83 domain tests pass. 21 web API tests (fake ports). |
+| M4–M9 (Translate, Export, Stash, Polish, Docker, Vocab) | | ✅ Pass | All milestones: domain imports checked, adapters isolated, E2E coverage grows (37 tests). |
+| M10–M14 (Reading, Cloze, Image, Preview, Ruby) | | ✅ Pass | 203 pytest + 42 E2E. `ImageSearch` port added. |
+| Decouple Chinese | | ✅ Pass | `language_factory.py` as single switch point. `languages/chinese/` has 6 source files. 217 tests pass. |
+| Multi-Language | | ✅ Pass | `language_code` column on videos, sentences, vocab. DB schema v2. Factory exposes templates + manifest. 200 tests pass. |
+| Architecture hardening | 2026-06-03 | ✅ Pass | Deleted dead code (`processors.py`, `hsk.py`, `domain/services/`). Moved `Translator` wiring to `app.py`. Added 5 new CI checks (factory gate, languages→adapters, adapter→adapter, leaf modules, anchored patterns). 229 tests pass across 11 architecture rules. |

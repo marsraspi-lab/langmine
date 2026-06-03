@@ -2,6 +2,9 @@
 
 Creates a Flask app with domain ports injected — testable with fake adapters.
 Serves the Svelte frontend built output from ../static/.
+
+``create_app()`` is the injectable factory used by tests.
+``create_production_app()`` wires real adapters and is called by server.py.
 """
 
 import os
@@ -14,6 +17,7 @@ from langmine.domain.ports import (
     AudioProcessor,
     AnkiExporter,
     ImageSearch,
+    Translator,
 )
 from langmine.adapters.inline_transcript import InlineTranscriptSource
 from langmine.transcript_parser import parse_subtitle_file
@@ -60,3 +64,60 @@ def create_app(
     register_routes(app)
 
     return app
+
+
+def _create_translator(config) -> Translator:
+    """Resolve a Translator from config.translation_api.
+
+    Add new providers here as they're implemented.
+    """
+    if config.translation_api == "deepl" and config.deepl_api_key:
+        raise NotImplementedError(
+            "DeepL adapter not yet implemented. "
+            "Set translation_api to 'google' or contribute a DeepL adapter "
+            "at langmine.adapters.deepl_translate."
+        )
+    from langmine.adapters.google_translate import GoogleTranslateAdapter
+    return GoogleTranslateAdapter()
+
+
+def create_production_app() -> Flask:
+    """Create a Flask app wired with real production adapters.
+
+    Loads config, instantiates concrete adapters, and returns a fully
+    wired app ready to serve.  This is the entry point used by server.py.
+    """
+    from langmine.config import load_config
+    from langmine.adapters import (
+        YouTubeTranscriptAdapter,
+        YtdlpAudioAdapter,
+        SQLitePersistence,
+        AnkiConnectAdapter,
+        GoogleImageSearch,
+    )
+    from langmine.language_factory import create_language_processor, get_transcript_languages
+
+    config = load_config()
+    persistence = SQLitePersistence()
+
+    # Cross-cutting ports — wired here, not in language_factory
+    translator = _create_translator(config)
+
+    processor = create_language_processor(config, translator=translator)
+    transcript = YouTubeTranscriptAdapter(
+        user_agent=config.user_agent,
+        language_codes=get_transcript_languages(config.source_language),
+    )
+    audio = YtdlpAudioAdapter(user_agent=config.user_agent)
+
+    return create_app(
+        persistence=persistence,
+        language_processor=processor,
+        transcript_source=transcript,
+        audio_processor=audio,
+        anki_exporter=AnkiConnectAdapter(url=config.anki_connect_url),
+        image_searcher=GoogleImageSearch(
+            api_key=config.google_api_key,
+            cse_id=config.google_cse_id,
+        ) if config.google_api_key else None,
+    )

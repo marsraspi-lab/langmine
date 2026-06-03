@@ -41,19 +41,25 @@ langmine --port 9000               # custom port
 domain/ NEVER imports from adapters/, web/, or languages/
 ```
 
-Verify: `grep -r "from langmine.adapters\|from langmine.web\|from langmine.languages" src/langmine/domain/` must produce zero results.
+Verify: `grep -rn "^\s*(from.*adapters\|import.*adapters\|from langmine.languages\|import langmine.languages\|from langmine.web\|import langmine.web)" src/langmine/domain/` must produce zero results.
 
 ### Dependency Graph
 
 ```
-server.py → domain ports + adapters          (wiring)
-server.py → language_factory → languages/    (single switch point)
-web/app.py, web/routes.py → domain ports     (API uses ports)
-adapters/ → domain ports                     (implements ports)
-languages/<lang>/ → domain ports             (implements LanguageProcessor)
+app.py → domain ports + adapters               (wiring — cross-cutting ports)
+app.py → language_factory → languages/          (language-specific ports)
+web/routes.py → domain ports                    (API uses ports via app.config)
+adapters/ → domain ports                        (implements ports)
+languages/<lang>/ → domain ports                (implements LanguageProcessor)
 ```
 
-Also forbidden: `web/` → `languages/` (must go through factory), `adapter → adapter`, cross-language imports, `languages/` → `web/`.
+Forbidden edges (enforced by CI):
+- `domain/` → `adapters/`, `languages/`, `web/`  (domain is pure)
+- `web/` → `adapters/` (except `app.py`), `languages/`  (use ports + factory)
+- `languages/` → `adapters/`, `web/`, other language packages  (self-contained)
+- `adapter → adapter`  (each adapter stands alone)
+- Top-level leaf modules (`pipeline.py`, `config.py`, `db.py`, `transcript.py`, `transcript_parser.py`, `audio.py`) → `adapters/`
+- Only `language_factory.py` may import from `languages/`
 
 ### Key Files
 
@@ -63,28 +69,29 @@ Also forbidden: `web/` → `languages/` (must go through factory), `adapter → 
 | `src/langmine/domain/models.py` | Pure dataclasses (`Video`, `Sentence`, `VocabWord`, `Event`) + `frequency_tier()` / `frequency_badge()` |
 | `src/langmine/domain/classifier.py` | `SentenceClassifier` — the i+1 engine, pure logic on ports |
 | `src/langmine/language_factory.py` | **Only module allowed to import from `languages/`**. Match/case dispatch to language services. Also `get_anki_templates()`, `get_language_manifest()`, `get_available_languages()`. |
-| `src/langmine/web/server.py` | Entry point (`main()`). Wires real adapters, starts Flask. |
-| `src/langmine/web/app.py` | `create_app()` factory — injects ports into `app.config` as `LANGMINE_*` keys. Serves Svelte static files. |
+| `src/langmine/web/server.py` | Entry point (`main()`). Parses CLI args, calls `create_production_app()`, starts Flask. |
+| `src/langmine/web/app.py` | `create_app()` injectable factory + `create_production_app()` wires all real adapters. **Only file in `web/` allowed to import adapters.** Also resolves `Translator` from config (Google Translate / DeepL). |
 | `src/langmine/web/routes.py` | All REST endpoints. Accesses ports via `current_app.config["LANGMINE_PERSISTENCE"]` etc. |
 | `src/langmine/pipeline.py` | `process_video()` — full mining pipeline (transcript → classify → enrich → screenshots → persist) |
 | `src/langmine/config.py` | `Config` dataclass + `load_config()`/`save_config()` from `~/.langmine/config.yaml` |
 
 ### Port Wiring
 
-`server.py` wires concrete adapters, `app.py` injects them into Flask config, `routes.py` retrieves them. The pattern:
+`app.py:create_production_app()` wires concrete adapters, `create_app()` injects them into Flask config, `routes.py` retrieves them. The pattern:
 
 ```python
-# server.py — wiring
-persistence = SQLitePersistence(db_path)
-language = create_language_processor(config)
-app = create_app(persistence, language, ...)
-
-# app.py — injection
-app.config["LANGMINE_PERSISTENCE"] = persistence
+# app.py — wiring + injection
+config = load_config()
+translator = _create_translator(config)          # cross-cutting port (config-driven)
+persistence = SQLitePersistence()
+processor = create_language_processor(config, translator=translator)
+app = create_app(persistence, processor, ...)    # injects into app.config
 
 # routes.py — retrieval
 persistence = current_app.config["LANGMINE_PERSISTENCE"]
 ```
+
+Cross-cutting ports (`Translator`, `Persistence`, `TranscriptSource`, `AudioProcessor`, `AnkiExporter`, `ImageSearch`) are wired in `app.py`. Language-specific ports (`Dictionary`, `FrequencySource`) are wired in `language_factory.py`.
 
 ### Adding a Language
 
@@ -133,27 +140,37 @@ def test_something(client):
 CI runs these architecture checks. Run them locally before committing:
 
 ```bash
-# No domain→adapter imports
-! grep -r "from.*adapters\|import.*adapters" src/langmine/domain/
+# --- 1. domain/ is pure ---
+! grep -rn "^\s*(from.*adapters\|import.*adapters)" src/langmine/domain/
+! grep -rn "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
+! grep -rn "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/domain/
 
-# No domain external I/O
-! grep -r "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
+# --- 2. web/ uses ports, not adapters/languages ---
+! grep -rn "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/web/
+# Only app.py may import adapters:
+WEB_ADAPTER_IMPORTS=$(grep -rl "^\s*from langmine.adapters" src/langmine/web/ || true)
+for f in $WEB_ADAPTER_IMPORTS; do case "$f" in */app.py) ;; *) echo "FAIL: $f" ;; esac; done
 
-# No domain→languages imports
-! grep -r "from langmine.languages\|import langmine.languages" src/langmine/domain/
+# --- 3. Only language_factory.py imports from languages/ ---
+LANG_IMPORTERS=$(grep -rl "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/ --include="*.py" || true)
+for f in $LANG_IMPORTERS; do case "$f" in */language_factory.py|*/languages/*) ;; *) echo "FAIL: $f" ;; esac; done
 
-# No web→languages imports
-! grep -r "from langmine.languages\|import langmine.languages" src/langmine/web/
+# --- 4. languages/ is self-contained ---
+! grep -rn "^\s*(from langmine.web\|import langmine.web)" src/langmine/languages/
+! grep -rn "^\s*(from langmine.adapters\|import langmine.adapters)" src/langmine/languages/
+# No cross-language imports (check each languages/<lang>/ only imports its own dir)
 
-# No cross-language imports
-# (check each languages/<lang>/ only imports from its own directory)
+# --- 5. adapters are independent ---
+for f in src/langmine/adapters/*.py; do
+  case "$(basename "$f")" in __init__.py) continue ;; esac
+  grep -q "^\s*from langmine.adapters" "$f" && echo "FAIL: $f imports another adapter"
+done
 
-# No languages→web imports
-! grep -r "from langmine.web\|import langmine.web" src/langmine/languages/
-
-# Only app.py imports adapters in web layer
-WEB_ADAPTER_IMPORTS=$(grep -rl "from langmine.adapters" src/langmine/web/ || true)
-# app.py is the only allowed file
+# --- 6. Leaf modules are adapter-free ---
+for f in src/langmine/pipeline.py src/langmine/config.py src/langmine/db.py \
+         src/langmine/transcript.py src/langmine/transcript_parser.py src/langmine/audio.py; do
+  grep -q "^\s*(from langmine.adapters\|import langmine.adapters)" "$f" 2>/dev/null && echo "FAIL: $f"
+done
 ```
 
 ## Conventions

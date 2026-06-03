@@ -1,4 +1,9 @@
-"""Flask routes for the LangMine curation API."""
+"""Flask routes — all REST endpoints and SSE streaming for the LangMine API.
+
+Registers routes for: video mining (sync + SSE), sentence CRUD, reclassification,
+merge, vocab management, Anki export, image search, config, and audio/screenshot
+serving. All routes retrieve ports from current_app.config — never import adapters.
+"""
 
 import json
 import os

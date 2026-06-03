@@ -3,7 +3,7 @@ services:
     image: marsraspi-lab/langmine:latest
     build: .
     ports:
-      - "8090:8080"
+      - "8080:8080"
     volumes:
       - ~/.langmine:/root/.langmine
     extra_hosts:

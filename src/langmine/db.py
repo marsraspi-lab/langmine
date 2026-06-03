@@ -1,4 +1,9 @@
-"""SQLite database management for LangMine."""
+"""Low-level SQLite database — schema, migrations, connection management.
+
+Wraps sqlite3 behind a singleton-per-path Database class with WAL mode,
+schema versioning, and incremental migrations (v1→v6).  Used by
+SQLitePersistence (the Persistence port adapter), not directly by domain code.
+"""
 
 import sqlite3
 from pathlib import Path

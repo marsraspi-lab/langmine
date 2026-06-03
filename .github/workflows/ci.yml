@@ -27,54 +27,136 @@ jobs:
       - name: "Architecture: domain never imports adapters"
         run: |
           echo "=== Cardinal rule: domain → adapters must be empty ==="
-          ! grep -r "from.*adapters\|import.*adapters" src/langmine/domain/
+          if grep -rn "^\s*(from.*adapters\|import.*adapters)" src/langmine/domain/; then
+            echo "FAIL: domain/ must not import adapters — use ports instead"
+            exit 1
+          fi
+          echo "PASS"
 
       - name: "Architecture: domain never imports external I/O"
         run: |
-          echo "=== Domain must not import sqlite3, subprocess, requests, urllib ==="
-          ! grep -r "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/
-
-      - name: "Architecture: web layer uses ports, not adapters"
-        run: |
-          echo "=== Web layer must not import adapters (except wiring in app.py) ==="
-          WEB_ADAPTER_IMPORTS=$(grep -rl "from langmine.adapters" src/langmine/web/ || true)
-          if [ -n "$WEB_ADAPTER_IMPORTS" ]; then
-            for f in $WEB_ADAPTER_IMPORTS; do
-              case "$f" in */app.py) ;; *) echo "FAIL: $f imports adapters"; exit 1 ;; esac
-            done
+          echo "=== Domain must be pure — no sqlite3, subprocess, requests, urllib ==="
+          if grep -rn "sqlite3\|subprocess\|requests\|urllib" src/langmine/domain/; then
+            echo "FAIL: domain/ must not do I/O — use ports instead"
+            exit 1
           fi
+          echo "PASS"
 
       - name: "Architecture: domain never imports from languages/"
         run: |
           echo "=== Cardinal rule: domain → languages must be empty ==="
-          ! grep -r "from langmine.languages\|import langmine.languages" src/langmine/domain/
+          if grep -rn "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/domain/; then
+            echo "FAIL: domain/ must not import languages/ — use LanguageProcessor port"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: "Architecture: web layer uses ports, not adapters"
+        run: |
+          echo "=== Web must not import adapters (only app.py is allowed) ==="
+          VIOLATIONS=$(grep -rl "^\s*from langmine.adapters" src/langmine/web/ || true)
+          FAILED=0
+          for f in $VIOLATIONS; do
+            case "$f" in */app.py) ;; *)
+              echo "FAIL: $f imports adapters — only app.py may wire adapters"
+              FAILED=1 ;;
+            esac
+          done
+          if [ "$FAILED" -eq 1 ]; then exit 1; fi
+          echo "PASS"
 
       - name: "Architecture: web never imports from languages/"
         run: |
-          echo "=== Web must not import languages (use port + factory) ==="
-          ! grep -r "from langmine.languages\|import langmine.languages" src/langmine/web/
+          echo "=== Web must not import languages/ — use language_factory ==="
+          if grep -rn "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/web/; then
+            echo "FAIL: web/ must not import languages/ — use language_factory instead"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: "Architecture: only language_factory imports from languages/"
+        run: |
+          echo "=== language_factory.py is the ONLY entry point to languages/ ==="
+          IMPORTERS=$(grep -rl "^\s*(from langmine.languages\|import langmine.languages)" src/langmine/ --include="*.py" || true)
+          FAILED=0
+          for f in $IMPORTERS; do
+            case "$f" in
+              */language_factory.py) ;;
+              */languages/*) ;;  # intra-package imports are fine
+              *)
+                echo "FAIL: $f imports from languages/ — use language_factory instead"
+                FAILED=1 ;;
+            esac
+          done
+          if [ "$FAILED" -eq 1 ]; then exit 1; fi
+          echo "PASS"
 
       - name: "Architecture: languages never cross-import"
         run: |
-          echo "=== Each language is self-contained ==="
+          echo "=== Each language extension is self-contained ==="
           LANGS=$(ls -d src/langmine/languages/*/ 2>/dev/null || true)
+          FAILED=0
           for lang_dir in $LANGS; do
             lang_name=$(basename "$lang_dir")
             for other_dir in $LANGS; do
               other_name=$(basename "$other_dir")
               if [ "$lang_name" != "$other_name" ]; then
-                if grep -r "from langmine.languages.$other_name\|import langmine.languages.$other_name" "$lang_dir" 2>/dev/null; then
-                  echo "FAIL: $lang_name imports from $other_name"
-                  exit 1
+                if grep -rq "^\s*(from langmine.languages.$other_name\|import langmine.languages.$other_name)" "$lang_dir" 2>/dev/null; then
+                  echo "FAIL: $lang_name imports from $other_name — cross-language imports forbidden"
+                  grep -rn "^\s*(from langmine.languages.$other_name\|import langmine.languages.$other_name)" "$lang_dir"
+                  FAILED=1
                 fi
               fi
             done
           done
+          if [ "$FAILED" -eq 1 ]; then exit 1; fi
+          echo "PASS"
 
       - name: "Architecture: languages never import from web/"
         run: |
           echo "=== Languages must not import web layer ==="
-          ! grep -r "from langmine.web\|import langmine.web" src/langmine/languages/
+          if grep -rn "^\s*(from langmine.web\|import langmine.web)" src/langmine/languages/; then
+            echo "FAIL: languages/ must not import web/ — web is an outer layer"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: "Architecture: languages never import from adapters/"
+        run: |
+          echo "=== Language services use ports, not shared adapters ==="
+          if grep -rn "^\s*(from langmine.adapters\|import langmine.adapters)" src/langmine/languages/; then
+            echo "FAIL: languages/ must not import adapters/ — inject ports, don't depend on concrete adapters"
+            exit 1
+          fi
+          echo "PASS"
+
+      - name: "Architecture: adapters never import from sibling adapters"
+        run: |
+          echo "=== Each adapter stands alone (__init__.py re-exports are fine) ==="
+          FAILED=0
+          for f in src/langmine/adapters/*.py; do
+            case "$(basename "$f")" in __init__.py) continue ;; esac
+            if grep -q "^\s*from langmine.adapters" "$f"; then
+              echo "FAIL: $(basename "$f") imports from another adapter — adapters must be independent"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then exit 1; fi
+          echo "PASS"
+
+      - name: "Architecture: top-level leaf modules are adapter-free"
+        run: |
+          echo "=== pipeline, config, db, transcript, transcript_parser, audio must not import adapters ==="
+          LEAVES="src/langmine/pipeline.py src/langmine/config.py src/langmine/db.py src/langmine/transcript.py src/langmine/transcript_parser.py src/langmine/audio.py"
+          FAILED=0
+          for f in $LEAVES; do
+            if grep -q "^\s*(from langmine.adapters\|import langmine.adapters)" "$f" 2>/dev/null; then
+              echo "FAIL: $f imports adapters — this module should use ports only"
+              FAILED=1
+            fi
+          done
+          if [ "$FAILED" -eq 1 ]; then exit 1; fi
+          echo "PASS"
 
       - name: Run domain + adapter tests (no ffmpeg)
         run: python -m pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py

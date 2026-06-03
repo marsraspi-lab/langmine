@@ -1,10 +1,7 @@
 """Server entry point for LangMine."""
 
 import argparse
-import os
 from importlib.metadata import version as _pkg_version
-
-from langmine.config import load_config
 
 
 def _get_version() -> str:
@@ -28,36 +25,9 @@ def main():
 
     args = parser.parse_args()
 
-    from langmine.web.app import create_app
-    from langmine.adapters import (
-        YouTubeTranscriptAdapter,
-        YtdlpAudioAdapter,
-        SQLitePersistence,
-        AnkiConnectAdapter,
-        GoogleImageSearch,
-    )
-    from langmine.language_factory import create_language_processor, get_transcript_languages
+    from langmine.web.app import create_production_app
 
-    config = load_config()
-    persistence = SQLitePersistence()
-    processor = create_language_processor(config)
-    transcript = YouTubeTranscriptAdapter(
-        user_agent=config.user_agent,
-        language_codes=get_transcript_languages(config.source_language),
-    )
-    audio = YtdlpAudioAdapter(user_agent=config.user_agent)
-
-    app = create_app(
-        persistence=persistence,
-        language_processor=processor,
-        transcript_source=transcript,
-        audio_processor=audio,
-        anki_exporter=AnkiConnectAdapter(url=config.anki_connect_url),
-        image_searcher=GoogleImageSearch(
-            api_key=config.google_api_key,
-            cse_id=config.google_cse_id,
-        ) if config.google_api_key else None,
-    )
+    app = create_production_app()
 
     print(f"⛏️  LangMine server starting at http://{args.host}:{args.port}")
     app.run(host=args.host, port=args.port, debug=True, use_reloader=False)
