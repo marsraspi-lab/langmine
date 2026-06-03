@@ -74,12 +74,6 @@ class SQLitePersistence(Persistence):
         ).fetchall()
         return [self._row_to_video(r) for r in rows]
 
-    def video_exists(self, youtube_id: str) -> bool:
-        row = self.conn.execute(
-            "SELECT 1 FROM videos WHERE youtube_id = ?", (youtube_id,)
-        ).fetchone()
-        return row is not None
-
     def delete_video(self, video_id: int) -> bool:
         """Delete a video and all related data (cascading delete).
 
@@ -167,17 +161,6 @@ class SQLitePersistence(Persistence):
         rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
-    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]:
-        query = """SELECT * FROM sentences WHERE status = 'stashed'"""
-        params: list = []
-        if language_code:
-            query += " AND language_code = ?"
-            params.append(language_code)
-        query += " ORDER BY unknown_word_rank ASC NULLS LAST LIMIT ?"
-        params.append(limit)
-        rows = self.conn.execute(query, tuple(params)).fetchall()
-        return [self._row_to_sentence(r) for r in rows]
-
     def update_sentence(self, sentence: Sentence) -> None:
         if not sentence.id:
             raise ValueError("Cannot update sentence without id")
@@ -200,12 +183,6 @@ class SQLitePersistence(Persistence):
             params.append(language_code)
         rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
-
-    def reclassify_stashed(self, video_id: int) -> int:
-        """Re-run i+1 classification on stashed sentences for a video.
-        Returns count of sentences that dropped to i+1.
-        Stub for now — full implementation in M2."""
-        return 0
 
     # === Vocab ===
 

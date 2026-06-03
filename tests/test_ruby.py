@@ -3,6 +3,7 @@
 import json
 import pytest
 
+from langmine.config import Config
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
     TranscriptChunk,
@@ -250,7 +251,6 @@ class FakeRbPersistence(Persistence):
         for v in self._videos:
             if v.youtube_id == yt_id: return v
         return None
-    def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
     def save_sentences(self, sentences):
@@ -287,9 +287,7 @@ class FakeRbPersistence(Persistence):
     ) -> None:
         pass
 
-    def get_stash_candidates(self, limit=20): return []
     def get_sentences_by_status(self, status): return []
-    def reclassify_stashed(self, vid): return 0
 
 
 class FakeRbTranscript(TranscriptSource):
@@ -316,6 +314,7 @@ def rb_client(rb_persistence):
         language_processor=FakeRbProcessor(),
         transcript_source=FakeRbTranscript(),
         audio_processor=FakeRbAudio(),
+        config=Config(),
     )
     app.config["TESTING"] = True
     return app.test_client()

@@ -14,7 +14,6 @@ from langmine.domain.ports import (
 from langmine.domain.models import Video, Sentence
 from langmine.domain.classifier import SentenceClassifier
 from langmine.transcript import merge_sentences
-from langmine.config import load_config
 
 
 class MineError(Exception):
@@ -32,6 +31,7 @@ def process_video(
     language_processor: LanguageProcessor,
     video_id: str,
     output_dir: str,
+    config,
     progress_callback=None,
     subtitle_language: str = "",
 ) -> dict:
@@ -48,7 +48,6 @@ def process_video(
         if progress_callback:
             progress_callback(msg)
 
-    config = load_config()
     max_cards = config.max_cards_per_video
     gap_ms = config.sentence_gap_ms
 

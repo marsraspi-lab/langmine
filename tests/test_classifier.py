@@ -69,16 +69,13 @@ class FakePersistence(Persistence):
     def save_video(self, video): self.videos_list.append(video)
     def get_video(self, yt_id): return None
     def list_videos(self, language_code: str = ""): return self.videos_list
-    def video_exists(self, yt_id): return False
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
     def save_sentences(self, sentences): self.sentences_list.extend(sentences)
     def get_sentences_by_video(self, vid, status=None):
         return [s for s in self.sentences_list if s.video_id == vid]
-    def get_stash_candidates(self, limit=20): return []
     def update_sentence(self, s): pass
     def get_sentences_by_status(self, status, language_code: str = ""): return []
-    def reclassify_stashed(self, vid): return 0
     def save_vocab_word(self, w): pass
     def get_vocab_word(self, w): return None
     def mark_word_known(self, w): pass
@@ -299,12 +296,9 @@ class FakePersistenceWithSentences(Persistence):
     def save_video(self, v): pass
     def get_video(self, yt_id): return None
     def list_videos(self, language_code: str = ""): return []
-    def video_exists(self, yt_id): return False
     def delete_video(self, vid): return False
     def save_sentences(self, ss): pass
-    def get_stash_candidates(self, limit=20): return []
     def get_sentences_by_status(self, status, language_code: str = ""): return []
-    def reclassify_stashed(self, vid): return 0
     def save_vocab_word(self, w): pass
     def get_vocab_word(self, w): return None
     def mark_word_known(self, w): pass

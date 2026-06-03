@@ -3,6 +3,7 @@
 import json
 import pytest
 
+from langmine.config import Config
 from langmine.domain.models import Video, Sentence, VocabWord
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
@@ -40,7 +41,6 @@ class FakePersistence(Persistence):
             if v.youtube_id == yt_id: return v
         return None
     def list_videos(self, language_code: str = ""): return list(self._videos)
-    def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
     def save_sentences(self, sentences):
@@ -92,9 +92,7 @@ class FakePersistence(Persistence):
     ) -> None:
         pass
 
-    def get_stash_candidates(self, limit=20): return []
     def get_sentences_by_status(self, status, language_code: str = ""): return []
-    def reclassify_stashed(self, vid): return 0
 
 
 class FakeTranscriptSource(TranscriptSource):
@@ -127,6 +125,7 @@ def client(persistence):
         language_processor=FakeLanguageProcessor(),
         transcript_source=FakeTranscriptSource(),
         audio_processor=FakeAudioProcessor(),
+        config=Config(),
     )
     app.config["TESTING"] = True
     return app.test_client()
@@ -186,6 +185,7 @@ class TestImageSearchAPI:
             transcript_source=FakeTranscriptSource(),
             audio_processor=FakeAudioProcessor(),
             image_searcher=fake_searcher,
+            config=Config(),
         )
         app.config["TESTING"] = True
         return app.test_client(), persistence, fake_searcher

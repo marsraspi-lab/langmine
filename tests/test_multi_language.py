@@ -57,13 +57,11 @@ class TestLanguageIsolation:
             def save_video(self, v): pass
             def get_video(self, yt_id): pass
             def list_videos(self, language_code=None): return []
-            def video_exists(self, yt_id): return False
             def delete_video(self, video_id): return False
             def save_sentences(self, ss): pass
             def get_sentences_by_video(self, vid, status=None, language_code=None): return []
             def update_sentence(self, s): pass
             def get_sentences_by_status(self, status, language_code=None): return []
-            def reclassify_stashed(self, vid): return 0
             def get_vocab_word(self, w): pass
             def mark_word_known(self, w): pass
             def mark_word_learning(self, w): pass
@@ -87,8 +85,6 @@ class TestLanguageIsolation:
                 language_code: str = "",
             ) -> None:
                 pass
-
-            def get_stash_candidates(self, limit=20, language_code=None): return []
 
         p = FakePersistence()
         p.save_vocab_word(VocabWord(word_simplified="我们", reading="wǒmen", status="known", language_code="zh"))
@@ -123,13 +119,11 @@ class TestLanguageIsolation:
             def save_video(self, v): pass
             def get_video(self, yt_id): pass
             def list_videos(self, language_code=None): return []
-            def video_exists(self, yt_id): return False
             def delete_video(self, video_id): return False
             def save_sentences(self, ss): pass
             def get_sentences_by_video(self, vid, status=None, language_code=None): return []
             def update_sentence(self, s): pass
             def get_sentences_by_status(self, status, language_code=None): return []
-            def reclassify_stashed(self, vid): return 0
             def get_known_words(self, language_code=None): return set()
             def get_vocab_word(self, w): pass
             def mark_word_known(self, w): pass
@@ -150,8 +144,6 @@ class TestLanguageIsolation:
                 language_code: str = "",
             ) -> None:
                 pass
-
-            def get_stash_candidates(self, limit=20, language_code=None): return []
 
         p = FakePersistence()
         p.save_vocab_word(VocabWord(word_simplified="我们", language_code="zh"))

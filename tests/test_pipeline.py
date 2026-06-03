@@ -2,6 +2,7 @@
 
 import pytest
 
+from langmine.config import Config
 from langmine.pipeline import process_video
 from langmine.domain.ports import (
     TranscriptSource, AudioProcessor, Persistence, MergedSentence,
@@ -9,6 +10,7 @@ from langmine.domain.ports import (
 )
 from langmine.domain.models import Video, Sentence, VocabWord
 
+_TEST_CONFIG = Config()
 
 # === Fake ports with Chinese NLP ===
 
@@ -100,7 +102,6 @@ class FakePersistence(Persistence):
         self.videos[video.youtube_id] = video
     def get_video(self, yt_id): return self.videos.get(yt_id)
     def list_videos(self): return list(self.videos.values())
-    def video_exists(self, yt_id): return yt_id in self.videos
 
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
@@ -116,10 +117,8 @@ class FakePersistence(Persistence):
             result = [s for s in result if s.status == status]
         return result
 
-    def get_stash_candidates(self, limit=20): return []
     def update_sentence(self, s): pass
     def get_sentences_by_status(self, status): return []
-    def reclassify_stashed(self, vid): return 0
     def save_vocab_word(self, w: VocabWord) -> None:
         self._vocab.append(w)
 
@@ -175,9 +174,10 @@ def test_process_video_saves_video():
         language_processor=processor,
         video_id="test123",
         output_dir="/tmp/test",
+        config=_TEST_CONFIG,
     )
 
-    assert persistence.video_exists("test123")
+    assert persistence.get_video("test123") is not None
     video = persistence.get_video("test123")
     assert video.title == "test123"
 
@@ -196,6 +196,7 @@ def test_process_video_classifies_sentences():
         language_processor=processor,
         video_id="test456",
         output_dir="/tmp/test",
+        config=_TEST_CONFIG,
     )
 
     # "我们 一般 学习" — "一般" unknown → i1
@@ -217,19 +218,17 @@ def test_process_video_applies_cap():
     persistence = FakePersistence(known_words={"我们", "学习"})
     processor = FakeChineseProcessor()
 
-    from unittest.mock import patch
-    from langmine.config import Config
     capped_config = Config()
     capped_config.max_cards_per_video = 10
-    with patch("langmine.pipeline.load_config", return_value=capped_config):
-        result = process_video(
-            transcript_source=transcript,
-            audio_processor=audio,
-            persistence=persistence,
-            language_processor=processor,
-            video_id="test789",
-            output_dir="/tmp/test",
-        )
+    result = process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test789",
+        output_dir="/tmp/test",
+        config=capped_config,
+    )
 
     assert len(result["i1_candidates"]) == 10
 
@@ -248,6 +247,7 @@ def test_process_video_returns_summary():
         language_processor=processor,
         video_id="test000",
         output_dir="/tmp/test",
+        config=_TEST_CONFIG,
     )
 
     assert "i1_candidates" in result
@@ -285,6 +285,7 @@ def test_process_video_passes_subtitle_language_to_fetch():
         video_id="test_lang",
         output_dir="/tmp/test",
         subtitle_language="zh-Hans",
+        config=_TEST_CONFIG,
     )
 
     assert captured_language == ["zh-Hans"], (
@@ -299,20 +300,19 @@ def test_process_video_bootstraps_proficiency():
     persistence = FakePersistence()
     processor = FakeChineseProcessor()
 
-    from unittest.mock import patch
     from langmine.config import Config
-    config = Config()
-    config.hsk_bootstrap_level = "3"
-    config.source_language = "zh"
-    with patch("langmine.pipeline.load_config", return_value=config):
-        process_video(
-            transcript_source=transcript,
-            audio_processor=audio,
-            persistence=persistence,
-            language_processor=processor,
-            video_id="test_boot",
-            output_dir="/tmp/test",
-        )
+    boot_config = Config()
+    boot_config.hsk_bootstrap_level = "3"
+    boot_config.source_language = "zh"
+    process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_boot",
+        output_dir="/tmp/test",
+        config=boot_config,
+    )
 
     assert processor.bootstrap_calls == [(3, "zh")]
 
@@ -331,6 +331,7 @@ def test_process_video_skips_i0_screenshots():
         language_processor=processor,
         video_id="test_snap",
         output_dir="/tmp/test",
+        config=_TEST_CONFIG,
     )
 
     # Only one frame should be captured (for "未知")
@@ -354,6 +355,7 @@ def test_process_video_logs_events():
         language_processor=processor,
         video_id="test_events",
         output_dir="/tmp/test",
+        config=_TEST_CONFIG,
     )
 
     # 2 sentences -> 2 events
@@ -379,6 +381,7 @@ def test_process_video_handles_stage_errors():
             language_processor=processor,
             video_id="test_err",
             output_dir="/tmp/test",
+            config=_TEST_CONFIG,
         )
 
     assert excinfo.value.stage == "transcript"

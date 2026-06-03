@@ -93,9 +93,6 @@ class InMemoryPersistence(Persistence):
     def list_videos(self) -> list[Video]:
         return list(self.videos.values())
 
-    def video_exists(self, youtube_id: str) -> bool:
-        return youtube_id in self.videos
-
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
 
@@ -112,18 +109,12 @@ class InMemoryPersistence(Persistence):
             result = [s for s in result if s.status == status]
         return result
 
-    def get_stash_candidates(self, limit: int = 20) -> list[Sentence]:
-        return [s for s in self.sentences.values() if s.status == "i1"][:limit]
-
     def update_sentence(self, sentence: Sentence) -> None:
         if sentence.id:
             self.sentences[sentence.id] = sentence
 
     def get_sentences_by_status(self, status: str) -> list[Sentence]:
         return [s for s in self.sentences.values() if s.status == status]
-
-    def reclassify_stashed(self, video_id: int) -> int:
-        return 0  # stub
 
     # Vocab
     def save_vocab_word(self, word: VocabWord) -> None:
@@ -201,8 +192,8 @@ def test_in_memory_persistence_roundtrip():
     assert retrieved is not None
     assert retrieved.title == "Test Video"
     assert retrieved.youtube_id == "abc123"
-    assert store.video_exists("abc123") is True
-    assert store.video_exists("nonexistent") is False
+    assert store.get_video("abc123") is not None
+    assert store.get_video("nonexistent") is None
 
 
 def test_in_memory_persistence_sentences():

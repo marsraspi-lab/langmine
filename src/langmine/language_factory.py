@@ -9,7 +9,7 @@ resolved from config — no adapter is hardcoded.  Callers can also inject
 ports directly for testing.
 """
 
-from langmine.domain.ports import LanguageProcessor, Translator
+from langmine.domain.ports import LanguageProcessor, Translator, Dictionary, FrequencySource
 from langmine.config import Config
 
 
@@ -44,8 +44,8 @@ def get_available_languages() -> list[dict]:
 def _try_load_processor(lang_code: str) -> None:
     """Try to instantiate a processor for lang_code. Raises if not possible.
 
-    Uses a lightweight translator just for the load check — the real
-    translator is wired by the caller (app.py).
+    Uses lightweight adapters just for the load check — real ports
+    are wired by the caller (app.py) via create_language_processor().
     """
     from langmine.adapters.google_translate import GoogleTranslateAdapter
     translator = GoogleTranslateAdapter()  # any Translator works for this check
@@ -69,30 +69,24 @@ def _try_load_processor(lang_code: str) -> None:
 def create_language_processor(
     config: Config,
     translator: Translator,
+    dictionary: Dictionary,
+    frequency: FrequencySource,
 ) -> LanguageProcessor:
     """Create a LanguageProcessor for the configured source language.
 
-    Each language extension provides its own language-specific adapters
-    (Dictionary, FrequencySource).  The Translator is a cross-cutting port
-    — wired by the caller (app.py), not by this factory.
+    All ports are injected by the caller — no adapter is hardcoded.
+    Wire real adapters in app.py; pass fakes for testing.
 
     Args:
         config: LangMine configuration.
-        translator: Translator port implementation (required — inject a
-            real adapter for production, a fake for testing).
+        translator: Translator port implementation.
+        dictionary: Dictionary port implementation.
+        frequency: FrequencySource port implementation.
     """
     match config.source_language:
         case "zh":
-            from langmine.languages.chinese import (
-                ChineseLanguageService,
-                CcCedictAdapter,
-                SubtlexChAdapter,
-            )
-            return ChineseLanguageService(
-                CcCedictAdapter(),
-                translator,
-                SubtlexChAdapter(),
-            )
+            from langmine.languages.chinese import ChineseLanguageService
+            return ChineseLanguageService(dictionary, translator, frequency)
 
         case "es":
             raise NotImplementedError(
@@ -119,18 +113,14 @@ def create_language_processor(
             )
 
 
-def get_proficiency_level(word: str) -> int | None:
+def get_proficiency_level(word: str, language_code: str = "") -> int | None:
     """Return a proficiency level for a word (e.g. HSK 1-6), or None.
 
     Delegates to the proficiency framework of the configured language.
     Currently only Chinese (HSK) is supported. Returns None for other
     languages or when no proficiency data matches the word.
     """
-    from langmine.config import load_config
-
-    config = load_config()
-
-    if config.source_language == "zh":
+    if language_code == "zh":
         from langmine.languages.chinese.hsk_data import get_hsk_level
         return get_hsk_level(word)
 
@@ -164,6 +154,31 @@ def get_language_manifest(lang_code: str) -> dict:
             return MANIFEST
         case _:
             return {}
+
+
+def create_language_adapters(config: Config) -> tuple[Dictionary, FrequencySource]:
+    """Create language-specific Dictionary and FrequencySource adapters.
+
+    Called by app.py during wiring — the factory remains the single
+    module allowed to import from languages/.
+
+    Returns:
+        (dictionary, frequency) tuple for the configured source language.
+    """
+    match config.source_language:
+        case "zh":
+            from langmine.languages.chinese import CcCedictAdapter, SubtlexChAdapter
+            return CcCedictAdapter(), SubtlexChAdapter()
+
+        case "es" | "ko" | "ru":
+            raise NotImplementedError(
+                f"Language '{config.source_language}' not yet implemented."
+            )
+
+        case _:
+            raise ValueError(
+                f"Unsupported source language: {config.source_language}."
+            )
 
 
 def get_transcript_languages(lang_code: str) -> list[str]:

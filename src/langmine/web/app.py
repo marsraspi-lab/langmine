@@ -30,6 +30,7 @@ def create_app(
     audio_processor: AudioProcessor | None = None,
     anki_exporter: AnkiExporter | None = None,
     image_searcher: ImageSearch | None = None,
+    config = None,
 ) -> Flask:
     """Create a Flask app with injected domain ports.
 
@@ -40,6 +41,7 @@ def create_app(
         audio_processor: Where to download/clip audio (yt-dlp, etc.)
         anki_exporter: Where to export flashcards (AnkiConnect, etc.)
         image_searcher: Image search adapter (Google CSE, etc.)
+        config: Application configuration (Config dataclass).
 
     Returns:
         Configured Flask app.
@@ -54,6 +56,8 @@ def create_app(
     app.config["LANGMINE_AUDIO_PROCESSOR"] = audio_processor
     app.config["LANGMINE_ANKI_EXPORTER"] = anki_exporter
     app.config["LANGMINE_IMAGE_SEARCHER"] = image_searcher
+
+    app.config["LANGMINE_CONFIG"] = config
 
     # Allow routes to create InlineTranscriptSource without importing adapters
     app.config["LANGMINE_INLINE_TRANSCRIPT_CLASS"] = InlineTranscriptSource
@@ -95,15 +99,25 @@ def create_production_app() -> Flask:
         AnkiConnectAdapter,
         GoogleImageSearch,
     )
-    from langmine.language_factory import create_language_processor, get_transcript_languages
+    from langmine.language_factory import (
+        create_language_processor,
+        create_language_adapters,
+        get_transcript_languages,
+    )
 
     config = load_config()
     persistence = SQLitePersistence()
 
     # Cross-cutting ports — wired here, not in language_factory
     translator = _create_translator(config)
+    dictionary, frequency = create_language_adapters(config)
 
-    processor = create_language_processor(config, translator=translator)
+    processor = create_language_processor(
+        config,
+        translator=translator,
+        dictionary=dictionary,
+        frequency=frequency,
+    )
     transcript = YouTubeTranscriptAdapter(
         user_agent=config.user_agent,
         language_codes=get_transcript_languages(config.source_language),
@@ -120,4 +134,5 @@ def create_production_app() -> Flask:
             api_key=config.google_api_key,
             cse_id=config.google_cse_id,
         ) if config.google_api_key else None,
+        config=config,
     )

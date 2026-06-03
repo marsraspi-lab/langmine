@@ -12,6 +12,7 @@ import threading
 # Add project to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 
+from langmine.config import Config
 from langmine.web.app import create_app
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
@@ -93,7 +94,6 @@ class FakePersistence(Persistence):
         return None
 
     def list_videos(self, language_code=""): return self._videos
-    def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
 
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
@@ -148,11 +148,8 @@ class FakePersistence(Persistence):
     def get_vocab_word(self, w):
         return self._vocab.get(w)
 
-    def get_stash_candidates(self, limit=20, language_code=""):
-        return [s for s in self._sentences if s.status == "stashed"][:limit]
     def get_sentences_by_status(self, status, language_code=""):
         return [s for s in self._sentences if s.status == status]
-    def reclassify_stashed(self, vid): return 0
 
     def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code=""):
         words = list(self._vocab.values())
@@ -365,6 +362,7 @@ app = create_app(
     audio_processor=FakeAudioProcessor(),
     anki_exporter=FakeAnkiExporter(),
     image_searcher=FakeImageSearch(),
+    config=Config(),
 )
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 import json
 import pytest
 
+from langmine.config import Config
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
     TranscriptChunk,
@@ -45,7 +46,6 @@ class FakePersistence(Persistence):
         return None
 
     def list_videos(self, language_code: str = ""): return list(self._videos)
-    def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
 
@@ -111,11 +111,8 @@ class FakePersistence(Persistence):
     ) -> None:
         pass
 
-    def get_stash_candidates(self, limit=20):
-        return [s for s in self._sentences if s.status == "stashed"][:limit]
     def get_sentences_by_status(self, status, language_code: str = ""):
         return [s for s in self._sentences if s.status == status]
-    def reclassify_stashed(self, vid): return 0
 
 
 class FakeTranscriptSource(TranscriptSource):
@@ -163,6 +160,7 @@ def client(persistence, processor, transcript, audio):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        config=Config(),
     )
     app.config["TESTING"] = True
     return app.test_client()
@@ -294,6 +292,7 @@ class TestProperNameInTranscript:
             language_processor=ProperNameProcessor(),
             transcript_source=FakeTranscriptSource(),
             audio_processor=FakeAudioProcessor(),
+            config=Config(),
         )
         app.config["TESTING"] = True
         return app.test_client(), persistence, video

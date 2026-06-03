@@ -8,6 +8,7 @@ import json
 import pytest
 from pathlib import Path
 
+from langmine.config import Config
 from langmine.domain.ports import (
     LanguageProcessor, Persistence, Dictionary, Translator,
     FrequencySource, MergedSentence, TranscriptSource, AudioProcessor,
@@ -93,9 +94,6 @@ class FakePersistence(Persistence):
     def list_videos(self, language_code: str = "") -> list[Video]:
         return list(self._videos)
 
-    def video_exists(self, youtube_id: str) -> bool:
-        return any(v.youtube_id == youtube_id for v in self._videos)
-
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
 
@@ -113,9 +111,6 @@ class FakePersistence(Persistence):
             results = [s for s in results if s.status == status]
         return results
 
-    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]:
-        return [s for s in self._sentences if s.status == "stashed"][:limit]
-
     def update_sentence(self, sentence: Sentence) -> None:
         for i, s in enumerate(self._sentences):
             if s.id == sentence.id:
@@ -124,9 +119,6 @@ class FakePersistence(Persistence):
 
     def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]:
         return [s for s in self._sentences if s.status == status]
-
-    def reclassify_stashed(self, video_id: int) -> int:
-        return 0
 
     # Vocab
     def save_vocab_word(self, word: VocabWord) -> None:
@@ -267,14 +259,17 @@ def audio():
 
 
 @pytest.fixture
-def client(persistence, processor, transcript, audio):
+def client(persistence, processor, transcript, audio, tmp_path):
     """Flask test client with fake ports injected."""
     from langmine.web.app import create_app
+    config = Config()
+    config.data_dir = str(tmp_path / "langmine_data")
     app = create_app(
         persistence=persistence,
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        config=config,
     )
     app.config["TESTING"] = True
     return app.test_client()
@@ -319,7 +314,7 @@ def client_with_sentences(client, persistence):
 
 
 @pytest.fixture
-def client_with_anki(client, persistence, processor, transcript, audio):
+def client_with_anki(client, persistence, processor, transcript, audio, tmp_path):
     """Flask test client with a fake AnkiExporter injected."""
     from unittest.mock import MagicMock
 
@@ -329,12 +324,15 @@ def client_with_anki(client, persistence, processor, transcript, audio):
     }
 
     from langmine.web.app import create_app
+    config = Config()
+    config.data_dir = str(tmp_path / "langmine_data")
     app = create_app(
         persistence=persistence,
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
         anki_exporter=mock_exporter,
+        config=config,
     )
     app.config["TESTING"] = True
     return app.test_client()

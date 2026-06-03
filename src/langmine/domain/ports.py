@@ -211,8 +211,6 @@ class Persistence(ABC):
     @abstractmethod
     def list_videos(self, language_code: str = "") -> list[Video]: ...
     @abstractmethod
-    def video_exists(self, youtube_id: str) -> bool: ...
-    @abstractmethod
     def delete_video(self, video_id: int) -> bool:
         """Delete a video and all related data (sentences, events).
 
@@ -226,15 +224,9 @@ class Persistence(ABC):
     @abstractmethod
     def get_sentences_by_video(self, video_id: int, status: str | None = None, language_code: str = "") -> list[Sentence]: ...
     @abstractmethod
-    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]: ...
-    @abstractmethod
     def update_sentence(self, sentence: Sentence) -> None: ...
     @abstractmethod
     def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]: ...
-    @abstractmethod
-    def reclassify_stashed(self, video_id: int) -> int:
-        """Re-classify stashed sentences after vocab change. Returns count of newly-i+1."""
-        ...
 
     # Vocab
     @abstractmethod
