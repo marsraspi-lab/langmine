@@ -37,6 +37,26 @@ TRANSCRIPT_LANGUAGES = ["zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh"]
 # Standardized proficiency lookup (HSK 2.0)
 get_proficiency_level = get_hsk_level
 
+# Language-specific settings schema — rendered dynamically in the Settings UI
+CHINESE_SETTINGS_SCHEMA = [
+    {
+        "key": "bootstrap_level",
+        "label": "HSK Bootstrap Level",
+        "type": "select",
+        "default": 0,
+        "options": [
+            {"value": 0, "label": "Off"},
+            {"value": 1, "label": "HSK 1"},
+            {"value": 2, "label": "HSK 2"},
+            {"value": 3, "label": "HSK 3"},
+            {"value": 4, "label": "HSK 4"},
+            {"value": 5, "label": "HSK 5"},
+            {"value": 6, "label": "HSK 6"},
+        ],
+        "hint": "Words ≤ this level are pre-marked known during mining.",
+    },
+]
+
 
 def get_anki_templates() -> dict:
     """Load Anki card templates from the language's anki/ directory.
@@ -73,6 +93,7 @@ register_language(
     manifest=MANIFEST,
     get_anki_templates=get_anki_templates,
     get_proficiency_level=get_proficiency_level,
+    settings_schema=CHINESE_SETTINGS_SCHEMA,
 )
 
 __all__ = [

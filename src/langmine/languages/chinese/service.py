@@ -226,15 +226,17 @@ class ChineseLanguageService(LanguageProcessor):
     def bootstrap_proficiency(
         self,
         vocab_repo,
-        max_level: int,
+        settings: dict,
         language_code: str,
     ) -> None:
-        """Pre-mark HSK words up to max_level as known (M21).
+        """Pre-mark HSK words up to bootstrap_level as known (M21).
 
+        Reads ``bootstrap_level`` from the language-specific settings dict.
         Only marks words that don't already exist in the vocab table —
         respects user modifications to existing words.  A no-op when
-        max_level is 0 or the HSK data file is missing.
+        bootstrap_level is 0 or the HSK data file is missing.
         """
+        max_level = int(settings.get("bootstrap_level", 0))
         if max_level < 1:
             return
 

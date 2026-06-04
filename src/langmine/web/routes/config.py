@@ -32,10 +32,13 @@ def app_version():
 
 @config_bp.route("/api/languages")
 def list_languages():
-    """List available source languages with code and display name."""
-    from langmine.language_factory import get_available_languages
+    """List available source languages with code, display name, and settings schema."""
+    from langmine.language_factory import get_available_languages, get_language_settings_schema
 
-    return jsonify({"languages": get_available_languages()})
+    languages = get_available_languages()
+    for lang in languages:
+        lang["settings_schema"] = get_language_settings_schema(lang["code"])
+    return jsonify({"languages": languages})
 
 
 @config_bp.route("/api/stats")
@@ -61,7 +64,7 @@ def get_config():
             "audio_pad_after_ms": config.audio_pad_after_ms,
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
-            "hsk_bootstrap_level": config.hsk_bootstrap_level,
+            "language_settings": config.language_settings,
             "user_agent": config.user_agent,
         }
     )
@@ -87,15 +90,19 @@ def update_config():
         "audio_pad_after_ms",
         "max_cards_per_video",
         "max_stash_cards",
-        "hsk_bootstrap_level",
         "deepl_api_key",
         "user_agent",
+        "language_settings",
     }
 
     config = current_app.config["LANGMINE_CONFIG"]
     config_dir = current_app.config.get("LANGMINE_CONFIG_DIR")
     for key, value in data.items():
-        if key in ALLOWED:
+        if key == "language_settings":
+            # Deep-merge per-language settings
+            for lang_code, settings in value.items():
+                config.language_settings.setdefault(lang_code, {}).update(settings)
+        elif key in ALLOWED:
             setattr(config, key, value)
 
     try:

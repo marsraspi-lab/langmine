@@ -126,7 +126,7 @@ def _classify_and_bootstrap(
 
     language_processor.bootstrap_proficiency(
         persistence,
-        max_level=int(config.hsk_bootstrap_level),
+        settings=config.language_settings.get(config.source_language, {}),
         language_code=config.source_language,
     )
     return sentences

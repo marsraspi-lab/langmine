@@ -986,19 +986,21 @@ class TestConfigPersistence:
         resp = client.get("/api/config")
         assert json.loads(resp.get_data(as_text=True))["audio_pad_before_ms"] == 0
 
-    def test_hsk_bootstrap_zero_persists(self, client, monkeypatch, tmp_path):
-        """PUT hsk_bootstrap_level=0 survives round-trip."""
+    def test_language_settings_persists(self, client, monkeypatch, tmp_path):
+        """PUT language_settings survives round-trip."""
         home = tmp_path / "home"
         home.mkdir()
         monkeypatch.setattr(Path, "home", lambda: home)
 
         client.put(
             "/api/config",
-            data=json.dumps({"hsk_bootstrap_level": 0}),
+            data=json.dumps({"language_settings": {"zh": {"bootstrap_level": 3}}}),
             content_type="application/json",
         )
         resp = client.get("/api/config")
-        assert json.loads(resp.get_data(as_text=True))["hsk_bootstrap_level"] == 0
+        assert json.loads(resp.get_data(as_text=True))["language_settings"] == {
+            "zh": {"bootstrap_level": 3}
+        }
 
 
 class TestMergeWithPrevious:

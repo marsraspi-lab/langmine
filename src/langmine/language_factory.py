@@ -45,6 +45,7 @@ def register_language(
     manifest: dict | None = None,
     get_anki_templates: Callable[[], dict] | None = None,
     get_proficiency_level: Callable[[str], int | None] | None = None,
+    settings_schema: list[dict] | None = None,
 ) -> None:
     """Register a language extension.
 
@@ -61,6 +62,9 @@ def register_language(
         manifest: Anki/UI metadata dict (deck_name, note_type, etc.).
         get_anki_templates: Callable returning card template dict.
         get_proficiency_level: Proficiency lookup (e.g. HSK level), or None.
+        settings_schema: List of field descriptors for language-specific
+            settings rendered in the UI. Each field is a dict with keys:
+            key, label, type, default, options (for select), hint (optional).
     """
     _LANGUAGE_REGISTRY[code] = {
         "name": name,
@@ -71,6 +75,7 @@ def register_language(
         "manifest": manifest or {},
         "get_anki_templates": get_anki_templates or (lambda: {}),
         "get_proficiency_level": get_proficiency_level,
+        "settings_schema": settings_schema or [],
     }
 
 
@@ -170,6 +175,15 @@ def get_proficiency_level(word: str, language_code: str = "") -> int | None:
     if fn is None:
         return None
     return fn(word)
+
+
+def get_language_settings_schema(lang_code: str) -> list[dict]:
+    """Return the settings schema registered for a language, or []."""
+    if not lang_code:
+        return []
+
+    _ensure_loaded(lang_code)
+    return _LANGUAGE_REGISTRY[lang_code].get("settings_schema", [])
 
 
 def get_anki_templates(lang_code: str) -> dict:

@@ -38,6 +38,7 @@ export const app = $state({
 	vocabSearchQuery: '',
 	languages: [],
 	currentLanguage: 'zh',
+	languageSettingsSchema: [],
 	knownWords: new SvelteSet(),
 	learningWords: new SvelteSet(),
 	ignoredWords: new SvelteSet(),
@@ -192,6 +193,9 @@ export async function loadLanguages() {
 	try {
 		const data = await api.listLanguages();
 		app.languages.splice(0, app.languages.length, ...data.languages);
+		// Populate settings schema for the current language
+		const current = data.languages.find(l => l.code === app.currentLanguage);
+		app.languageSettingsSchema = current?.settings_schema || [];
 	} catch (err) {
 		console.error('Failed to load languages:', err);
 	}
@@ -203,6 +207,9 @@ export async function selectLanguage(code) {
 		await api.updateConfig({ source_language: code });
 		app.currentLanguage = code;
 		app.config.source_language = code;
+		// Update settings schema for the new language
+		const lang = app.languages.find(l => l.code === code);
+		app.languageSettingsSchema = lang?.settings_schema || [];
 		addToast(`Switched to ${code}`, 'info', 2000);
 		await loadVideos();
 		if (app.selectedVideoId) {
@@ -237,8 +244,30 @@ export async function reclassifyAndLoad(videoId, offset = 0, limit = 50) {
 
 export async function saveConfig(updates) {
 	try {
-		await api.updateConfig(updates);
-		Object.assign(app.config, updates);
+		// Separate language-specific keys from global keys
+		const schemaKeys = new Set(app.languageSettingsSchema.map(s => s.key));
+		const globalUpdates = {};
+		const langSettings = {};
+		for (const [key, val] of Object.entries(updates)) {
+			if (schemaKeys.has(key)) {
+				langSettings[key] = val;
+			} else {
+				globalUpdates[key] = val;
+			}
+		}
+		if (Object.keys(langSettings).length > 0) {
+			globalUpdates.language_settings = { [app.currentLanguage]: langSettings };
+		}
+		await api.updateConfig(globalUpdates);
+		// Merge back into local config state
+		Object.assign(app.config, globalUpdates);
+		if (globalUpdates.language_settings) {
+			app.config.language_settings ??= {};
+			Object.assign(
+				app.config.language_settings[app.currentLanguage] ??= {},
+				globalUpdates.language_settings[app.currentLanguage]
+			);
+		}
 		addToast('Settings saved ✓', 'success', 2000);
 	} catch (err) {
 		addToast(`Failed to save: ${err.message}`, 'error');
