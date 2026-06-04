@@ -137,6 +137,8 @@
        ondragover={handleDragOver}
        ondragleave={handleDragLeave}
        ondrop={handleDrop}
+       role="region"
+       aria-label="YouTube mining form"
   >
     <input
       type="text"
@@ -376,7 +378,6 @@
     margin-bottom: 8px;
   }
   .subtitle-chip.manual { background: rgba(76, 175, 80, 0.15); color: #66bb6a; }
-  .subtitle-chip.auto  { background: rgba(255, 152, 0, 0.15); color: #ffa726; }
   .subtitle-chip.none  { background: rgba(244, 67, 54, 0.15); color: #ef5350; }
   .subtitle-chip.loading { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
   .sub-lang-row {

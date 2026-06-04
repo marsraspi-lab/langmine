@@ -1,10 +1,9 @@
 """Tests for configuration loading."""
 
 import tempfile
-import os
 from pathlib import Path
 
-from langmine.config import Config, load_config
+from langmine.config import load_config
 
 
 def test_default_config_values():

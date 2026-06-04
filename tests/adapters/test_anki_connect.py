@@ -2,12 +2,12 @@
 
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from langmine.domain.models import Sentence
 from langmine.adapters.anki_connect import AnkiConnectAdapter
+from langmine.domain.models import Sentence
 
 
 @pytest.fixture
@@ -19,9 +19,14 @@ def adapter():
 def sample_sentences():
     return [
         Sentence(
-            id=1, video_id=1, start_ms=0, end_ms=1000,
-            text="你好", reading="nǐ hǎo",
-            translation_de="Hallo", unknown_word="你好",
+            id=1,
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            text="你好",
+            reading="nǐ hǎo",
+            translation_de="Hallo",
+            unknown_word="你好",
             status="kept",
         ),
     ]
@@ -30,6 +35,7 @@ def sample_sentences():
 def test_implements_port(adapter):
     """AnkiConnectAdapter should implement AnkiExporter port."""
     from langmine.domain.ports import AnkiExporter
+
     assert isinstance(adapter, AnkiExporter)
 
 
@@ -44,6 +50,7 @@ def test_export_checks_connectivity(adapter, sample_sentences):
 def test_export_sends_correct_actions(adapter, sample_sentences):
     """Should send createDeck, createModel, canAddNotes, addNotes."""
     with patch("requests.post") as mock_post:
+
         def side_effect(*args, **kwargs):
             action = kwargs["json"]["action"]
             if action == "canAddNotes":
@@ -80,10 +87,16 @@ def test_export_handles_audio(adapter):
 
         sentences = [
             Sentence(
-                id=1, video_id=1, start_ms=0, end_ms=1000,
-                text="你好", reading="nǐ hǎo",
-                translation_de="Hallo", unknown_word="你好",
-                audio_clip_path=audio_path, status="kept",
+                id=1,
+                video_id=1,
+                start_ms=0,
+                end_ms=1000,
+                text="你好",
+                reading="nǐ hǎo",
+                translation_de="Hallo",
+                unknown_word="你好",
+                audio_clip_path=audio_path,
+                status="kept",
             ),
         ]
 
@@ -101,6 +114,7 @@ def test_export_handles_audio(adapter):
 def test_export_returns_summary(adapter, sample_sentences):
     """Should return dict with added count and note IDs."""
     with patch("requests.post") as mock_post:
+
         def side_effect(*args, **kwargs):
             action = kwargs["json"]["action"]
             if action == "canAddNotes":
@@ -135,9 +149,9 @@ def test_snapshot_note_payload(adapter, sample_sentences):
     Any change to note fields or model structure breaks this test
     intentionally — it's a regression guard.
     """
-    import json
 
     with patch("requests.post") as mock_post:
+
         def side_effect(*args, **kwargs):
             action = kwargs["json"]["action"]
             if action == "canAddNotes":
@@ -155,8 +169,7 @@ def test_snapshot_note_payload(adapter, sample_sentences):
 
         # Extract the addNotes payload
         add_notes_call = [
-            c for c in mock_post.call_args_list
-            if c[1]["json"]["action"] == "addNotes"
+            c for c in mock_post.call_args_list if c[1]["json"]["action"] == "addNotes"
         ][0]
         payload = add_notes_call[1]["json"]
         notes = payload["params"]["notes"]
@@ -178,8 +191,12 @@ def test_snapshot_note_payload(adapter, sample_sentences):
 
         # Verify no extra fields (schema drift)
         assert set(fields.keys()) == {
-            "sentence_zh", "sentence_reading", "translation_de",
-            "unknown_word", "audio", "screenshot",
+            "sentence_zh",
+            "sentence_reading",
+            "translation_de",
+            "unknown_word",
+            "audio",
+            "screenshot",
         }
 
 
@@ -192,14 +209,21 @@ def test_snapshot_note_payload_with_audio(adapter):
 
         sentences = [
             Sentence(
-                id=1, video_id=1, start_ms=0, end_ms=1000,
-                text="你好", reading="nǐ hǎo",
-                translation_de="Hallo", unknown_word="你好",
-                audio_clip_path=audio_path, status="kept",
+                id=1,
+                video_id=1,
+                start_ms=0,
+                end_ms=1000,
+                text="你好",
+                reading="nǐ hǎo",
+                translation_de="Hallo",
+                unknown_word="你好",
+                audio_clip_path=audio_path,
+                status="kept",
             ),
         ]
 
         with patch("requests.post") as mock_post:
+
             def side_effect(*args, **kwargs):
                 action = kwargs["json"]["action"]
                 if action == "canAddNotes":
@@ -216,7 +240,8 @@ def test_snapshot_note_payload_with_audio(adapter):
             adapter.export(sentences)
 
             add_notes_call = [
-                c for c in mock_post.call_args_list
+                c
+                for c in mock_post.call_args_list
                 if c[1]["json"]["action"] == "addNotes"
             ][0]
             fields = add_notes_call[1]["json"]["params"]["notes"][0]["fields"]
@@ -229,6 +254,7 @@ def test_force_update_model_calls_update_templates(adapter, sample_sentences):
     """When force_update_model=True, should call updateModelTemplates
     and updateModelStyling after createModel."""
     with patch("requests.post") as mock_post:
+
         def side_effect(*args, **kwargs):
             action = kwargs["json"]["action"]
             if action == "canAddNotes":
@@ -253,6 +279,7 @@ def test_force_update_model_calls_update_templates(adapter, sample_sentences):
 def test_force_update_model_off_skips_update(adapter, sample_sentences):
     """When force_update_model=False (default), should NOT call update actions."""
     with patch("requests.post") as mock_post:
+
         def side_effect(*args, **kwargs):
             action = kwargs["json"]["action"]
             if action == "canAddNotes":

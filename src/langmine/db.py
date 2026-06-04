@@ -109,9 +109,10 @@ class Database:
         )
 
         # Run migrations
-        current = self._conn.execute(
-            "SELECT MAX(version) FROM schema_version"
-        ).fetchone()[0] or 1
+        current = (
+            self._conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
+            or 1
+        )
 
         if current < 2:
             # v1 → v2: added language_code column
@@ -136,8 +137,12 @@ class Database:
 
         if current < 3:
             # v2 → v3: added created_at + updated_at columns
-            for col, table in [("created_at", "sentences"), ("updated_at", "sentences"),
-                               ("created_at", "vocab"), ("updated_at", "vocab")]:
+            for col, table in [
+                ("created_at", "sentences"),
+                ("updated_at", "sentences"),
+                ("created_at", "vocab"),
+                ("updated_at", "vocab"),
+            ]:
                 try:
                     self._conn.execute(
                         f"ALTER TABLE {table} ADD COLUMN {col} TEXT DEFAULT (datetime('now'))"

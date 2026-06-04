@@ -1,7 +1,6 @@
 """Tests for M11 cloze deletion export configuration."""
 
-import pytest
-from langmine.config import Config, load_config, save_config, _config_to_dict, _dict_to_config
+from langmine.config import Config, _config_to_dict, _dict_to_config
 
 
 class TestClozeConfig:

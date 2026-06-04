@@ -2,18 +2,25 @@
 
 import json
 import os
-from pathlib import Path
-from flask import Blueprint, jsonify, request, send_file, current_app, abort
+
+from flask import Blueprint, current_app, jsonify, request, send_file
 
 from ._helpers import (
-    _get_persistence, _get_processor, _get_language_code,
-    _get_audio_processor, _get_classifier,
-    _get_sentence_or_404, _find_sentence,
-    _sentence_to_dict, _reclassify_from_segmented,
-    VALID_SENTENCE_STATUSES, EDITABLE_FIELDS,
+    EDITABLE_FIELDS,
+    VALID_SENTENCE_STATUSES,
+    _find_sentence,
+    _get_audio_processor,
+    _get_classifier,
+    _get_language_code,
+    _get_persistence,
+    _get_processor,
+    _get_sentence_or_404,
+    _reclassify_from_segmented,
+    _sentence_to_dict,
 )
 
 sentences_bp = Blueprint("sentences", __name__)
+
 
 @sentences_bp.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
 def update_sentence(sentence_id: int):
@@ -36,9 +43,11 @@ def update_sentence(sentence_id: int):
         old_status = sentence.status
         status = data["status"]
         if status not in VALID_SENTENCE_STATUSES:
-            return jsonify({
-                "error": f"Invalid status '{status}'. Must be one of: {sorted(VALID_SENTENCE_STATUSES)}"
-            }), 400
+            return jsonify(
+                {
+                    "error": f"Invalid status '{status}'. Must be one of: {sorted(VALID_SENTENCE_STATUSES)}"
+                }
+            ), 400
         sentence.status = status
         # If keeping, mark unknown word as "learning"
         if status == "kept" and sentence.unknown_word:
@@ -46,8 +55,11 @@ def update_sentence(sentence_id: int):
 
         # Log the status change event
         persistence.log_event(
-            entity_type="sentence", entity_id=sentence.id,
-            action=status, old_value=old_status, new_value=status,
+            entity_type="sentence",
+            entity_id=sentence.id,
+            action=status,
+            old_value=old_status,
+            new_value=status,
             language_code=sentence.language_code,
         )
 
@@ -68,18 +80,25 @@ def update_sentence(sentence_id: int):
     # Log field edits separately (only if edited without status change)
     if edited and "status" not in data:
         persistence.log_event(
-            entity_type="sentence", entity_id=sentence.id,
-            action="edited", new_value=",".join(
-                f for f in EDITABLE_FIELDS if f in data
-            ),
+            entity_type="sentence",
+            entity_id=sentence.id,
+            action="edited",
+            new_value=",".join(f for f in EDITABLE_FIELDS if f in data),
             language_code=sentence.language_code,
         )
 
-    return jsonify({
-        "sentence": _sentence_to_dict(sentence, persistence, processor=_get_processor()),
-    })
+    return jsonify(
+        {
+            "sentence": _sentence_to_dict(
+                sentence, persistence, processor=_get_processor()
+            ),
+        }
+    )
 
-@sentences_bp.route("/api/sentences/<int:sentence_id>/merge-with-previous", methods=["POST"])
+
+@sentences_bp.route(
+    "/api/sentences/<int:sentence_id>/merge-with-previous", methods=["POST"]
+)
 def merge_with_previous(sentence_id: int):
     """Merge sentence B into the previous sentence A (M24).
 
@@ -142,8 +161,9 @@ def merge_with_previous(sentence_id: int):
     # Regenerate audio clip for the merged span (best effort)
     audio = _get_audio_processor()
     if audio:
-        from pathlib import Path
         import os
+        from pathlib import Path
+
         config = current_app.config["LANGMINE_CONFIG"]
         videos = persistence.list_videos()
         video = next((v for v in videos if v.id == sentence_a.video_id), None)
@@ -172,17 +192,22 @@ def merge_with_previous(sentence_id: int):
     persistence.update_sentence(sentence_b)
 
     persistence.log_event(
-        entity_type="sentence", entity_id=sentence_a.id,
-        action="merged", old_value=str(sentence_b.id),
+        entity_type="sentence",
+        entity_id=sentence_a.id,
+        action="merged",
+        old_value=str(sentence_b.id),
         new_value=sentence_a.text_segmented,
         language_code=lang,
     )
 
-    return jsonify({
-        "sentence": _sentence_to_dict(sentence_a, persistence, processor=processor),
-        "merged_id": sentence_b.id,
-        "ok": True,
-    })
+    return jsonify(
+        {
+            "sentence": _sentence_to_dict(sentence_a, persistence, processor=processor),
+            "merged_id": sentence_b.id,
+            "ok": True,
+        }
+    )
+
 
 @sentences_bp.route("/api/sentences/<int:sentence_id>/iknowthis", methods=["PATCH"])
 def mark_word_known(sentence_id: int):
@@ -191,7 +216,7 @@ def mark_word_known(sentence_id: int):
     Also reclassifies the sentence to i0 if it was i1.
     """
     persistence = _get_persistence()
-    processor = _get_processor()
+    _get_processor()
 
     sentence = _find_sentence(persistence, sentence_id)
     if sentence is None:
@@ -204,8 +229,10 @@ def mark_word_known(sentence_id: int):
     persistence.mark_word_known(word)
 
     persistence.log_event(
-        entity_type="word", entity_id=sentence.id,
-        action="marked_known", new_value=word,
+        entity_type="word",
+        entity_id=sentence.id,
+        action="marked_known",
+        new_value=word,
         language_code=sentence.language_code,
     )
 
@@ -213,10 +240,15 @@ def mark_word_known(sentence_id: int):
     sentence.status = "i0"
     persistence.update_sentence(sentence)
 
-    return jsonify({
-        "word_marked": word,
-        "sentence": _sentence_to_dict(sentence, persistence, processor=_get_processor()),
-    })
+    return jsonify(
+        {
+            "word_marked": word,
+            "sentence": _sentence_to_dict(
+                sentence, persistence, processor=_get_processor()
+            ),
+        }
+    )
+
 
 @sentences_bp.route("/api/sentences/<int:sentence_id>/audio")
 def serve_audio(sentence_id: int):
@@ -237,6 +269,7 @@ def serve_audio(sentence_id: int):
         as_attachment=False,
     )
 
+
 @sentences_bp.route("/api/sentences/<int:sentence_id>/screenshot")
 def serve_screenshot(sentence_id: int):
     """Serve the screenshot for a sentence."""
@@ -256,7 +289,9 @@ def serve_screenshot(sentence_id: int):
         as_attachment=False,
     )
 
+
 # === Image Search API (M12) ===
+
 
 @sentences_bp.route("/api/sentences/<int:sentence_id>/cloze-image", methods=["POST"])
 def set_cloze_image(sentence_id: int):
@@ -273,11 +308,14 @@ def set_cloze_image(sentence_id: int):
     sentence.cloze_image_url = data["image_url"]
     persistence.update_sentence(sentence)
 
-    return jsonify({
-        "ok": True,
-        "sentence_id": sentence_id,
-        "cloze_image_url": sentence.cloze_image_url,
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "sentence_id": sentence_id,
+            "cloze_image_url": sentence.cloze_image_url,
+        }
+    )
+
 
 @sentences_bp.route("/api/sentences/<int:sentence_id>/annotation", methods=["PATCH"])
 def update_annotation(sentence_id: int):
@@ -304,9 +342,11 @@ def update_annotation(sentence_id: int):
         annotation = []
 
     if not isinstance(annotation, list) or index < 0 or index >= len(annotation):
-        return jsonify({
-            "error": f"Index {index} out of range (0-{len(annotation) - 1 if annotation else -1})"
-        }), 400
+        return jsonify(
+            {
+                "error": f"Index {index} out of range (0-{len(annotation) - 1 if annotation else -1})"
+            }
+        ), 400
 
     entry = annotation[index]
     for field in ("char", "pinyin", "tone", "definition"):
@@ -317,12 +357,14 @@ def update_annotation(sentence_id: int):
     persistence.update_sentence(sentence)
 
     persistence.log_event(
-        entity_type="sentence", entity_id=sentence.id,
-        action="annotation_edited", new_value=str(index),
+        entity_type="sentence",
+        entity_id=sentence.id,
+        action="annotation_edited",
+        new_value=str(index),
         language_code=sentence.language_code,
     )
 
     return jsonify({"ok": True, "annotation": annotation})
 
-# === Vocab API ===
 
+# === Vocab API ===

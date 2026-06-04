@@ -4,12 +4,12 @@ Pure domain logic. Depends only on LanguageProcessor and Persistence ports.
 Testable with fake ports — no YouTube, ffmpeg, or SQLite required.
 """
 
+from langmine.domain.models import Sentence
 from langmine.domain.ports import (
     LanguageProcessor,
-    Persistence,
     MergedSentence,
+    Persistence,
 )
-from langmine.domain.models import Sentence
 
 
 class SentenceClassifier:
@@ -119,7 +119,9 @@ class SentenceClassifier:
 
             # Translation and word info for i+1 and kept sentences
             if sentence.status in ("i1", "kept"):
-                sentence.translation_de = self._processor.translate_sentence(sentence.text)
+                sentence.translation_de = self._processor.translate_sentence(
+                    sentence.text
+                )
 
                 if sentence.unknown_word:
                     entry = self._processor.lookup_word(sentence.unknown_word)
@@ -154,9 +156,7 @@ class SentenceClassifier:
                 i0_sentences.append(s)
                 continue
 
-            content_words = [
-                t for t in tokens if not self._processor.is_non_word(t)
-            ]
+            content_words = [t for t in tokens if not self._processor.is_non_word(t)]
             unknown = [w for w in content_words if w not in known_words]
             unknown_count = len(unknown)
 

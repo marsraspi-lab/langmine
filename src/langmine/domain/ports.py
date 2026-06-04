@@ -7,8 +7,7 @@ is accessed through these ports. Adapters implement them.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from langmine.domain.models import Video, Sentence, VocabWord
-
+from langmine.domain.models import Sentence, Video, VocabWord
 
 # === Value Objects (used across ports) ===
 
@@ -35,9 +34,9 @@ class MergedSentence:
 class SubtitleInfo:
     """Info about an available subtitle track."""
 
-    language_code: str       # e.g. "zh-Hans", "en"
-    language_name: str       # e.g. "Chinese (Simplified)", "English"
-    kind: str                # "manual" or "auto"
+    language_code: str  # e.g. "zh-Hans", "en"
+    language_name: str  # e.g. "Chinese (Simplified)", "English"
+    kind: str  # "manual" or "auto"
 
 
 # === Ports ===
@@ -93,9 +92,7 @@ class LanguageProcessor(ABC):
         """
 
     @abstractmethod
-    def find_known_synonyms(
-        self, word: str, known_words: set[str]
-    ) -> list[str]:
+    def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         """Return any known synonyms of `word`."""
 
     @abstractmethod
@@ -107,7 +104,10 @@ class LanguageProcessor(ABC):
         """
 
     def bootstrap_proficiency(
-        self, persistence: "Persistence", max_level: int, language_code: str,
+        self,
+        persistence: "Persistence",
+        max_level: int,
+        language_code: str,
     ) -> None:
         """Pre-mark words from a proficiency framework as known.
 
@@ -222,11 +222,15 @@ class Persistence(ABC):
     @abstractmethod
     def save_sentences(self, sentences: list[Sentence]) -> None: ...
     @abstractmethod
-    def get_sentences_by_video(self, video_id: int, status: str | None = None, language_code: str = "") -> list[Sentence]: ...
+    def get_sentences_by_video(
+        self, video_id: int, status: str | None = None, language_code: str = ""
+    ) -> list[Sentence]: ...
     @abstractmethod
     def update_sentence(self, sentence: Sentence) -> None: ...
     @abstractmethod
-    def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]: ...
+    def get_sentences_by_status(
+        self, status: str, language_code: str = ""
+    ) -> list[Sentence]: ...
 
     # Vocab
     @abstractmethod

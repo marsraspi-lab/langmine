@@ -4,10 +4,7 @@ These tests validate the adapter contracts — they implement the domain ports
 correctly and produce expected output shapes.
 """
 
-import pytest
-
-from langmine.domain.ports import Translator, Dictionary, FrequencySource
-
+from langmine.domain.ports import Dictionary, FrequencySource, Translator
 
 # === GoogleTranslateAdapter ===
 
@@ -22,12 +19,14 @@ class TestGoogleTranslateAdapter:
     def test_implements_translator_port(self):
         """Adapter should implement the Translator port."""
         from langmine.adapters.google_translate import GoogleTranslateAdapter
+
         adapter = GoogleTranslateAdapter()
         assert isinstance(adapter, Translator)
 
     def test_translate_zh_to_de(self):
         """Should translate simple Chinese to German."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from langmine.adapters.google_translate import GoogleTranslateAdapter
 
         # Mock deep_translator.GoogleTranslator to avoid real HTTP calls
@@ -45,6 +44,7 @@ class TestGoogleTranslateAdapter:
     def test_translate_returns_string_for_empty_input(self):
         """Should handle empty input gracefully (no network call needed)."""
         from langmine.adapters.google_translate import GoogleTranslateAdapter
+
         adapter = GoogleTranslateAdapter()
         result = adapter.translate("", source_lang="zh", target_lang="de")
         assert isinstance(result, str)
@@ -59,12 +59,14 @@ class TestCcCedictAdapter:
     def test_implements_dictionary_port(self):
         """Adapter should implement the Dictionary port."""
         from langmine.languages.chinese import CcCedictAdapter
+
         adapter = CcCedictAdapter()
         assert isinstance(adapter, Dictionary)
 
     def test_lookup_common_word(self):
         """Should find a common Chinese word."""
         from langmine.languages.chinese import CcCedictAdapter
+
         adapter = CcCedictAdapter()
         result = adapter.lookup("你好")
         assert result is not None
@@ -77,6 +79,7 @@ class TestCcCedictAdapter:
     def test_lookup_unknown_word_returns_none(self):
         """Should return None for non-existent words."""
         from langmine.languages.chinese import CcCedictAdapter
+
         adapter = CcCedictAdapter()
         result = adapter.lookup("xyzzy123")
         assert result is None
@@ -84,6 +87,7 @@ class TestCcCedictAdapter:
     def test_lookup_includes_german_when_available(self):
         """Should prefer German definition when present."""
         from langmine.languages.chinese import CcCedictAdapter
+
         adapter = CcCedictAdapter()
         # Many CC-CEDICT entries have German translations
         result = adapter.lookup("电脑")
@@ -95,11 +99,16 @@ class TestCcCedictAdapter:
     def test_lookup_returns_consistent_structure(self):
         """Every lookup should return the same dict shape."""
         from langmine.languages.chinese import CcCedictAdapter
+
         adapter = CcCedictAdapter()
         for word in ["你好", "学习", "电脑", "爱"]:
             result = adapter.lookup(word)
             if result:
-                assert set(result.keys()) == {"definition_en", "definition_de", "pinyin"}
+                assert set(result.keys()) == {
+                    "definition_en",
+                    "definition_de",
+                    "pinyin",
+                }
 
 
 # === JiebaFrequencyAdapter ===
@@ -111,12 +120,14 @@ class TestJiebaFrequencyAdapter:
     def test_implements_frequency_port(self):
         """Adapter should implement the FrequencySource port."""
         from langmine.languages.chinese import JiebaFrequencyAdapter
+
         adapter = JiebaFrequencyAdapter()
         assert isinstance(adapter, FrequencySource)
 
     def test_get_frequency_common_word(self):
         """Common words should have a frequency rank."""
         from langmine.languages.chinese import JiebaFrequencyAdapter
+
         adapter = JiebaFrequencyAdapter()
         rank = adapter.get_frequency("的")
         assert rank is not None
@@ -125,6 +136,7 @@ class TestJiebaFrequencyAdapter:
     def test_get_frequency_unknown_returns_none(self):
         """Unknown words return None."""
         from langmine.languages.chinese import JiebaFrequencyAdapter
+
         adapter = JiebaFrequencyAdapter()
         rank = adapter.get_frequency("xyzzy123")
         assert rank is None
@@ -132,8 +144,9 @@ class TestJiebaFrequencyAdapter:
     def test_common_words_have_lower_ranks(self):
         """More common words should have lower frequency ranks."""
         from langmine.languages.chinese import JiebaFrequencyAdapter
+
         adapter = JiebaFrequencyAdapter()
-        rank_de = adapter.get_frequency("的")       # extremely common
+        rank_de = adapter.get_frequency("的")  # extremely common
         rank_diannao = adapter.get_frequency("电脑")  # moderately common
         if rank_de and rank_diannao:
             assert rank_de < rank_diannao, (
@@ -142,7 +155,8 @@ class TestJiebaFrequencyAdapter:
 
     def test_frequency_tiers(self):
         """Tier logic should be accessible from domain models."""
-        from langmine.domain.models import frequency_tier, frequency_badge
+        from langmine.domain.models import frequency_badge, frequency_tier
+
         assert frequency_tier(1) == "core"
         assert frequency_tier(2000) == "core"
         assert frequency_tier(2001) == "useful"
@@ -161,13 +175,13 @@ class TestHskAdapter:
         """Common words should have known HSK levels."""
         from langmine.languages.chinese import get_hsk_level
 
-        assert get_hsk_level("爱") == 1       # HSK 1
-        assert get_hsk_level("爸爸") == 1      # HSK 1
-        assert get_hsk_level("帮助") == 2      # HSK 2
-        assert get_hsk_level("历史") == 3      # HSK 3
-        assert get_hsk_level("竞争") == 4      # HSK 4
-        assert get_hsk_level("宝贵") == 5      # HSK 5
-        assert get_hsk_level("癌症") == 6      # HSK 6
+        assert get_hsk_level("爱") == 1  # HSK 1
+        assert get_hsk_level("爸爸") == 1  # HSK 1
+        assert get_hsk_level("帮助") == 2  # HSK 2
+        assert get_hsk_level("历史") == 3  # HSK 3
+        assert get_hsk_level("竞争") == 4  # HSK 4
+        assert get_hsk_level("宝贵") == 5  # HSK 5
+        assert get_hsk_level("癌症") == 6  # HSK 6
 
     def test_hsk_unknown_word_returns_none(self):
         """Words not in HSK should return None."""

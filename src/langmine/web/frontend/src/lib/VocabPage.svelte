@@ -520,13 +520,6 @@
     font-size: 0.9rem;
     color: var(--text-secondary);
   }
-  .detail-definitions ul {
-    margin: 4px 0 0 0;
-    padding-left: 20px;
-  }
-  .detail-definitions li {
-    margin-bottom: 2px;
-  }
   .detail-stats {
     display: flex;
     flex-wrap: wrap;

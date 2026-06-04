@@ -5,17 +5,19 @@ No YouTube, ffmpeg, SQLite, or network required.
 """
 
 import json
-import pytest
 from pathlib import Path
 
-from langmine.config import Config
-from langmine.domain.ports import (
-    LanguageProcessor, Persistence, Dictionary, Translator,
-    FrequencySource, MergedSentence, TranscriptSource, AudioProcessor,
-    TranscriptChunk,
-)
-from langmine.domain.models import Video, Sentence, VocabWord
+import pytest
 
+from langmine.config import Config
+from langmine.domain.models import Sentence, Video, VocabWord
+from langmine.domain.ports import (
+    AudioProcessor,
+    LanguageProcessor,
+    Persistence,
+    TranscriptChunk,
+    TranscriptSource,
+)
 
 # === Fake Ports (same pattern as test_classifier.py) ===
 
@@ -42,23 +44,67 @@ class FakeLanguageProcessor(LanguageProcessor):
         ranks = {"一般": 1847, "效率": 3412, "爬山": 5000}
         return ranks.get(word)
 
-    _FAKE_PARTICLES = {"的", "了", "吗", "吧", "呢", "啊", "哦", "嗯", "嘛",
-                        "啦", "呀", "呗", "咯", "哈", "哇", "哎", "唉", "哟",
-                        "着", "过", "地", "得"}
-    _FAKE_NUMERALS = {"零", "一", "二", "三", "四", "五", "六", "七", "八",
-                       "九", "十", "百", "千", "万", "亿", "两"}
+    _FAKE_PARTICLES = {
+        "的",
+        "了",
+        "吗",
+        "吧",
+        "呢",
+        "啊",
+        "哦",
+        "嗯",
+        "嘛",
+        "啦",
+        "呀",
+        "呗",
+        "咯",
+        "哈",
+        "哇",
+        "哎",
+        "唉",
+        "哟",
+        "着",
+        "过",
+        "地",
+        "得",
+    }
+    _FAKE_NUMERALS = {
+        "零",
+        "一",
+        "二",
+        "三",
+        "四",
+        "五",
+        "六",
+        "七",
+        "八",
+        "九",
+        "十",
+        "百",
+        "千",
+        "万",
+        "亿",
+        "两",
+    }
 
     def is_non_word(self, token: str) -> bool:
         """Mirrors ChineseLanguageService.is_non_word to avoid test/prod skew."""
         import re
-        return (token in self._FAKE_PARTICLES
-                or token in self._FAKE_NUMERALS
-                or bool(re.match(r"^\d+$", token)))
 
-    def is_proper_name(self, token, context_sentence=""): return False
+        return (
+            token in self._FAKE_PARTICLES
+            or token in self._FAKE_NUMERALS
+            or bool(re.match(r"^\d+$", token))
+        )
 
-    def find_known_synonyms(self, word, known_words): return []
-    def get_annotation(self, text): return "[]"
+    def is_proper_name(self, token, context_sentence=""):
+        return False
+
+    def find_known_synonyms(self, word, known_words):
+        return []
+
+    def get_annotation(self, text):
+        return "[]"
 
 
 class FakePersistence(Persistence):
@@ -105,7 +151,9 @@ class FakePersistence(Persistence):
                 self._next_sentence_id += 1
             self._sentences.append(s)
 
-    def get_sentences_by_video(self, video_id: int, status: str | None = None, language_code: str = "") -> list[Sentence]:
+    def get_sentences_by_video(
+        self, video_id: int, status: str | None = None, language_code: str = ""
+    ) -> list[Sentence]:
         results = [s for s in self._sentences if s.video_id == video_id]
         if status:
             results = [s for s in results if s.status == status]
@@ -117,7 +165,9 @@ class FakePersistence(Persistence):
                 self._sentences[i] = sentence
                 break
 
-    def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]:
+    def get_sentences_by_status(
+        self, status: str, language_code: str = ""
+    ) -> list[Sentence]:
         return [s for s in self._sentences if s.status == status]
 
     # Vocab
@@ -131,56 +181,76 @@ class FakePersistence(Persistence):
         return None
 
     def get_known_words(self, language_code: str = "") -> set[str]:
-        return self._known | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
+        return self._known | {
+            w.word_simplified for w in self._vocab if w.status in ("known", "ignored")
+        }
 
     def mark_word_known(self, word_simplified: str) -> None:
         existing = self.get_vocab_word(word_simplified)
         if existing:
             existing.status = "known"
         else:
-            self._vocab.append(VocabWord(word_simplified=word_simplified, status="known"))
+            self._vocab.append(
+                VocabWord(word_simplified=word_simplified, status="known")
+            )
 
     def mark_word_learning(self, word_simplified: str) -> None:
         existing = self.get_vocab_word(word_simplified)
         if existing:
             existing.status = "learning"
         else:
-            self._vocab.append(VocabWord(word_simplified=word_simplified, status="learning"))
+            self._vocab.append(
+                VocabWord(word_simplified=word_simplified, status="learning")
+            )
 
     def mark_word_ignored(self, word_simplified: str) -> None:
         existing = self.get_vocab_word(word_simplified)
         if existing:
             existing.status = "ignored"
         else:
-            self._vocab.append(VocabWord(word_simplified=word_simplified, status="ignored"))
+            self._vocab.append(
+                VocabWord(word_simplified=word_simplified, status="ignored")
+            )
 
     def get_vocab_stats(self, language_code: str = "") -> dict:
         known = sum(1 for w in self._vocab if w.status == "known")
         learning = sum(1 for w in self._vocab if w.status == "learning")
         ignored = sum(1 for w in self._vocab if w.status == "ignored")
         total = len(self._vocab)
-        return {"known": known, "learning": learning, "ignored": ignored, "total": total}
+        return {
+            "known": known,
+            "learning": learning,
+            "ignored": ignored,
+            "total": total,
+        }
 
     def list_vocab(
-        self, page=1, per_page=200, status=None, search=None, sort="frequency",
+        self,
+        page=1,
+        per_page=200,
+        status=None,
+        search=None,
+        sort="frequency",
         language_code="",
     ):
         words = list(self._vocab)
         if status:
             words = [w for w in words if w.status == status]
         if search:
-            words = [w for w in words
-                     if search.lower() in w.word_simplified.lower()
-                     or search.lower() in (w.reading or "").lower()]
+            words = [
+                w
+                for w in words
+                if search.lower() in w.word_simplified.lower()
+                or search.lower() in (w.reading or "").lower()
+            ]
         # Sort by frequency_rank (None last)
         words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
         total = len(words)
         start = (page - 1) * per_page
-        return words[start:start + per_page], total
+        return words[start : start + per_page], total
 
     def get_sentences_by_word(self, word: str) -> list[Sentence]:
-        return [s for s in self._sentences
-                if s.unknown_word == word or word in s.text]
+        return [s for s in self._sentences if s.unknown_word == word or word in s.text]
 
     def log_event(
         self,
@@ -220,13 +290,23 @@ class FakeAudioProcessor(AudioProcessor):
         return f"{output_dir}/{video_id}.mp3"
 
     def clip(
-        self, audio_path, start_ms, end_ms,
-        pad_before_ms, pad_after_ms, output_dir, sentence_id,
+        self,
+        audio_path,
+        start_ms,
+        end_ms,
+        pad_before_ms,
+        pad_after_ms,
+        output_dir,
+        sentence_id,
     ) -> str:
         return f"{output_dir}/{sentence_id}.mp3"
 
     def capture_frame(
-        self, video_id, timestamp_ms, output_dir, sentence_id,
+        self,
+        video_id,
+        timestamp_ms,
+        output_dir,
+        sentence_id,
     ) -> str | None:
         return f"{output_dir}/frame_{sentence_id}.jpg"
 
@@ -237,7 +317,9 @@ class FakeAudioProcessor(AudioProcessor):
 @pytest.fixture
 def persistence():
     """Fresh FakePersistence with known vocab."""
-    return FakePersistence(known_words={"我们", "早上", "起床", "学习", "我", "爱", "你"})
+    return FakePersistence(
+        known_words={"我们", "早上", "起床", "学习", "我", "爱", "你"}
+    )
 
 
 @pytest.fixture
@@ -262,6 +344,7 @@ def audio():
 def client(persistence, processor, transcript, audio, tmp_path):
     """Flask test client with fake ports injected."""
     from langmine.web.app import create_app
+
     config = Config()
     config.data_dir = str(tmp_path / "langmine_data")
     app = create_app(
@@ -285,26 +368,44 @@ def client_with_sentences(client, persistence):
     # Create sentences with various statuses
     sentences = [
         Sentence(
-            video_id=video.id, start_ms=1000, end_ms=3000,
-            text="我们 一般 早上 起床", text_segmented="我们 / 一般 / 早上 / 起床",
-            unknown_word="一般", unknown_word_rank=1847,
-            audio_clip_path="/tmp/clips/s1.mp3", status="i1",
+            video_id=video.id,
+            start_ms=1000,
+            end_ms=3000,
+            text="我们 一般 早上 起床",
+            text_segmented="我们 / 一般 / 早上 / 起床",
+            unknown_word="一般",
+            unknown_word_rank=1847,
+            audio_clip_path="/tmp/clips/s1.mp3",
+            status="i1",
         ),
         Sentence(
-            video_id=video.id, start_ms=4000, end_ms=7000,
-            text="我 爱 学习", text_segmented="我 / 爱 / 学习",
-            audio_clip_path="/tmp/clips/s2.mp3", status="i0",
+            video_id=video.id,
+            start_ms=4000,
+            end_ms=7000,
+            text="我 爱 学习",
+            text_segmented="我 / 爱 / 学习",
+            audio_clip_path="/tmp/clips/s2.mp3",
+            status="i0",
         ),
         Sentence(
-            video_id=video.id, start_ms=8000, end_ms=12000,
-            text="今天 天气 很 好 啊", text_segmented="今天 / 天气 / 很 / 好 / 啊",
-            audio_clip_path="/tmp/clips/s3.mp3", status="stashed",
+            video_id=video.id,
+            start_ms=8000,
+            end_ms=12000,
+            text="今天 天气 很 好 啊",
+            text_segmented="今天 / 天气 / 很 / 好 / 啊",
+            audio_clip_path="/tmp/clips/s3.mp3",
+            status="stashed",
         ),
         Sentence(
-            video_id=video.id, start_ms=13000, end_ms=16000,
-            text="已经 保存 了", text_segmented="已经 / 保存 / 了",
-            unknown_word="保存", unknown_word_rank=5200,
-            audio_clip_path="/tmp/clips/s4.mp3", status="kept",
+            video_id=video.id,
+            start_ms=13000,
+            end_ms=16000,
+            text="已经 保存 了",
+            text_segmented="已经 / 保存 / 了",
+            unknown_word="保存",
+            unknown_word_rank=5200,
+            audio_clip_path="/tmp/clips/s4.mp3",
+            status="kept",
         ),
     ]
     for s in sentences:
@@ -320,10 +421,14 @@ def client_with_anki(client, persistence, processor, transcript, audio, tmp_path
 
     mock_exporter = MagicMock()
     mock_exporter.export.return_value = {
-        "note_ids": [], "added": 0, "duplicates": 0, "errors": [],
+        "note_ids": [],
+        "added": 0,
+        "duplicates": 0,
+        "errors": [],
     }
 
     from langmine.web.app import create_app
+
     config = Config()
     config.data_dir = str(tmp_path / "langmine_data")
     app = create_app(
@@ -349,38 +454,63 @@ def client_for_merge(client, persistence):
       s4 (i0): "你好" — reading="ni3hao3", translation empty
       s5 (deleted): "再见" — reading="zai4jian4", translation="Tschüss" (should be skipped as predecessor)
     """
-    video = Video(youtube_id="merge_test_vid", title="Merge Test",
-                  audio_path="/tmp/test_audio.mp3")
+    video = Video(
+        youtube_id="merge_test_vid",
+        title="Merge Test",
+        audio_path="/tmp/test_audio.mp3",
+    )
     persistence.save_video(video)
 
     s1 = Sentence(
-        video_id=video.id, start_ms=1000, end_ms=3000,
-        text="我们 学习", text_segmented="我们 / 学习",
-        reading="wo3men xue2xi2", translation_de="Wir lernen",
-        unknown_word="学习", status="i1",
+        video_id=video.id,
+        start_ms=1000,
+        end_ms=3000,
+        text="我们 学习",
+        text_segmented="我们 / 学习",
+        reading="wo3men xue2xi2",
+        translation_de="Wir lernen",
+        unknown_word="学习",
+        status="i1",
     )
     s2 = Sentence(
-        video_id=video.id, start_ms=4000, end_ms=6000,
-        text="今天 天气 好", text_segmented="今天 / 天气 / 好",
-        reading="jin1tian tian1qi4 hao3", translation_de="Heute ist schönes Wetter",
+        video_id=video.id,
+        start_ms=4000,
+        end_ms=6000,
+        text="今天 天气 好",
+        text_segmented="今天 / 天气 / 好",
+        reading="jin1tian tian1qi4 hao3",
+        translation_de="Heute ist schönes Wetter",
         status="i0",
     )
     s3 = Sentence(
-        video_id=video.id, start_ms=7000, end_ms=9000,
-        text="我 爱 你", text_segmented="我 / 爱 / 你",
-        reading="", translation_de="Ich liebe dich",
-        unknown_word="爱", status="i1",
+        video_id=video.id,
+        start_ms=7000,
+        end_ms=9000,
+        text="我 爱 你",
+        text_segmented="我 / 爱 / 你",
+        reading="",
+        translation_de="Ich liebe dich",
+        unknown_word="爱",
+        status="i1",
     )
     s4 = Sentence(
-        video_id=video.id, start_ms=10000, end_ms=12000,
-        text="你好", text_segmented="你好",
-        reading="ni3hao3", translation_de="",
+        video_id=video.id,
+        start_ms=10000,
+        end_ms=12000,
+        text="你好",
+        text_segmented="你好",
+        reading="ni3hao3",
+        translation_de="",
         status="i0",
     )
     s5 = Sentence(
-        video_id=video.id, start_ms=13000, end_ms=15000,
-        text="再见", text_segmented="再见",
-        reading="zai4jian4", translation_de="Tschüss",
+        video_id=video.id,
+        start_ms=13000,
+        end_ms=15000,
+        text="再见",
+        text_segmented="再见",
+        reading="zai4jian4",
+        translation_de="Tschüss",
         status="deleted",
     )
     for s in [s1, s2, s3, s4, s5]:
@@ -649,20 +779,37 @@ class TestReclassifySentences:
         # "我" known — s1 has 1 unknown ("天气") → i1
         # "我", "天气" known — s2 has 0 unknowns → i0
         # "我" known — s3 has 3 unknowns → stashed
-        persistence.save_vocab_word(VocabWord(
-            word_simplified="我", status="known", language_code="zh"))
-        persistence.save_vocab_word(VocabWord(
-            word_simplified="天气", status="known", language_code="zh"))
+        persistence.save_vocab_word(
+            VocabWord(word_simplified="我", status="known", language_code="zh")
+        )
+        persistence.save_vocab_word(
+            VocabWord(word_simplified="天气", status="known", language_code="zh")
+        )
 
-        s1 = Sentence(video_id=video.id, start_ms=0, end_ms=1000,
-                      text="我喜欢天气", text_segmented="我 / 喜欢 / 天气",
-                      status="stashed")
-        s2 = Sentence(video_id=video.id, start_ms=1000, end_ms=2000,
-                      text="我喜欢天气", text_segmented="我 / 天气",
-                      status="stashed")
-        s3 = Sentence(video_id=video.id, start_ms=2000, end_ms=3000,
-                      text="罕见词语很多", text_segmented="罕见 / 词语 / 很多",
-                      status="stashed")
+        s1 = Sentence(
+            video_id=video.id,
+            start_ms=0,
+            end_ms=1000,
+            text="我喜欢天气",
+            text_segmented="我 / 喜欢 / 天气",
+            status="stashed",
+        )
+        s2 = Sentence(
+            video_id=video.id,
+            start_ms=1000,
+            end_ms=2000,
+            text="我喜欢天气",
+            text_segmented="我 / 天气",
+            status="stashed",
+        )
+        s3 = Sentence(
+            video_id=video.id,
+            start_ms=2000,
+            end_ms=3000,
+            text="罕见词语很多",
+            text_segmented="罕见 / 词语 / 很多",
+            status="stashed",
+        )
         persistence.save_sentences([s1, s2, s3])
 
         resp = client.post(f"/api/videos/{video.id}/reclassify")
@@ -688,10 +835,18 @@ class TestReclassifySentences:
 
         # Create 5 stashed sentences — all unknown → stay stashed
         for i in range(5):
-            persistence.save_sentences([Sentence(
-                video_id=video.id, start_ms=i * 1000, end_ms=(i + 1) * 1000,
-                text=f"句子{i}", text_segmented=f"罕见 / 词语{i}",
-                status="stashed")])
+            persistence.save_sentences(
+                [
+                    Sentence(
+                        video_id=video.id,
+                        start_ms=i * 1000,
+                        end_ms=(i + 1) * 1000,
+                        text=f"句子{i}",
+                        text_segmented=f"罕见 / 词语{i}",
+                        status="stashed",
+                    )
+                ]
+            )
 
         resp = client.post(f"/api/videos/{video.id}/reclassify?offset=0&limit=2")
         assert resp.status_code == 200
@@ -727,16 +882,24 @@ class TestMergeSentences:
 
         # Sentence A (earlier)
         sA = Sentence(
-            video_id=video.id, start_ms=1000, end_ms=3000,
-            text="我们 一般", text_segmented="我们 / 一般",
-            reading="wǒmen yībān", translation_de="Wir allgemein",
+            video_id=video.id,
+            start_ms=1000,
+            end_ms=3000,
+            text="我们 一般",
+            text_segmented="我们 / 一般",
+            reading="wǒmen yībān",
+            translation_de="Wir allgemein",
             status="i1",
         )
         # Sentence B (later)
         sB = Sentence(
-            video_id=video.id, start_ms=4000, end_ms=6000,
-            text="早上 起床", text_segmented="早上 / 起床",
-            reading="zǎoshang qǐchuáng", translation_de="morgens aufstehen",
+            video_id=video.id,
+            start_ms=4000,
+            end_ms=6000,
+            text="早上 起床",
+            text_segmented="早上 / 起床",
+            reading="zǎoshang qǐchuáng",
+            translation_de="morgens aufstehen",
             status="i1",
         )
         persistence.save_sentences([sA, sB])
@@ -765,8 +928,14 @@ class TestMergeSentences:
         """Cannot merge the first sentence (no previous)."""
         video = Video(youtube_id="merge-first", title="First", channel="TC")
         persistence.save_video(video)
-        s = Sentence(video_id=video.id, start_ms=1000, end_ms=3000,
-                     text="test", text_segmented="test", status="i1")
+        s = Sentence(
+            video_id=video.id,
+            start_ms=1000,
+            end_ms=3000,
+            text="test",
+            text_segmented="test",
+            status="i1",
+        )
         persistence.save_sentences([s])
 
         resp = client.post(f"/api/sentences/{s.id}/merge-with-previous")
@@ -868,7 +1037,7 @@ class TestMergeWithPrevious:
         assert merged["text_segmented"] == "我们 / 学习 / 今天 / 天气 / 好"
         assert merged["start_ms"] == 1000
         assert merged["end_ms"] == 6000  # s2's end_ms
-        assert merged["id"] == ids[0]   # A's id preserved
+        assert merged["id"] == ids[0]  # A's id preserved
 
         # Sentence B should be deleted
         s2 = next(s for s in persistence.get_sentences_by_video(1) if s.id == ids[1])

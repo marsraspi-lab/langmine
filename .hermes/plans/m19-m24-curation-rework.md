@@ -206,7 +206,7 @@ def vocab_statuses():
 **Objective:** Change the `All` filter (and all filters) to return ALL sentences regardless of status. Remove server-side status filtering from `getSentences`.
 
 **Files:**
-- Modify: `src/langmine/web/routes.py` — `get_video_sentences()` 
+- Modify: `src/langmine/web/routes.py` — `get_video_sentences()`
 - Modify: `src/langmine/web/frontend/src/lib/CardList.svelte`
 
 **Step 1: Change `all` to mean literally all**
@@ -241,13 +241,13 @@ export const curatedSentences = derived(
     return $sentences.map(s => {
       const tokens = (s.text_segmented || '').split(' / ').filter(Boolean);
       const contentWords = tokens;  // non-word filtering done at render
-      const unknown = contentWords.filter(w => 
+      const unknown = contentWords.filter(w =>
         !$knownWords.has(w) && !$ignoredWords.has(w)
       );
       const learning = contentWords.filter(w => $learningWords.has(w));
       return {
         ...s,
-        computedStatus: unknown.length === 0 ? 'i0' 
+        computedStatus: unknown.length === 0 ? 'i0'
           : unknown.length === 1 ? 'i1'
           : unknown.length === 2 ? 'i2'
           : unknown.length === 3 ? 'i3'
@@ -284,7 +284,7 @@ Replace `{$sentences}` in CardList with `{$curatedSentences}`. The filter tabs n
 export async function markWordStatus(word, status) {
   // 1. Client-side instant update
   setWordStatus(word, status);
-  
+
   // 2. Server-side async persist (fire-and-forget)
   try {
     await updateVocabWord(word, status);
@@ -387,7 +387,7 @@ git commit -m "fix: proper name detection via sentence-level POS tagging"
 
 ## M23: Word Splitting
 
-### Task 1: Inline edit of `text_segmented` 
+### Task 1: Inline edit of `text_segmented`
 
 **Objective:** Click a word → popover → "✂️ Split" → the `text_segmented` field opens for inline editing. User adds spaces between char boundaries. Save updates the sentence.
 
@@ -674,7 +674,7 @@ import { updateVocabWord } from './api.js';  // add import
 export async function markWordStatus(word, status) {
   // Instant client update
   setWordStatus(word, status);
-  
+
   // Async server persist
   try {
     await updateVocabWord(word, status);
@@ -749,7 +749,7 @@ git commit -m "test: E2E for instant word marking across all sentences"
 Detailed tasks for M20–M24 will be written after M19 ships. The architecture changes in M19 are significant enough that M20–M24 tasks need to be verified against the new code structure.
 
 Key notes for later:
-- **M20:** `is_proper_name` fix is a 2-file change (service.py + routes.py threading). 
+- **M20:** `is_proper_name` fix is a 2-file change (service.py + routes.py threading).
 - **M21:** HSK bootstrap is a config field + `pipeline.py` hook.
 - **M22:** Reclassification endpoint is a new POST route.
 - **M23:** `text_segmented` inline edit mirrors existing reading/translation edit pattern.

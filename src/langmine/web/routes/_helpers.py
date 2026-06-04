@@ -1,21 +1,25 @@
 """Shared helpers and constants for route blueprints."""
+
 """Shared helpers and constants for route blueprints."""
 
 import json
-import os
-from importlib.metadata import version as _pkg_version
+
 from flask import (
-    Flask, jsonify, request, send_file, send_from_directory, current_app,
+    current_app,
 )
 
-from langmine.domain.models import Video, Sentence
+from langmine.domain.models import Sentence
 from langmine.domain.ports import (
-    Persistence, LanguageProcessor, TranscriptSource, AudioProcessor,
+    AudioProcessor,
     ImageSearch,
+    LanguageProcessor,
+    Persistence,
+    TranscriptSource,
 )
 
 VALID_SENTENCE_STATUSES = {"kept", "deleted"}
 EDITABLE_FIELDS = {"reading", "translation_de", "text_segmented"}
+
 
 def _get_language_code() -> str:
     """Get the current source language from config."""
@@ -25,6 +29,7 @@ def _get_language_code() -> str:
 def _get_classifier():
     """Create a SentenceClassifier from injected ports."""
     from langmine.domain.classifier import SentenceClassifier
+
     return SentenceClassifier(_get_processor(), _get_persistence())
 
 
@@ -46,6 +51,7 @@ def _get_transcript_source() -> TranscriptSource | None:
 def _get_sentence_or_404(persistence: Persistence, sentence_id: int) -> Sentence:
     """Get a sentence by ID, raise 404 if not found."""
     from flask import abort
+
     # Persistence doesn't have get_sentence_by_id — search all videos
     videos = persistence.list_videos()
     for video in videos:
@@ -121,7 +127,12 @@ def _video_with_counts(persistence: Persistence, video, lang: str = "") -> dict:
     """Build a video dict with sentence counts by status."""
     sentences = persistence.get_sentences_by_video(video.id, language_code=lang)
     counts = {
-        "total": 0, "i1": 0, "i0": 0, "stashed": 0, "kept": 0, "deleted": 0,
+        "total": 0,
+        "i1": 0,
+        "i0": 0,
+        "stashed": 0,
+        "kept": 0,
+        "deleted": 0,
     }
     for s in sentences:
         counts["total"] += 1
@@ -145,8 +156,11 @@ def _video_with_counts(persistence: Persistence, video, lang: str = "") -> dict:
     }
 
 
-def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None,
-                      processor: LanguageProcessor | None = None) -> dict:
+def _sentence_to_dict(
+    sentence: Sentence,
+    persistence: Persistence | None = None,
+    processor: LanguageProcessor | None = None,
+) -> dict:
     """Convert a Sentence domain model to a JSON-safe dict.
 
     When persistence is provided, enriches with per-word status metadata
@@ -177,7 +191,9 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
 
     # Annotations — parse JSON, fallback to empty list
     try:
-        result["annotation"] = json.loads(sentence.annotation_json) if sentence.annotation_json else []
+        result["annotation"] = (
+            json.loads(sentence.annotation_json) if sentence.annotation_json else []
+        )
     except (json.JSONDecodeError, TypeError):
         result["annotation"] = []
 
@@ -188,8 +204,11 @@ def _sentence_to_dict(sentence: Sentence, persistence: Persistence | None = None
     return result
 
 
-def _words_array(sentence: Sentence, persistence: Persistence,
-                processor: LanguageProcessor | None = None) -> list[dict]:
+def _words_array(
+    sentence: Sentence,
+    persistence: Persistence,
+    processor: LanguageProcessor | None = None,
+) -> list[dict]:
     """Build the words[] array for a sentence with status/metadata per token."""
     from langmine.language_factory import get_proficiency_level as get_hsk_level
 
@@ -212,24 +231,28 @@ def _words_array(sentence: Sentence, persistence: Persistence,
             status = "known"
 
         # Proper name detection — skip if user has any explicit vocab status
-        if status not in ("known", "ignored", "proper-name", "learning") and processor and processor.is_proper_name(
-            token, context_sentence=sentence.text
+        if (
+            status not in ("known", "ignored", "proper-name", "learning")
+            and processor
+            and processor.is_proper_name(token, context_sentence=sentence.text)
         ):
             status = "proper-name"
 
-        result.append({
-            "token": token,
-            "status": status,
-            "frequency_rank": frequency_rank,
-            "hsk_level": hsk_level,
-        })
+        result.append(
+            {
+                "token": token,
+                "status": status,
+                "frequency_rank": frequency_rank,
+                "hsk_level": hsk_level,
+            }
+        )
     return result
 
 
 def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
     """Convert a VocabWord to a JSON-safe dict with sentence count."""
-    from langmine.language_factory import get_proficiency_level as get_hsk_level
     from langmine.domain.models import frequency_badge
+    from langmine.language_factory import get_proficiency_level as get_hsk_level
 
     sentence_count = 0
     if persistence and word.word_simplified:
@@ -257,7 +280,6 @@ def _vocab_to_dict(word, persistence: Persistence | None = None) -> dict:
 def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
     """Build a vocab dict for a word not yet in the vocab table."""
     from langmine.language_factory import get_proficiency_level as get_hsk_level
-    from langmine.domain.models import frequency_badge
 
     sentences = persistence.get_sentences_by_word(word)
     hsk = get_hsk_level(word, _get_language_code())
@@ -273,5 +295,3 @@ def _unknown_word_dict(word: str, persistence: Persistence) -> dict:
         "status": "unknown",
         "sentence_count": len(sentences),
     }
-
-

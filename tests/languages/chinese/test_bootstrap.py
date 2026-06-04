@@ -1,10 +1,8 @@
 """Tests for ChineseLanguageService.bootstrap_proficiency() — HSK bootstrapping."""
 
-import pytest
-
-from langmine.languages.chinese.service import ChineseLanguageService
-from langmine.domain.ports import Dictionary, Translator, FrequencySource
 from langmine.domain.models import VocabWord
+from langmine.domain.ports import Dictionary, FrequencySource, Translator
+from langmine.languages.chinese.service import ChineseLanguageService
 
 
 class FakeDictionary(Dictionary):
@@ -88,12 +86,14 @@ def test_bootstrap_skips_existing_words():
     """Words already in vocab should not be overwritten."""
     persistence = FakePersistence()
     # Pre-populate with a known word set to "learning"
-    persistence._vocab.append(VocabWord(
-        word_simplified="我们",
-        hsk_level=1,
-        status="learning",  # user marked as learning, not known
-        language_code="zh",
-    ))
+    persistence._vocab.append(
+        VocabWord(
+            word_simplified="我们",
+            hsk_level=1,
+            status="learning",  # user marked as learning, not known
+            language_code="zh",
+        )
+    )
     processor = make_processor()
 
     processor.bootstrap_proficiency(persistence, max_level=1, language_code="zh")
@@ -115,15 +115,32 @@ def test_bootstrap_noop_for_unimplemented_language():
     from langmine.domain.ports import LanguageProcessor
 
     class NoopProcessor(LanguageProcessor):
-        def segment(self, text): return []
-        def get_reading(self, text): return ""
-        def lookup_word(self, word): return None
-        def translate_sentence(self, text): return ""
-        def get_frequency(self, word): return None
-        def is_non_word(self, token): return False
-        def is_proper_name(self, token, context=""): return False
-        def find_known_synonyms(self, word, known): return []
-        def get_annotation(self, text): return "[]"
+        def segment(self, text):
+            return []
+
+        def get_reading(self, text):
+            return ""
+
+        def lookup_word(self, word):
+            return None
+
+        def translate_sentence(self, text):
+            return ""
+
+        def get_frequency(self, word):
+            return None
+
+        def is_non_word(self, token):
+            return False
+
+        def is_proper_name(self, token, context=""):
+            return False
+
+        def find_known_synonyms(self, word, known):
+            return []
+
+        def get_annotation(self, text):
+            return "[]"
 
     processor = NoopProcessor()
     processor.bootstrap_proficiency(persistence, max_level=5, language_code="es")

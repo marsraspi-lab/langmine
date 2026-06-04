@@ -13,9 +13,8 @@ File source: https://doi.org/10.1371/journal.pone.0010729.s002
 
 from pathlib import Path
 
+from langmine.domain.models import frequency_badge, frequency_tier
 from langmine.domain.ports import FrequencySource
-from langmine.domain.models import frequency_tier, frequency_badge
-
 
 _DATA_PATH = Path(__file__).parent / "data" / "SUBTLEX-CH-WF"
 

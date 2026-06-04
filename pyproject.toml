@@ -22,6 +22,8 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-cov",
+    "ruff",
+    "pre-commit",
 ]
 
 [project.scripts]
@@ -33,3 +35,28 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long
+    "E701",  # multiple statements on one line (colon)
+    "E702",  # multiple statements on one line (semicolon)
+    "E402",  # module level import not at top of file
+    "E741",  # ambiguous variable name
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["langmine"]

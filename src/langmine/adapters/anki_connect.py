@@ -17,11 +17,9 @@ import requests
 from langmine.domain.models import Sentence
 from langmine.domain.ports import AnkiExporter
 
-
 # Default templates (fallback if not in config)
 _DEFAULT_FRONT = (
-    '<div class="chinese">{{sentence_zh}}</div>'
-    "{{#audio}}{{audio}}{{/audio}}"
+    '<div class="chinese">{{sentence_zh}}</div>{{#audio}}{{audio}}{{/audio}}'
 )
 
 _DEFAULT_BACK = (
@@ -104,14 +102,20 @@ class AnkiConnectAdapter(AnkiExporter):
 
             # 2. Ensure note type exists
             self._create_model_if_missing(
-                note_type_name, css=css, front=front, back=back,
+                note_type_name,
+                css=css,
+                front=front,
+                back=back,
                 is_cloze=is_cloze,
             )
 
             # 3. Force-update templates if requested
             if force_update_model:
                 self._update_model_templates(
-                    note_type_name, css=css, front=front, back=back,
+                    note_type_name,
+                    css=css,
+                    front=front,
+                    back=back,
                     is_cloze=is_cloze,
                 )
 
@@ -125,10 +129,7 @@ class AnkiConnectAdapter(AnkiExporter):
         screenshot_refs: dict[int, str] = {}
         for i, s in enumerate(sentences):
             if s.audio_clip_path and os.path.exists(s.audio_clip_path):
-                filename = (
-                    f"langmine_{s.id or i}_"
-                    f"{os.path.basename(s.audio_clip_path)}"
-                )
+                filename = f"langmine_{s.id or i}_{os.path.basename(s.audio_clip_path)}"
                 try:
                     self._store_media(filename, s.audio_clip_path)
                     media_refs[i] = filename
@@ -138,24 +139,20 @@ class AnkiConnectAdapter(AnkiExporter):
             # Upload screenshot if available
             if s.screenshot_path and os.path.exists(s.screenshot_path):
                 ss_name = (
-                    f"langmine_ss_{s.id or i}_"
-                    f"{os.path.basename(s.screenshot_path)}"
+                    f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
                 )
                 try:
                     self._store_media(ss_name, s.screenshot_path)
                     screenshot_refs[i] = ss_name
-                except Exception as e:
+                except Exception:
                     pass  # Screenshot is optional
 
         # 5. Build notes
         notes = []
         for i, s in enumerate(sentences):
-            audio_field = (
-                f"[sound:{media_refs[i]}]" if i in media_refs else ""
-            )
+            audio_field = f"[sound:{media_refs[i]}]" if i in media_refs else ""
             screenshot_field = (
-                f'<img src="{screenshot_refs[i]}">'
-                if i in screenshot_refs else ""
+                f'<img src="{screenshot_refs[i]}">' if i in screenshot_refs else ""
             )
             # For cloze cards, user-selected hint image takes priority
             if is_cloze and s.cloze_image_url:
@@ -167,19 +164,21 @@ class AnkiConnectAdapter(AnkiExporter):
                     s.unknown_word, f"{{{{c1::{s.unknown_word}}}}}"
                 )
 
-            notes.append({
-                "deckName": deck_name,
-                "modelName": note_type_name,
-                "fields": {
-                    "sentence_zh": sentence_text,
-                    "sentence_reading": s.reading or "",
-                    "translation_de": s.translation_de or "",
-                    "unknown_word": s.unknown_word or "",
-                    "audio": audio_field,
-                    "screenshot": screenshot_field,
-                },
-                "tags": ["langmine"],
-            })
+            notes.append(
+                {
+                    "deckName": deck_name,
+                    "modelName": note_type_name,
+                    "fields": {
+                        "sentence_zh": sentence_text,
+                        "sentence_reading": s.reading or "",
+                        "translation_de": s.translation_de or "",
+                        "unknown_word": s.unknown_word or "",
+                        "audio": audio_field,
+                        "screenshot": screenshot_field,
+                    },
+                    "tags": ["langmine"],
+                }
+            )
 
         # 6. Check for duplicates
         new_notes = notes
@@ -225,8 +224,15 @@ class AnkiConnectAdapter(AnkiExporter):
             raise RuntimeError(f"AnkiConnect error: {data['error']}")
         return data
 
-    def _create_model_if_missing(self, model_name: str, *, css: str,
-                                  front: str, back: str, is_cloze: bool = False):
+    def _create_model_if_missing(
+        self,
+        model_name: str,
+        *,
+        css: str,
+        front: str,
+        back: str,
+        is_cloze: bool = False,
+    ):
         """Create note type if it doesn't exist (idempotent)."""
         params = {
             "modelName": model_name,
@@ -247,8 +253,15 @@ class AnkiConnectAdapter(AnkiExporter):
             params["isCloze"] = True
         self._invoke("createModel", params)
 
-    def _update_model_templates(self, model_name: str, *, css: str,
-                                  front: str, back: str, is_cloze: bool = False):
+    def _update_model_templates(
+        self,
+        model_name: str,
+        *,
+        css: str,
+        front: str,
+        back: str,
+        is_cloze: bool = False,
+    ):
         """Force-update templates and CSS for an existing model.
 
         AnkiConnect's createModel is idempotent — it won't overwrite
@@ -259,27 +272,36 @@ class AnkiConnectAdapter(AnkiExporter):
         # it's inherent to the model. The is_cloze parameter is
         # accepted but only used during model creation.
         _ = is_cloze
-        self._invoke("updateModelTemplates", {
-            "model": {
-                "name": model_name,
-                "templates": {
-                    "Card 1": {"Front": front, "Back": back},
+        self._invoke(
+            "updateModelTemplates",
+            {
+                "model": {
+                    "name": model_name,
+                    "templates": {
+                        "Card 1": {"Front": front, "Back": back},
+                    },
                 },
             },
-        })
-        self._invoke("updateModelStyling", {
-            "model": {
-                "name": model_name,
-                "css": css,
+        )
+        self._invoke(
+            "updateModelStyling",
+            {
+                "model": {
+                    "name": model_name,
+                    "css": css,
+                },
             },
-        })
+        )
 
     def _store_media(self, filename: str, filepath: str):
         """Upload a media file to Anki via base64."""
         with open(filepath, "rb") as f:
             data = base64.b64encode(f.read()).decode("utf-8")
 
-        self._invoke("storeMediaFile", {
-            "filename": filename,
-            "data": data,
-        })
+        self._invoke(
+            "storeMediaFile",
+            {
+                "filename": filename,
+                "data": data,
+            },
+        )

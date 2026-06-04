@@ -1,28 +1,49 @@
 """Tests for M12 image search API endpoints."""
 
 import json
+
 import pytest
 
 from langmine.config import Config
-from langmine.domain.models import Video, Sentence, VocabWord
+from langmine.domain.models import Sentence, Video, VocabWord
 from langmine.domain.ports import (
-    LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
+    AudioProcessor,
+    LanguageProcessor,
+    Persistence,
     TranscriptChunk,
+    TranscriptSource,
 )
-
 
 # === Fake ports ===
 
+
 class FakeLanguageProcessor(LanguageProcessor):
-    def segment(self, text): return text.split()
-    def get_reading(self, text): return " ".join(f"py:{t}" for t in text.split())
-    def lookup_word(self, word): return {"definition_de": f"def:{word}", "definition_en": f"def:{word}"}
-    def translate_sentence(self, text): return f"[DE] {text}"
-    def get_frequency(self, word): return 1000
-    def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
-    def is_proper_name(self, token, context_sentence=""): return False
-    def find_known_synonyms(self, word, known_words): return []
-    def get_annotation(self, text): return "[]"
+    def segment(self, text):
+        return text.split()
+
+    def get_reading(self, text):
+        return " ".join(f"py:{t}" for t in text.split())
+
+    def lookup_word(self, word):
+        return {"definition_de": f"def:{word}", "definition_en": f"def:{word}"}
+
+    def translate_sentence(self, text):
+        return f"[DE] {text}"
+
+    def get_frequency(self, word):
+        return 1000
+
+    def is_non_word(self, token):
+        return token in {"的", "了", "吗", "啊", "呢", "吧"}
+
+    def is_proper_name(self, token, context_sentence=""):
+        return False
+
+    def find_known_synonyms(self, word, known_words):
+        return []
+
+    def get_annotation(self, text):
+        return "[]"
 
 
 class FakePersistence(Persistence):
@@ -35,42 +56,82 @@ class FakePersistence(Persistence):
         self._next_sid = 1
 
     def save_video(self, video):
-        if video.id is None: video.id = self._next_vid; self._next_vid += 1; self._videos.append(video)
+        if video.id is None:
+            video.id = self._next_vid
+            self._next_vid += 1
+            self._videos.append(video)
+
     def get_video(self, yt_id):
         for v in self._videos:
-            if v.youtube_id == yt_id: return v
+            if v.youtube_id == yt_id:
+                return v
         return None
-    def list_videos(self, language_code: str = ""): return list(self._videos)
+
+    def list_videos(self, language_code: str = ""):
+        return list(self._videos)
+
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
+
     def save_sentences(self, sentences):
         for s in sentences:
-            if s.id is None: s.id = self._next_sid; self._next_sid += 1
+            if s.id is None:
+                s.id = self._next_sid
+                self._next_sid += 1
             self._sentences.append(s)
+
     def get_sentences_by_video(self, vid, status=None):
         results = [s for s in self._sentences if s.video_id == vid]
-        if status: results = [s for s in results if s.status == status]
+        if status:
+            results = [s for s in results if s.status == status]
         return results
+
     def update_sentence(self, s):
         for i, existing in enumerate(self._sentences):
-            if existing.id == s.id: self._sentences[i] = s; break
+            if existing.id == s.id:
+                self._sentences[i] = s
+                break
+
     def get_known_words(self, language_code: str = ""):
-        return self._known | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
+        return self._known | {
+            w.word_simplified for w in self._vocab if w.status in ("known", "ignored")
+        }
+
     def get_vocab_word(self, w):
         for v in self._vocab:
-            if v.word_simplified == w: return v
+            if v.word_simplified == w:
+                return v
         return None
-    def save_vocab_word(self, w): self._vocab.append(w)
+
+    def save_vocab_word(self, w):
+        self._vocab.append(w)
+
     def mark_word_known(self, w):
         existing = self.get_vocab_word(w)
-        if existing: existing.status = "known"
-        else: self._vocab.append(VocabWord(word_simplified=w, status="known"))
+        if existing:
+            existing.status = "known"
+        else:
+            self._vocab.append(VocabWord(word_simplified=w, status="known"))
+
     def mark_word_learning(self, w):
         existing = self.get_vocab_word(w)
-        if existing: existing.status = "learning"
-        else: self._vocab.append(VocabWord(word_simplified=w, status="learning"))
-    def get_vocab_stats(self, language_code: str = ""): return {"known": 0, "learning": 0, "total": 0}
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
+        if existing:
+            existing.status = "learning"
+        else:
+            self._vocab.append(VocabWord(word_simplified=w, status="learning"))
+
+    def get_vocab_stats(self, language_code: str = ""):
+        return {"known": 0, "learning": 0, "total": 0}
+
+    def list_vocab(
+        self,
+        page=1,
+        per_page=200,
+        status=None,
+        search=None,
+        sort="frequency",
+        language_code: str = "",
+    ):
         return [], 0
 
     def mark_word_ignored(self, word_simplified: str) -> None:
@@ -78,8 +139,12 @@ class FakePersistence(Persistence):
         if existing:
             existing.status = "ignored"
         else:
-            self._vocab.append(VocabWord(word_simplified=word_simplified, status="ignored"))
-    def get_sentences_by_word(self, word): return []
+            self._vocab.append(
+                VocabWord(word_simplified=word_simplified, status="ignored")
+            )
+
+    def get_sentences_by_word(self, word):
+        return []
 
     def log_event(
         self,
@@ -92,7 +157,8 @@ class FakePersistence(Persistence):
     ) -> None:
         pass
 
-    def get_sentences_by_status(self, status, language_code: str = ""): return []
+    def get_sentences_by_status(self, status, language_code: str = ""):
+        return []
 
 
 class FakeTranscriptSource(TranscriptSource):
@@ -104,13 +170,18 @@ class FakeTranscriptSource(TranscriptSource):
 
 
 class FakeAudioProcessor(AudioProcessor):
-    def download(self, video_id, output_dir): return f"{output_dir}/{video_id}.mp3"
-    def clip(self, *args, **kwargs): return "/tmp/clip.mp3"
+    def download(self, video_id, output_dir):
+        return f"{output_dir}/{video_id}.mp3"
+
+    def clip(self, *args, **kwargs):
+        return "/tmp/clip.mp3"
+
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
         return f"{output_dir}/frame_{sentence_id}.jpg"
 
 
 # === Fixtures ===
+
 
 @pytest.fixture
 def persistence():
@@ -120,6 +191,7 @@ def persistence():
 @pytest.fixture
 def client(persistence):
     from langmine.web.app import create_app
+
     app = create_app(
         persistence=persistence,
         language_processor=FakeLanguageProcessor(),
@@ -136,9 +208,14 @@ def client_with_sentences(client, persistence):
     video = Video(youtube_id="dQw4w9WgXcQ", title="Test", channel="C")
     persistence.save_video(video)
     sentences = [
-        Sentence(video_id=video.id, start_ms=1000, end_ms=3000,
-                 text="我们 一般 早上 起床", text_segmented="我们 / 一般 / 早上 / 起床",
-                 status="i1"),
+        Sentence(
+            video_id=video.id,
+            start_ms=1000,
+            end_ms=3000,
+            text="我们 一般 早上 起床",
+            text_segmented="我们 / 一般 / 早上 / 起床",
+            status="i1",
+        ),
     ]
     persistence.save_sentences(sentences)
     return client, persistence
@@ -146,21 +223,28 @@ def client_with_sentences(client, persistence):
 
 # === Tests ===
 
+
 class TestSentenceClozeImage:
     """M12: Sentence model has cloze_image_url field."""
 
     def test_sentence_has_cloze_image_url(self):
         s = Sentence(
-            video_id=1, start_ms=0, end_ms=1000,
-            text="test", text_segmented="test",
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            text="test",
+            text_segmented="test",
             cloze_image_url="https://example.com/img.jpg",
         )
         assert s.cloze_image_url == "https://example.com/img.jpg"
 
     def test_cloze_image_url_defaults_to_none(self):
         s = Sentence(
-            video_id=1, start_ms=0, end_ms=1000,
-            text="test", text_segmented="test",
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            text="test",
+            text_segmented="test",
         )
         assert s.cloze_image_url is None
 
@@ -171,6 +255,7 @@ class TestImageSearchAPI:
     @pytest.fixture
     def client_with_searcher(self, persistence):
         from unittest.mock import MagicMock
+
         from langmine.web.app import create_app
 
         fake_searcher = MagicMock()

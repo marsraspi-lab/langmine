@@ -4,7 +4,6 @@ Sentences, videos, and vocab must be partitioned by language_code.
 Switching languages filters data — never purges.
 """
 
-import pytest
 from langmine.domain.models import Sentence, Video, VocabWord
 
 
@@ -50,30 +49,68 @@ class TestLanguageIsolation:
                 return {
                     w.word_simplified
                     for w in self._vocab.values()
-                    if w.status in ("known", "ignored") and (language_code is None or w.language_code == language_code)
+                    if w.status in ("known", "ignored")
+                    and (language_code is None or w.language_code == language_code)
                 }
 
             # stubs
-            def save_video(self, v): pass
-            def get_video(self, yt_id): pass
-            def list_videos(self, language_code=None): return []
-            def delete_video(self, video_id): return False
-            def save_sentences(self, ss): pass
-            def get_sentences_by_video(self, vid, status=None, language_code=None): return []
-            def update_sentence(self, s): pass
-            def get_sentences_by_status(self, status, language_code=None): return []
-            def get_vocab_word(self, w): pass
-            def mark_word_known(self, w): pass
-            def mark_word_learning(self, w): pass
-            def get_vocab_stats(self, language_code=None): return {"known": 0, "learning": 0, "total": 0}
-            def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code=None): return [], 0
-            def get_sentences_by_word(self, word): return []
+            def save_video(self, v):
+                pass
+
+            def get_video(self, yt_id):
+                pass
+
+            def list_videos(self, language_code=None):
+                return []
+
+            def delete_video(self, video_id):
+                return False
+
+            def save_sentences(self, ss):
+                pass
+
+            def get_sentences_by_video(self, vid, status=None, language_code=None):
+                return []
+
+            def update_sentence(self, s):
+                pass
+
+            def get_sentences_by_status(self, status, language_code=None):
+                return []
+
+            def get_vocab_word(self, w):
+                pass
+
+            def mark_word_known(self, w):
+                pass
+
+            def mark_word_learning(self, w):
+                pass
+
+            def get_vocab_stats(self, language_code=None):
+                return {"known": 0, "learning": 0, "total": 0}
+
+            def list_vocab(
+                self,
+                page=1,
+                per_page=200,
+                status=None,
+                search=None,
+                sort="frequency",
+                language_code=None,
+            ):
+                return [], 0
+
+            def get_sentences_by_word(self, word):
+                return []
 
             def mark_word_ignored(self, word_simplified: str) -> None:
                 if word_simplified in self._vocab:
                     self._vocab[word_simplified].status = "ignored"
                 else:
-                    self._vocab[word_simplified] = VocabWord(word_simplified=word_simplified, status="ignored")
+                    self._vocab[word_simplified] = VocabWord(
+                        word_simplified=word_simplified, status="ignored"
+                    )
 
             def log_event(
                 self,
@@ -87,8 +124,22 @@ class TestLanguageIsolation:
                 pass
 
         p = FakePersistence()
-        p.save_vocab_word(VocabWord(word_simplified="我们", reading="wǒmen", status="known", language_code="zh"))
-        p.save_vocab_word(VocabWord(word_simplified="hola", reading="ola", status="known", language_code="es"))
+        p.save_vocab_word(
+            VocabWord(
+                word_simplified="我们",
+                reading="wǒmen",
+                status="known",
+                language_code="zh",
+            )
+        )
+        p.save_vocab_word(
+            VocabWord(
+                word_simplified="hola",
+                reading="ola",
+                status="known",
+                language_code="es",
+            )
+        )
 
         zh_known = p.get_known_words(language_code="zh")
         es_known = p.get_known_words(language_code="es")
@@ -109,27 +160,62 @@ class TestLanguageIsolation:
             def save_vocab_word(self, w):
                 self._vocab[w.word_simplified] = w
 
-            def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code=None):
+            def list_vocab(
+                self,
+                page=1,
+                per_page=200,
+                status=None,
+                search=None,
+                sort="frequency",
+                language_code=None,
+            ):
                 words = list(self._vocab.values())
                 if language_code:
                     words = [w for w in words if w.language_code == language_code]
                 return words, len(words)
 
             # stubs
-            def save_video(self, v): pass
-            def get_video(self, yt_id): pass
-            def list_videos(self, language_code=None): return []
-            def delete_video(self, video_id): return False
-            def save_sentences(self, ss): pass
-            def get_sentences_by_video(self, vid, status=None, language_code=None): return []
-            def update_sentence(self, s): pass
-            def get_sentences_by_status(self, status, language_code=None): return []
-            def get_known_words(self, language_code=None): return set()
-            def get_vocab_word(self, w): pass
-            def mark_word_known(self, w): pass
-            def mark_word_learning(self, w): pass
-            def get_vocab_stats(self, language_code=None): return {"known": 0, "learning": 0, "total": 0}
-            def get_sentences_by_word(self, word): return []
+            def save_video(self, v):
+                pass
+
+            def get_video(self, yt_id):
+                pass
+
+            def list_videos(self, language_code=None):
+                return []
+
+            def delete_video(self, video_id):
+                return False
+
+            def save_sentences(self, ss):
+                pass
+
+            def get_sentences_by_video(self, vid, status=None, language_code=None):
+                return []
+
+            def update_sentence(self, s):
+                pass
+
+            def get_sentences_by_status(self, status, language_code=None):
+                return []
+
+            def get_known_words(self, language_code=None):
+                return set()
+
+            def get_vocab_word(self, w):
+                pass
+
+            def mark_word_known(self, w):
+                pass
+
+            def mark_word_learning(self, w):
+                pass
+
+            def get_vocab_stats(self, language_code=None):
+                return {"known": 0, "learning": 0, "total": 0}
+
+            def get_sentences_by_word(self, word):
+                return []
 
             def mark_word_ignored(self, word_simplified: str) -> None:
                 pass

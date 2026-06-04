@@ -1,13 +1,14 @@
 """Config, stats, and system API routes."""
 
 import os
-import json
 from importlib.metadata import version as _pkg_version
-from flask import Blueprint, jsonify, request, send_from_directory, current_app
 
-from ._helpers import _get_persistence, _get_language_code
+from flask import Blueprint, current_app, jsonify, request, send_from_directory
+
+from ._helpers import _get_language_code, _get_persistence
 
 config_bp = Blueprint("config", __name__)
+
 
 @config_bp.route("/")
 def index():
@@ -15,7 +16,9 @@ def index():
     static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
     return send_from_directory(static_dir, "index.html")
 
+
 # === API Routes ===
+
 
 @config_bp.route("/api/version")
 def app_version():
@@ -26,11 +29,14 @@ def app_version():
         v = "unknown"
     return jsonify({"version": v, "name": "langmine"})
 
+
 @config_bp.route("/api/languages")
 def list_languages():
     """List available source languages with code and display name."""
     from langmine.language_factory import get_available_languages
+
     return jsonify({"languages": get_available_languages()})
+
 
 @config_bp.route("/api/stats")
 def stats():
@@ -39,23 +45,27 @@ def stats():
     lang = _get_language_code()
     return jsonify(persistence.get_vocab_stats(language_code=lang))
 
+
 @config_bp.route("/api/config")
 def get_config():
     """Return current configuration (sanitized — no API keys)."""
     config = current_app.config["LANGMINE_CONFIG"]
-    return jsonify({
-        "anki_connect_url": config.anki_connect_url,
-        "source_language": config.source_language,
-        "target_language": config.target_language,
-        "translation_api": config.translation_api,
-        "sentence_gap_ms": config.sentence_gap_ms,
-        "audio_pad_before_ms": config.audio_pad_before_ms,
-        "audio_pad_after_ms": config.audio_pad_after_ms,
-        "max_cards_per_video": config.max_cards_per_video,
-        "max_stash_cards": config.max_stash_cards,
-        "hsk_bootstrap_level": config.hsk_bootstrap_level,
-        "user_agent": config.user_agent,
-    })
+    return jsonify(
+        {
+            "anki_connect_url": config.anki_connect_url,
+            "source_language": config.source_language,
+            "target_language": config.target_language,
+            "translation_api": config.translation_api,
+            "sentence_gap_ms": config.sentence_gap_ms,
+            "audio_pad_before_ms": config.audio_pad_before_ms,
+            "audio_pad_after_ms": config.audio_pad_after_ms,
+            "max_cards_per_video": config.max_cards_per_video,
+            "max_stash_cards": config.max_stash_cards,
+            "hsk_bootstrap_level": config.hsk_bootstrap_level,
+            "user_agent": config.user_agent,
+        }
+    )
+
 
 @config_bp.route("/api/config", methods=["PUT"])
 def update_config():
@@ -69,19 +79,28 @@ def update_config():
     # Allowed config keys
     ALLOWED = {
         "anki_connect_url",
-        "source_language", "target_language", "translation_api",
-        "sentence_gap_ms", "audio_pad_before_ms", "audio_pad_after_ms",
-        "max_cards_per_video", "max_stash_cards",
+        "source_language",
+        "target_language",
+        "translation_api",
+        "sentence_gap_ms",
+        "audio_pad_before_ms",
+        "audio_pad_after_ms",
+        "max_cards_per_video",
+        "max_stash_cards",
         "hsk_bootstrap_level",
         "deepl_api_key",
         "user_agent",
     }
 
     config = current_app.config["LANGMINE_CONFIG"]
+    config_dir = current_app.config.get("LANGMINE_CONFIG_DIR")
     for key, value in data.items():
         if key in ALLOWED:
             setattr(config, key, value)
 
-    save_config(config)
-    return jsonify({"ok": True})
+    try:
+        save_config(config, config_dir=config_dir)
+    except Exception as e:
+        return jsonify({"error": f"Failed to save config: {e}"}), 500
 
+    return jsonify({"ok": True})

@@ -5,6 +5,7 @@ Users can download subtitles from their browser and upload them.
 """
 
 import re
+
 from langmine.domain.ports import TranscriptChunk
 
 
@@ -66,11 +67,13 @@ def _parse_srt(content: str) -> list[TranscriptChunk]:
         text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
 
         if text.strip():
-            chunks.append(TranscriptChunk(
-                text=text.strip(),
-                start_ms=start_ms,
-                duration_ms=duration_ms,
-            ))
+            chunks.append(
+                TranscriptChunk(
+                    text=text.strip(),
+                    start_ms=start_ms,
+                    duration_ms=duration_ms,
+                )
+            )
 
     return chunks
 
@@ -98,12 +101,16 @@ def _parse_vtt(content: str) -> list[TranscriptChunk]:
             text = " ".join(text_parts)
             if text.strip():
                 text = re.sub(r"<[^>]+>", "", text)
-                text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-                chunks.append(TranscriptChunk(
-                    text=text.strip(),
-                    start_ms=start_ms,
-                    duration_ms=max(0, end_ms - start_ms),
-                ))
+                text = (
+                    text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+                )
+                chunks.append(
+                    TranscriptChunk(
+                        text=text.strip(),
+                        start_ms=start_ms,
+                        duration_ms=max(0, end_ms - start_ms),
+                    )
+                )
         else:
             i += 1
 

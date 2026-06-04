@@ -4,10 +4,7 @@ import os
 import tempfile
 from pathlib import Path
 
-import pytest
-
-from langmine.audio import download_audio, clip_audio
-
+from langmine.audio import clip_audio, download_audio
 
 # === Audio Download Tests ===
 

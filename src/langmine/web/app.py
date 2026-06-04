@@ -8,18 +8,19 @@ Serves the Svelte frontend built output from ../static/.
 """
 
 import os
-from flask import Flask, send_from_directory
 
+from flask import Flask
+
+from langmine.adapters.inline_transcript import InlineTranscriptSource
 from langmine.domain.ports import (
-    Persistence,
-    LanguageProcessor,
-    TranscriptSource,
-    AudioProcessor,
     AnkiExporter,
+    AudioProcessor,
     ImageSearch,
+    LanguageProcessor,
+    Persistence,
+    TranscriptSource,
     Translator,
 )
-from langmine.adapters.inline_transcript import InlineTranscriptSource
 from langmine.transcript_parser import parse_subtitle_file
 
 
@@ -30,7 +31,8 @@ def create_app(
     audio_processor: AudioProcessor | None = None,
     anki_exporter: AnkiExporter | None = None,
     image_searcher: ImageSearch | None = None,
-    config = None,
+    config=None,
+    config_dir: str | None = None,
 ) -> Flask:
     """Create a Flask app with injected domain ports.
 
@@ -42,6 +44,7 @@ def create_app(
         anki_exporter: Where to export flashcards (AnkiConnect, etc.)
         image_searcher: Image search adapter (Google CSE, etc.)
         config: Application configuration (Config dataclass).
+        config_dir: Directory where config.yaml lives.
 
     Returns:
         Configured Flask app.
@@ -58,6 +61,7 @@ def create_app(
     app.config["LANGMINE_IMAGE_SEARCHER"] = image_searcher
 
     app.config["LANGMINE_CONFIG"] = config
+    app.config["LANGMINE_CONFIG_DIR"] = config_dir
 
     # Allow routes to create InlineTranscriptSource without importing adapters
     app.config["LANGMINE_INLINE_TRANSCRIPT_CLASS"] = InlineTranscriptSource
@@ -65,6 +69,7 @@ def create_app(
 
     # Register routes
     from langmine.web.routes import register_routes
+
     register_routes(app)
 
     return app
@@ -82,6 +87,7 @@ def _create_translator(config) -> Translator:
             "at langmine.adapters.deepl_translate."
         )
     from langmine.adapters.google_translate import GoogleTranslateAdapter
+
     return GoogleTranslateAdapter()
 
 
@@ -91,17 +97,17 @@ def create_production_app() -> Flask:
     Loads config, instantiates concrete adapters, and returns a fully
     wired app ready to serve.  This is the entry point used by server.py.
     """
-    from langmine.config import load_config
     from langmine.adapters import (
-        YouTubeTranscriptAdapter,
-        YtdlpAudioAdapter,
-        SQLitePersistence,
         AnkiConnectAdapter,
         GoogleImageSearch,
+        SQLitePersistence,
+        YouTubeTranscriptAdapter,
+        YtdlpAudioAdapter,
     )
+    from langmine.config import load_config
     from langmine.language_factory import (
-        create_language_processor,
         create_language_adapters,
+        create_language_processor,
         get_transcript_languages,
     )
 
@@ -133,6 +139,8 @@ def create_production_app() -> Flask:
         image_searcher=GoogleImageSearch(
             api_key=config.google_api_key,
             cse_id=config.google_cse_id,
-        ) if config.google_api_key else None,
+        )
+        if config.google_api_key
+        else None,
         config=config,
     )

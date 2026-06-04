@@ -1,17 +1,21 @@
 """Tests for M13 difficulty preview endpoint (POST /api/videos/preview)."""
 
 import json
+
 import pytest
 
 from langmine.config import Config
-from langmine.domain.ports import (
-    LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
-    TranscriptChunk,
-)
 from langmine.domain.models import VocabWord
-
+from langmine.domain.ports import (
+    AudioProcessor,
+    LanguageProcessor,
+    Persistence,
+    TranscriptChunk,
+    TranscriptSource,
+)
 
 # === Fake Ports ===
+
 
 class FakeLanguageProcessor(LanguageProcessor):
     def segment(self, text):
@@ -32,10 +36,14 @@ class FakeLanguageProcessor(LanguageProcessor):
     def is_non_word(self, token):
         return token in {"的", "了", "吗", "啊", "呢", "吧", "很", "是", "和", "不"}
 
-    def is_proper_name(self, token, context_sentence=""): return False
+    def is_proper_name(self, token, context_sentence=""):
+        return False
 
-    def find_known_synonyms(self, word, known_words): return []
-    def get_annotation(self, text): return "[]"
+    def find_known_synonyms(self, word, known_words):
+        return []
+
+    def get_annotation(self, text):
+        return "[]"
 
 
 class FakePersistence(Persistence):
@@ -48,12 +56,16 @@ class FakePersistence(Persistence):
         self._next_sid = 1
 
     def get_known_words(self, language_code: str = ""):
-        return self._known | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
+        return self._known | {
+            w.word_simplified for w in self._vocab if w.status in ("known", "ignored")
+        }
 
     # Stubs for unused methods
     def save_video(self, v):
         if v.id is None:
-            v.id = self._next_vid; self._next_vid += 1; self._videos.append(v)
+            v.id = self._next_vid
+            self._next_vid += 1
+            self._videos.append(v)
 
     def list_videos(self, language_code: str = ""):
         return list(self._videos)
@@ -70,7 +82,8 @@ class FakePersistence(Persistence):
     def save_sentences(self, sentences):
         for s in sentences:
             if s.id is None:
-                s.id = self._next_sid; self._next_sid += 1
+                s.id = self._next_sid
+                self._next_sid += 1
             self._sentences.append(s)
 
     def get_sentences_by_video(self, vid, status=None):
@@ -82,7 +95,8 @@ class FakePersistence(Persistence):
     def update_sentence(self, s):
         for i, existing in enumerate(self._sentences):
             if existing.id == s.id:
-                self._sentences[i] = s; break
+                self._sentences[i] = s
+                break
 
     def get_vocab_word(self, w):
         for v in self._vocab:
@@ -112,18 +126,26 @@ class FakePersistence(Persistence):
         if existing:
             existing.status = "ignored"
         else:
-            self._vocab.append(VocabWord(word_simplified=word_simplified, status="ignored"))
-
+            self._vocab.append(
+                VocabWord(word_simplified=word_simplified, status="ignored")
+            )
 
     def get_vocab_stats(self, language_code: str = ""):
         return {"known": 0, "learning": 0, "total": 0}
 
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency", language_code: str = ""):
+    def list_vocab(
+        self,
+        page=1,
+        per_page=200,
+        status=None,
+        search=None,
+        sort="frequency",
+        language_code: str = "",
+    ):
         return [], 0
 
     def get_sentences_by_word(self, word):
         return []
-
 
     def log_event(
         self,
@@ -142,7 +164,9 @@ class FakePersistence(Persistence):
 
 class FakeTranscriptSource(TranscriptSource):
     def __init__(self, chunks=None):
-        self._chunks = chunks or [TranscriptChunk(text="test", start_ms=0, duration_ms=500)]
+        self._chunks = chunks or [
+            TranscriptChunk(text="test", start_ms=0, duration_ms=500)
+        ]
 
     def fetch(self, video_id, language=""):
         return self._chunks
@@ -155,7 +179,16 @@ class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir):
         return "/tmp/test.mp3"
 
-    def clip(self, audio_path, start_ms, end_ms, pad_before_ms, pad_after_ms, output_dir, sentence_id):
+    def clip(
+        self,
+        audio_path,
+        start_ms,
+        end_ms,
+        pad_before_ms,
+        pad_after_ms,
+        output_dir,
+        sentence_id,
+    ):
         return f"{output_dir}/{sentence_id}.mp3"
 
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
@@ -182,6 +215,7 @@ PREVIEW_CHUNKS = [
 
 # === Fixtures ===
 
+
 @pytest.fixture
 def processor():
     return FakeLanguageProcessor()
@@ -206,6 +240,7 @@ def audio():
 @pytest.fixture
 def client(processor, persistence, transcript, audio):
     from langmine.web.app import create_app
+
     app = create_app(
         persistence=persistence,
         language_processor=processor,
@@ -219,20 +254,22 @@ def client(processor, persistence, transcript, audio):
 
 # === Tests ===
 
+
 class TestDifficultyPreview:
     """POST /api/videos/preview — difficulty assessment before mining."""
 
     def test_preview_returns_stats(self, client):
         """Returns total_sentences, i1_estimated, i0_count, and percentage stats."""
-        resp = client.post("/api/videos/preview", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        })
+        resp = client.post(
+            "/api/videos/preview",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
         assert resp.status_code == 200
         data = json.loads(resp.data)
 
         assert data["total_sentences"] == 3
-        assert data["i1_estimated"] == 1   # "我 爱 爬山" — only 爬山 unknown
-        assert data["i0_count"] == 1        # "我们 早上 起床" — all known
+        assert data["i1_estimated"] == 1  # "我 爱 爬山" — only 爬山 unknown
+        assert data["i0_count"] == 1  # "我们 早上 起床" — all known
         # stash: "一般 效率 很 高" — 很 non-word, 一般+效率 unknown → 2 unknowns
         assert data["stash_count"] == 1
         assert "known_word_pct" in data
@@ -241,9 +278,10 @@ class TestDifficultyPreview:
 
     def test_preview_sentences_have_word_status(self, client):
         """Each sentence.words[] has per-token status for highlighting."""
-        resp = client.post("/api/videos/preview", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        })
+        resp = client.post(
+            "/api/videos/preview",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
         data = json.loads(resp.data)
 
         # Sentence 1: "我们 早上 起床" — all known
@@ -262,9 +300,10 @@ class TestDifficultyPreview:
 
     def test_preview_includes_segmented_pinyin_translation(self, client):
         """Preview sentences include text_segmented, pinyin, and translation_de."""
-        resp = client.post("/api/videos/preview", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        })
+        resp = client.post(
+            "/api/videos/preview",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
         data = json.loads(resp.data)
         s = data["sentences"][0]
 
@@ -301,9 +340,10 @@ class TestDifficultyPreview:
         app.config["TESTING"] = True
         client = app.test_client()
 
-        resp = client.post("/api/videos/preview", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        })
+        resp = client.post(
+            "/api/videos/preview",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
         assert resp.status_code == 400
         data = json.loads(resp.data)
         assert "error" in data
@@ -313,18 +353,20 @@ class TestDifficultyPreview:
         initial_video_count = len(persistence.list_videos())
         initial_sentence_count = len(persistence._sentences)
 
-        client.post("/api/videos/preview", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        })
+        client.post(
+            "/api/videos/preview",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
 
         assert len(persistence.list_videos()) == initial_video_count
         assert len(persistence._sentences) == initial_sentence_count
 
     def test_preview_known_word_pct_is_accurate(self, client):
         """known_word_pct reflects the ratio of known content words."""
-        resp = client.post("/api/videos/preview", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        })
+        resp = client.post(
+            "/api/videos/preview",
+            json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+        )
         data = json.loads(resp.data)
 
         # Known content words: 我们, 早上, 起床, 我, 爱, 高 = 6

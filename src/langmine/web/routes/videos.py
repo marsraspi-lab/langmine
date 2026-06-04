@@ -1,19 +1,31 @@
 """Video mining and management API routes."""
 
-import json
 import os
 import queue
 import threading
-from pathlib import Path
-from flask import Blueprint, jsonify, request, send_file, current_app, Response, stream_with_context
+
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    jsonify,
+    request,
+    stream_with_context,
+)
 
 from ._helpers import (
-    _get_persistence, _get_processor, _get_language_code, _get_transcript_source,
-    _get_audio_processor, _get_classifier,
-    _video_with_counts, _sentence_to_dict, _reclassify_from_segmented,
+    _get_audio_processor,
+    _get_classifier,
+    _get_language_code,
+    _get_persistence,
+    _get_processor,
+    _get_transcript_source,
+    _sentence_to_dict,
+    _video_with_counts,
 )
 
 videos_bp = Blueprint("videos", __name__)
+
 
 @videos_bp.route("/api/videos")
 def list_videos():
@@ -22,12 +34,10 @@ def list_videos():
     lang = _get_language_code()
     videos = persistence.list_videos(language_code=lang)
 
-    return jsonify({
-        "videos": [
-            _video_with_counts(persistence, v, lang)
-            for v in videos
-        ]
-    })
+    return jsonify(
+        {"videos": [_video_with_counts(persistence, v, lang) for v in videos]}
+    )
+
 
 @videos_bp.route("/api/videos/<int:video_id>", methods=["DELETE"])
 def delete_video_route(video_id: int):
@@ -37,6 +47,7 @@ def delete_video_route(video_id: int):
     if not deleted:
         return jsonify({"error": "Video not found"}), 404
     return jsonify({"ok": True})
+
 
 @videos_bp.route("/api/videos/mine", methods=["POST"])
 def mine_video():
@@ -61,14 +72,14 @@ def mine_video():
             InlineTranscriptSource = current_app.config.get(
                 "LANGMINE_INLINE_TRANSCRIPT_CLASS"
             )
-            parse_subtitle_file = current_app.config.get(
-                "LANGMINE_PARSE_SUBTITLE_FILE"
-            )
+            parse_subtitle_file = current_app.config.get("LANGMINE_PARSE_SUBTITLE_FILE")
             if InlineTranscriptSource and parse_subtitle_file:
                 content = file.read().decode("utf-8")
                 chunks = parse_subtitle_file(content, filename=file.filename)
                 if not chunks:
-                    return jsonify({"error": "No subtitle entries found in uploaded file"}), 400
+                    return jsonify(
+                        {"error": "No subtitle entries found in uploaded file"}
+                    ), 400
                 transcript = InlineTranscriptSource(chunks)
                 is_file_upload = True
     else:
@@ -78,16 +89,19 @@ def mine_video():
         url = data["url"]
 
     from langmine.transcript import _extract_video_id
+
     video_id = _extract_video_id(url)
 
     # Parse optional subtitle language selection (M26)
-    language = request.form.get("language", "") if request.content_type and "multipart" in request.content_type else data.get("language", "")
-    subtitle_kind = ""
+    language = (
+        request.form.get("language", "")
+        if request.content_type and "multipart" in request.content_type
+        else data.get("language", "")
+    )
     if language and not is_file_upload and transcript is not None:
         try:
             subs = transcript.list_subtitles(video_id)
             match = next((s for s in subs if s.language_code == language), None)
-            subtitle_kind = match.kind if match else ""
         except Exception:
             pass
 
@@ -99,7 +113,7 @@ def mine_video():
         # Synchronous path — backward compatible, no threading needed.
         # Used by test client and non-browser clients.
         try:
-            from langmine.pipeline import process_video, MineError
+            from langmine.pipeline import MineError, process_video
 
             config = current_app.config["LANGMINE_CONFIG"]
             output_dir = config.data_dir
@@ -119,8 +133,10 @@ def mine_video():
             video = persistence.get_video(video_id)
             if video and video.id:
                 persistence.log_event(
-                    entity_type="video", entity_id=video.id,
-                    action="mined", new_value=video_id,
+                    entity_type="video",
+                    entity_id=video.id,
+                    action="mined",
+                    new_value=video_id,
                     language_code=config.source_language,
                 )
                 # Persist subtitle language + kind (M26)
@@ -128,21 +144,25 @@ def mine_video():
                     video.subtitle_language = language
                     try:
                         subs = transcript.list_subtitles(video_id)
-                        match = next((s for s in subs if s.language_code == language), None)
+                        match = next(
+                            (s for s in subs if s.language_code == language), None
+                        )
                         video.subtitle_kind = match.kind if match else ""
                     except Exception:
                         pass
                     persistence.save_video(video)
 
-            return jsonify({
-                "video_id": video.id if video else None,
-                "youtube_id": video_id,
-                "i1_candidates": len(result["i1_candidates"]),
-                "i0_count": result["i0_count"],
-                "stash_count": result["stash_count"],
-                "total_sentences": result["total_sentences"],
-                "i1_count": len(result["i1_candidates"]),
-            })
+            return jsonify(
+                {
+                    "video_id": video.id if video else None,
+                    "youtube_id": video_id,
+                    "i1_candidates": len(result["i1_candidates"]),
+                    "i0_count": result["i0_count"],
+                    "stash_count": result["stash_count"],
+                    "total_sentences": result["total_sentences"],
+                    "i1_count": len(result["i1_candidates"]),
+                }
+            )
         except MineError as e:
             return jsonify({"error": str(e), "stage": e.stage}), 400
         except ValueError as e:
@@ -151,88 +171,100 @@ def mine_video():
             return jsonify({"error": f"Mining failed: {e}"}), 500
 
     # SSE streaming path — live progress for the browser
-    from flask import Response, stream_with_context
-    import queue
-    import threading
     import json as _json
 
     progress_queue: queue.Queue = queue.Queue()
 
-    def _do_mine():
+    def _do_mine(app):
         """Run mining in a thread, pushing progress to the queue."""
-        try:
-            from langmine.pipeline import process_video, MineError
+        with app.app_context():
+            try:
+                from langmine.pipeline import MineError, process_video
 
-            config = current_app.config["LANGMINE_CONFIG"]
-            output_dir = config.data_dir
-            os.makedirs(output_dir, exist_ok=True)
+                config = current_app.config["LANGMINE_CONFIG"]
+                output_dir = config.data_dir
+                os.makedirs(output_dir, exist_ok=True)
 
-            def _on_progress(msg: str):
-                progress_queue.put(("progress", msg))
+                def _on_progress(msg: str):
+                    progress_queue.put(("progress", msg))
 
-            result = process_video(
-                transcript_source=transcript,
-                audio_processor=audio,
-                persistence=persistence,
-                language_processor=processor,
-                video_id=video_id,
-                output_dir=output_dir,
-                config=config,
-                progress_callback=_on_progress,
-                subtitle_language=language if not is_file_upload else "",
-            )
-
-            video = persistence.get_video(video_id)
-            if video and video.id:
-                persistence.log_event(
-                    entity_type="video", entity_id=video.id,
-                    action="mined", new_value=video_id,
-                    language_code=config.source_language,
+                result = process_video(
+                    transcript_source=transcript,
+                    audio_processor=audio,
+                    persistence=persistence,
+                    language_processor=processor,
+                    video_id=video_id,
+                    output_dir=output_dir,
+                    config=config,
+                    progress_callback=_on_progress,
+                    subtitle_language=language if not is_file_upload else "",
                 )
-                # Persist subtitle language + kind (M26)
-                if language:
-                    video.subtitle_language = language
+
+                video = persistence.get_video(video_id)
+                if video and video.id:
+                    persistence.log_event(
+                        entity_type="video",
+                        entity_id=video.id,
+                        action="mined",
+                        new_value=video_id,
+                        language_code=config.source_language,
+                    )
+                    # Persist subtitle language + kind (M26)
+                    if language:
+                        video.subtitle_language = language
+                        try:
+                            subs = transcript.list_subtitles(video_id)
+                            match = next(
+                                (s for s in subs if s.language_code == language), None
+                            )
+                            video.subtitle_kind = match.kind if match else ""
+                        except Exception:
+                            pass
+                        persistence.save_video(video)
+
+                progress_queue.put(
+                    (
+                        "done",
+                        {
+                            "video_id": video.id if video else None,
+                            "youtube_id": video_id,
+                            "i1_candidates": len(result["i1_candidates"]),
+                            "i0_count": result["i0_count"],
+                            "stash_count": result["stash_count"],
+                            "total_sentences": result["total_sentences"],
+                            "i1_count": len(result["i1_candidates"]),
+                        },
+                    )
+                )
+            except MineError as e:
+                msg = str(e)
+                stage = e.stage
+                if stage == "transcript":
+                    # Enrich with subtitle info if available
                     try:
                         subs = transcript.list_subtitles(video_id)
-                        match = next((s for s in subs if s.language_code == language), None)
-                        video.subtitle_kind = match.kind if match else ""
                     except Exception:
-                        pass
-                    persistence.save_video(video)
-
-            progress_queue.put(("done", {
-                "video_id": video.id if video else None,
-                "youtube_id": video_id,
-                "i1_candidates": len(result["i1_candidates"]),
-                "i0_count": result["i0_count"],
-                "stash_count": result["stash_count"],
-                "total_sentences": result["total_sentences"],
-                "i1_count": len(result["i1_candidates"]),
-            }))
-        except MineError as e:
-            msg = str(e)
-            stage = e.stage
-            if stage == "transcript":
-                # Enrich with subtitle info if available
-                try:
-                    subs = transcript.list_subtitles(video_id)
-                except Exception:
-                    subs = []
-                if subs:
-                    langs = ", ".join(f"{s.language_name} ({s.kind})" for s in subs[:3])
-                    msg = f"This video has subtitles ({langs}) but download failed. Try again."
-                else:
-                    msg = "This video has no subtitles in any language."
-                stage = "transcript"
-            progress_queue.put(("error", {"message": msg, "stage": stage}))
-        except ValueError as e:
-            progress_queue.put(("error", {"message": str(e), "stage": "unknown"}))
-        except Exception as e:
-            progress_queue.put(("error", {"message": f"Mining failed: {e}", "stage": "unknown"}))
+                        subs = []
+                    if subs:
+                        langs = ", ".join(
+                            f"{s.language_name} ({s.kind})" for s in subs[:3]
+                        )
+                        msg = f"This video has subtitles ({langs}) but download failed. Try again."
+                    else:
+                        msg = "This video has no subtitles in any language."
+                    stage = "transcript"
+                progress_queue.put(("error", {"message": msg, "stage": stage}))
+            except ValueError as e:
+                progress_queue.put(("error", {"message": str(e), "stage": "unknown"}))
+            except Exception as e:
+                progress_queue.put(
+                    ("error", {"message": f"Mining failed: {e}", "stage": "unknown"})
+                )
 
     def _sse_stream():
         """SSE generator: yield progress events + final result."""
-        thread = threading.Thread(target=_do_mine, daemon=True)
+        app = current_app._get_current_object()
+        thread = threading.Thread(target=_do_mine, args=(app,), daemon=True)
         thread.start()
 
         while True:
@@ -260,6 +292,7 @@ def mine_video():
         },
     )
 
+
 @videos_bp.route("/api/videos/subtitles")
 def list_subtitles():
     """List available subtitle tracks for a YouTube video."""
@@ -268,6 +301,7 @@ def list_subtitles():
         return jsonify({"error": "Missing 'url' parameter"}), 400
 
     from langmine.transcript import _extract_video_id
+
     try:
         video_id = _extract_video_id(url)
     except ValueError as e:
@@ -284,13 +318,20 @@ def list_subtitles():
     except Exception:
         return jsonify({"subtitles": [], "available": False}), 200
 
-    return jsonify({
-        "subtitles": [
-            {"language_code": s.language_code, "language_name": s.language_name, "kind": s.kind}
-            for s in subs
-        ],
-        "available": len(subs) > 0,
-    })
+    return jsonify(
+        {
+            "subtitles": [
+                {
+                    "language_code": s.language_code,
+                    "language_name": s.language_name,
+                    "kind": s.kind,
+                }
+                for s in subs
+            ],
+            "available": len(subs) > 0,
+        }
+    )
+
 
 @videos_bp.route("/api/videos/preview", methods=["POST"])
 def preview_video():
@@ -318,9 +359,9 @@ def preview_video():
     processor = _get_processor()
 
     if transcript_source is None or processor is None:
-        return jsonify({
-            "error": "Transcript source or language processor not configured."
-        }), 503
+        return jsonify(
+            {"error": "Transcript source or language processor not configured."}
+        ), 503
 
     try:
         chunks = transcript_source.fetch(video_id)
@@ -374,22 +415,27 @@ def preview_video():
     i1_count = sum(1 for u in unknown_counts if u == 1)
     i0_count = sum(1 for u in unknown_counts if u == 0)
     stash_count = sum(1 for u in unknown_counts if u >= 2)
-    known_word_pct = round(
-        total_known_words / total_content_words * 100, 1
-    ) if total_content_words > 0 else 0.0
-    avg_unknown = round(
-        sum(unknown_counts) / total_sentences, 1
-    ) if total_sentences > 0 else 0.0
+    known_word_pct = (
+        round(total_known_words / total_content_words * 100, 1)
+        if total_content_words > 0
+        else 0.0
+    )
+    avg_unknown = (
+        round(sum(unknown_counts) / total_sentences, 1) if total_sentences > 0 else 0.0
+    )
 
-    return jsonify({
-        "total_sentences": total_sentences,
-        "i1_estimated": i1_count,
-        "i0_count": i0_count,
-        "stash_count": stash_count,
-        "known_word_pct": known_word_pct,
-        "avg_unknown_per_sentence": avg_unknown,
-        "sentences": preview_sentences,
-    })
+    return jsonify(
+        {
+            "total_sentences": total_sentences,
+            "i1_estimated": i1_count,
+            "i0_count": i0_count,
+            "stash_count": stash_count,
+            "known_word_pct": known_word_pct,
+            "avg_unknown_per_sentence": avg_unknown,
+            "sentences": preview_sentences,
+        }
+    )
+
 
 @videos_bp.route("/api/videos/<int:video_id>/sentences")
 def get_sentences(video_id: int):
@@ -400,13 +446,21 @@ def get_sentences(video_id: int):
     if status == "all":
         status = None  # "all" means no filter — every sentence visible
 
-    sentences = persistence.get_sentences_by_video(video_id, status=status, language_code=lang)
+    sentences = persistence.get_sentences_by_video(
+        video_id, status=status, language_code=lang
+    )
 
-    return jsonify({
-        "video_id": video_id,
-        "filter_status": status,
-        "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
-    })
+    return jsonify(
+        {
+            "video_id": video_id,
+            "filter_status": status,
+            "sentences": [
+                _sentence_to_dict(s, persistence, processor=_get_processor())
+                for s in sentences
+            ],
+        }
+    )
+
 
 @videos_bp.route("/api/videos/<int:video_id>/transcript")
 def get_transcript(video_id: int):
@@ -416,10 +470,16 @@ def get_transcript(video_id: int):
     sentences = persistence.get_sentences_by_video(video_id, language_code=lang)
     # Sort chronologically for reading order
     sentences.sort(key=lambda s: s.start_ms)
-    return jsonify({
-        "video_id": video_id,
-        "sentences": [_sentence_to_dict(s, persistence, processor=_get_processor()) for s in sentences],
-    })
+    return jsonify(
+        {
+            "video_id": video_id,
+            "sentences": [
+                _sentence_to_dict(s, persistence, processor=_get_processor())
+                for s in sentences
+            ],
+        }
+    )
+
 
 @videos_bp.route("/api/videos/<int:video_id>/reclassify", methods=["POST"])
 def reclassify_sentences(video_id: int):
@@ -431,7 +491,7 @@ def reclassify_sentences(video_id: int):
     Supports offset/limit pagination.
     """
     persistence = _get_persistence()
-    lang = _get_language_code()
+    _get_language_code()
     processor = _get_processor()
 
     classifier = _get_classifier()
@@ -441,14 +501,16 @@ def reclassify_sentences(video_id: int):
     # Paginate
     offset = request.args.get("offset", 0, type=int)
     limit = request.args.get("limit", 50, type=int)
-    page = results[offset:offset + limit]
+    page = results[offset : offset + limit]
 
-    return jsonify({
-        "video_id": video_id,
-        "total": len(results),
-        "offset": offset,
-        "limit": limit,
-        "sentences": [_sentence_to_dict(s, persistence, processor=processor)
-                      for s in page],
-    })
-
+    return jsonify(
+        {
+            "video_id": video_id,
+            "total": len(results),
+            "offset": offset,
+            "limit": limit,
+            "sentences": [
+                _sentence_to_dict(s, persistence, processor=processor) for s in page
+            ],
+        }
+    )

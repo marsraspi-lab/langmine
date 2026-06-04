@@ -2,17 +2,16 @@
 
 import pytest
 
+from langmine.domain.models import Sentence, Video, VocabWord
 from langmine.domain.ports import (
-    TranscriptSource,
     AudioProcessor,
     Persistence,
     TranscriptChunk,
-    MergedSentence,
+    TranscriptSource,
 )
-from langmine.domain.models import Video, Sentence, VocabWord
-
 
 # === TranscriptSource ===
+
 
 def test_transcript_source_is_abstract():
     """TranscriptSource cannot be instantiated directly."""
@@ -26,6 +25,7 @@ def test_transcript_source_contract():
     class FakeAdapter(TranscriptSource):
         def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
             return []
+
         def list_subtitles(self, video_id: str):
             return []
 
@@ -34,6 +34,7 @@ def test_transcript_source_contract():
 
 
 # === AudioProcessor ===
+
 
 def test_audio_processor_is_abstract():
     """AudioProcessor cannot be instantiated directly."""
@@ -49,24 +50,35 @@ def test_audio_processor_contract():
             return "/tmp/test.mp3"
 
         def clip(
-            self, audio_path: str, start_ms: float, end_ms: float,
-            pad_before_ms: int, pad_after_ms: int,
-            output_dir: str, sentence_id: str,
+            self,
+            audio_path: str,
+            start_ms: float,
+            end_ms: float,
+            pad_before_ms: int,
+            pad_after_ms: int,
+            output_dir: str,
+            sentence_id: str,
         ) -> str:
             return "/tmp/clip.mp3"
 
         def capture_frame(
-            self, video_id: str, timestamp_ms: float,
-            output_dir: str, sentence_id: str,
+            self,
+            video_id: str,
+            timestamp_ms: float,
+            output_dir: str,
+            sentence_id: str,
         ) -> str | None:
             return "/tmp/frame.jpg"
 
     adapter = FakeAdapter()
     assert adapter.download("abc", "/tmp") == "/tmp/test.mp3"
-    assert adapter.clip("/tmp/a.mp3", 0, 1000, 250, 300, "/tmp", "001") == "/tmp/clip.mp3"
+    assert (
+        adapter.clip("/tmp/a.mp3", 0, 1000, 250, 300, "/tmp", "001") == "/tmp/clip.mp3"
+    )
 
 
 # === Persistence ===
+
 
 def test_persistence_is_abstract():
     """Persistence cannot be instantiated directly."""
@@ -103,7 +115,9 @@ class InMemoryPersistence(Persistence):
             self._next_sentence_id += 1
             self.sentences[s.id] = s
 
-    def get_sentences_by_video(self, video_id: int, status: str | None = None) -> list[Sentence]:
+    def get_sentences_by_video(
+        self, video_id: int, status: str | None = None
+    ) -> list[Sentence]:
         result = [s for s in self.sentences.values() if s.video_id == video_id]
         if status:
             result = [s for s in result if s.status == status]
@@ -138,29 +152,39 @@ class InMemoryPersistence(Persistence):
         if word_simplified in self.vocab:
             self.vocab[word_simplified].status = "ignored"
         else:
-            self.vocab[word_simplified] = VocabWord(word_simplified=word_simplified, status="ignored")
+            self.vocab[word_simplified] = VocabWord(
+                word_simplified=word_simplified, status="ignored"
+            )
 
     def get_vocab_stats(self) -> dict:
         known = sum(1 for v in self.vocab.values() if v.status == "known")
         learning = sum(1 for v in self.vocab.values() if v.status == "learning")
         return {"known": known, "learning": learning, "total": len(self.vocab)}
 
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+    def list_vocab(
+        self, page=1, per_page=200, status=None, search=None, sort="frequency"
+    ):
         words = list(self.vocab.values())
         if status:
             words = [w for w in words if w.status == status]
         if search:
-            words = [w for w in words
-                     if search.lower() in w.word_simplified.lower()
-                     or search.lower() in (w.reading or "").lower()]
+            words = [
+                w
+                for w in words
+                if search.lower() in w.word_simplified.lower()
+                or search.lower() in (w.reading or "").lower()
+            ]
         words.sort(key=lambda w: (w.frequency_rank is None, w.frequency_rank or 999999))
         total = len(words)
         start = (page - 1) * per_page
-        return words[start:start + per_page], total
+        return words[start : start + per_page], total
 
     def get_sentences_by_word(self, word: str) -> list[Sentence]:
-        return [s for s in self.sentences.values()
-                if s.unknown_word == word or word in s.text]
+        return [
+            s
+            for s in self.sentences.values()
+            if s.unknown_word == word or word in s.text
+        ]
 
     def log_event(
         self,

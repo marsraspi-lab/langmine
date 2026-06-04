@@ -4,16 +4,13 @@ All external dependencies (dictionary, translator, frequency data) are
 injected as ports, so these tests use fake adapters with zero I/O.
 """
 
-import pytest
-
 from langmine.domain.ports import (
-    LanguageProcessor,
     Dictionary,
-    Translator,
     FrequencySource,
+    LanguageProcessor,
+    Translator,
 )
 from langmine.languages.chinese import ChineseLanguageService
-
 
 # === Fake Ports ===
 
@@ -94,7 +91,7 @@ def test_is_non_word_filters_numbers():
     svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
 
     assert svc.is_non_word("123") is True
-    assert svc.is_non_word("七") is True      # standalone number
+    assert svc.is_non_word("七") is True  # standalone number
     assert svc.is_non_word("2024年") is True  # year
 
 
@@ -109,9 +106,15 @@ def test_is_non_word_returns_false_for_content_words():
 
 def test_lookup_word_delegates_to_dictionary_port():
     """lookup_word() should call the Dictionary port, not CC-CEDICT directly."""
-    dictionary = FakeDictionary({
-        "学习": {"definition_de": "lernen", "definition_en": "to study", "pinyin": "xué xí"},
-    })
+    dictionary = FakeDictionary(
+        {
+            "学习": {
+                "definition_de": "lernen",
+                "definition_en": "to study",
+                "pinyin": "xué xí",
+            },
+        }
+    )
     svc = ChineseLanguageService(dictionary, FakeTranslator(), FakeFrequency())
 
     result = svc.lookup_word("学习")
@@ -142,18 +145,20 @@ def test_get_frequency_delegates_to_frequency_port():
 
 def test_find_known_synonyms_detects_from_dictionary():
     """find_known_synonyms() should use Dictionary port to find synonyms."""
-    dictionary = FakeDictionary({
-        "常常": {
-            "definition_de": "oft",
-            "definition_en": "often / same as 经常",
-            "pinyin": "cháng cháng",
-        },
-        "经常": {
-            "definition_de": "oft",
-            "definition_en": "often",
-            "pinyin": "jīng cháng",
-        },
-    })
+    dictionary = FakeDictionary(
+        {
+            "常常": {
+                "definition_de": "oft",
+                "definition_en": "often / same as 经常",
+                "pinyin": "cháng cháng",
+            },
+            "经常": {
+                "definition_de": "oft",
+                "definition_en": "often",
+                "pinyin": "jīng cháng",
+            },
+        }
+    )
     svc = ChineseLanguageService(dictionary, FakeTranslator(), FakeFrequency())
 
     synonyms = svc.find_known_synonyms("常常", known_words={"经常", "学习"})
@@ -242,7 +247,7 @@ def test_is_proper_name_with_context_rejects_common_words_in_sentence():
 def test_is_proper_name_without_context_returns_false_for_sub_segmented():
     """Without context, names that jieba sub-segments should return False.
     This is the known limitation — the fix relies on context."""
-    svc = ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
+    ChineseLanguageService(FakeDictionary(), FakeTranslator(), FakeFrequency())
 
     # 李世民 without context may fail (sub-segmented by jieba)
     # After the fix with context, this should still accept no-context calls

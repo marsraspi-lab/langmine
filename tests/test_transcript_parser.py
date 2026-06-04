@@ -1,8 +1,7 @@
 """Tests for subtitle file parsing (SRT and VTT)."""
 
-import pytest
-from langmine.transcript_parser import parse_subtitle_file, _parse_srt, _parse_vtt
 from langmine.domain.ports import TranscriptChunk
+from langmine.transcript_parser import _parse_srt, _parse_vtt, parse_subtitle_file
 
 
 class TestParseSRT:
@@ -114,6 +113,6 @@ class TestParseSubtitleFileIntegration:
         for chunk in chunks:
             assert isinstance(chunk, TranscriptChunk)
             assert isinstance(chunk.text, str)
-            assert isinstance(chunk.start_ms, (int, float))
-            assert isinstance(chunk.duration_ms, (int, float))
+            assert isinstance(chunk.start_ms, int | float)
+            assert isinstance(chunk.duration_ms, int | float)
             assert chunk.text.strip() != ""

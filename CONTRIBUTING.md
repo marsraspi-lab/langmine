@@ -55,6 +55,31 @@ pytest tests/adapters/ -v           # Adapter tests (db, anki, subtlex)
 pytest tests/ -v                    # Full suite (needs ffmpeg for audio tests)
 ```
 
+Linting and Formatting (Ruff):
+
+```bash
+ruff check .           # Lint check
+ruff check --fix .     # Lint and fix auto-fixable issues
+ruff format .          # Format code (black-compatible)
+```
+
+### Automated Pre-Commit Hooks
+
+LangMine uses `pre-commit` to automate checks (linting, formatting, architecture, and fast tests) before every commit.
+
+To install the hooks:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+After installation, these checks will run automatically when you `git commit`. You can also run them manually on all files:
+
+```bash
+pre-commit run --all-files
+```
+
 ### Frontend (Svelte)
 
 Dev server with hot reload (proxies `/api` to Flask on `:8080`):

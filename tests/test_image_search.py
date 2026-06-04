@@ -1,7 +1,8 @@
 """Tests for M12 ImageSearch port and adapter."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from langmine.domain.ports import ImageSearch
 
@@ -22,6 +23,7 @@ class TestImageSearchPort:
     def test_search_signature(self):
         """search(query, count=5) → list[str]."""
         import inspect
+
         sig = inspect.signature(ImageSearch.search)
         params = list(sig.parameters.keys())
         assert "self" in params
@@ -31,6 +33,7 @@ class TestImageSearchPort:
 
 class FakeImageSearch(ImageSearch):
     """Concrete implementation for testing."""
+
     def search(self, query, count=5):
         return [f"https://img.example.com/{query}_{i}" for i in range(count)]
 
@@ -61,12 +64,14 @@ class TestGoogleImageSearchAdapter:
     def test_adapter_importable(self):
         """Adapter module can be imported."""
         from langmine.adapters.google_image_search import GoogleImageSearch
+
         assert GoogleImageSearch is not None
 
     def test_adapter_implements_port(self):
         """GoogleImageSearch is an ImageSearch."""
         from langmine.adapters.google_image_search import GoogleImageSearch
         from langmine.domain.ports import ImageSearch
+
         assert issubclass(GoogleImageSearch, ImageSearch)
 
     def test_search_returns_urls(self):

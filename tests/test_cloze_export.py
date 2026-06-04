@@ -1,21 +1,31 @@
 """Tests for M11 cloze deletion in AnkiConnect adapter."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from langmine.domain.models import Sentence
 from langmine.adapters.anki_connect import AnkiConnectAdapter
+from langmine.domain.models import Sentence
 
 
-def _make_sentence(text="我们 一般 早上 起床", unknown="一般",
-                   reading="wǒmen yībān", translation="Wir stehen auf",
-                   audio="/tmp/audio.mp3"):
+def _make_sentence(
+    text="我们 一般 早上 起床",
+    unknown="一般",
+    reading="wǒmen yībān",
+    translation="Wir stehen auf",
+    audio="/tmp/audio.mp3",
+):
     """Create a Sentence with reasonable defaults for export testing."""
     return Sentence(
-        video_id=1, start_ms=1000, end_ms=3000,
-        text=text, text_segmented=text.replace(" ", " / "),
-        reading=reading, translation_de=translation,
-        unknown_word=unknown, unknown_word_rank=1847,
-        audio_clip_path=audio, status="kept",
+        video_id=1,
+        start_ms=1000,
+        end_ms=3000,
+        text=text,
+        text_segmented=text.replace(" ", " / "),
+        reading=reading,
+        translation_de=translation,
+        unknown_word=unknown,
+        unknown_word_rank=1847,
+        audio_clip_path=audio,
+        status="kept",
     )
 
 
@@ -27,6 +37,7 @@ class TestAnkiConnectCloze:
         adapter = AnkiConnectAdapter()
         # Verify the method signature includes card_type
         import inspect
+
         sig = inspect.signature(adapter.export)
         assert "card_type" in sig.parameters
 
@@ -37,10 +48,10 @@ class TestAnkiConnectCloze:
         with patch.object(adapter, "_invoke") as mock_invoke:
             with patch("os.path.exists", return_value=False):
                 mock_invoke.side_effect = [
-                    {"result": None},      # createDeck
-                    {"result": None},      # createModel
-                    {"result": [None]},    # canAddNotes
-                    {"result": [1001]},    # addNotes
+                    {"result": None},  # createDeck
+                    {"result": None},  # createModel
+                    {"result": [None]},  # canAddNotes
+                    {"result": [1001]},  # addNotes
                 ]
 
             adapter.export(
@@ -55,8 +66,7 @@ class TestAnkiConnectCloze:
 
             # Check that createModel was called with isCloze
             create_model_calls = [
-                c for c in mock_invoke.call_args_list
-                if c[0][0] == "createModel"
+                c for c in mock_invoke.call_args_list if c[0][0] == "createModel"
             ]
             assert len(create_model_calls) == 1
             params = create_model_calls[0][0][1]
@@ -72,10 +82,10 @@ class TestAnkiConnectCloze:
         with patch.object(adapter, "_invoke") as mock_invoke:
             with patch("os.path.exists", return_value=False):
                 mock_invoke.side_effect = [
-                    {"result": None},      # createDeck
-                    {"result": None},      # createModel
-                    {"result": [None]},    # canAddNotes
-                    {"result": [1001]},    # addNotes
+                    {"result": None},  # createDeck
+                    {"result": None},  # createModel
+                    {"result": [None]},  # canAddNotes
+                    {"result": [1001]},  # addNotes
                 ]
 
             adapter.export(
@@ -89,10 +99,7 @@ class TestAnkiConnectCloze:
             )
 
             # Find the addNotes call
-            add_calls = [
-                c for c in mock_invoke.call_args_list
-                if c[0][0] == "addNotes"
-            ]
+            add_calls = [c for c in mock_invoke.call_args_list if c[0][0] == "addNotes"]
             assert len(add_calls) == 1
             notes = add_calls[0][0][1]["notes"]
             assert len(notes) == 1
@@ -111,13 +118,13 @@ class TestAnkiConnectCloze:
         adapter = AnkiConnectAdapter()
 
         with patch.object(adapter, "_invoke") as mock_invoke:
-            with patch.object(adapter, "_store_media") as mock_store:
+            with patch.object(adapter, "_store_media"):
                 with patch("os.path.exists", return_value=True):
                     mock_invoke.side_effect = [
-                        {"result": None},      # createDeck
-                        {"result": None},      # createModel
-                        {"result": [None]},    # canAddNotes
-                        {"result": [1001]},    # addNotes
+                        {"result": None},  # createDeck
+                        {"result": None},  # createModel
+                        {"result": [None]},  # canAddNotes
+                        {"result": [1001]},  # addNotes
                     ]
 
                     adapter.export(
@@ -130,10 +137,7 @@ class TestAnkiConnectCloze:
                         card_back="{{sentence_zh}}",
                     )
 
-            add_calls = [
-                c for c in mock_invoke.call_args_list
-                if c[0][0] == "addNotes"
-            ]
+            add_calls = [c for c in mock_invoke.call_args_list if c[0][0] == "addNotes"]
             notes = add_calls[0][0][1]["notes"]
             assert "[sound:" in notes[0]["fields"]["audio"], (
                 "Audio field should contain [sound:...] reference"
@@ -146,10 +150,10 @@ class TestAnkiConnectCloze:
         with patch.object(adapter, "_invoke") as mock_invoke:
             with patch("os.path.exists", return_value=False):
                 mock_invoke.side_effect = [
-                    {"result": None},      # createDeck
-                    {"result": None},      # createModel
-                    {"result": [None]},    # canAddNotes
-                    {"result": [1001]},    # addNotes
+                    {"result": None},  # createDeck
+                    {"result": None},  # createModel
+                    {"result": [None]},  # canAddNotes
+                    {"result": [1001]},  # addNotes
                 ]
 
             adapter.export(
@@ -159,10 +163,7 @@ class TestAnkiConnectCloze:
                 card_type="basic",
             )
 
-            add_calls = [
-                c for c in mock_invoke.call_args_list
-                if c[0][0] == "addNotes"
-            ]
+            add_calls = [c for c in mock_invoke.call_args_list if c[0][0] == "addNotes"]
             notes = add_calls[0][0][1]["notes"]
             sentence_zh = notes[0]["fields"]["sentence_zh"]
 
@@ -181,7 +182,7 @@ class TestClozeImageUrlExport:
         adapter = AnkiConnectAdapter()
 
         with patch.object(adapter, "_invoke") as mock_invoke:
-            with patch.object(adapter, "_store_media") as mock_store:
+            with patch.object(adapter, "_store_media"):
                 with patch("os.path.exists", return_value=False):
                     mock_invoke.side_effect = [
                         {"result": None},
@@ -203,10 +204,7 @@ class TestClozeImageUrlExport:
                         card_back="{{sentence_zh}}",
                     )
 
-            add_calls = [
-                c for c in mock_invoke.call_args_list
-                if c[0][0] == "addNotes"
-            ]
+            add_calls = [c for c in mock_invoke.call_args_list if c[0][0] == "addNotes"]
             notes = add_calls[0][0][1]["notes"]
             screenshot_field = notes[0]["fields"]["screenshot"]
             assert "hint.jpg" in screenshot_field, (

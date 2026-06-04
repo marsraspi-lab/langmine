@@ -1,14 +1,14 @@
 """Anki export API routes."""
 
-import json
-from flask import Blueprint, jsonify, request, current_app
+from flask import Blueprint, current_app, jsonify, request
 
 from ._helpers import (
-    _get_persistence, _get_processor, _get_language_code,
-    _sentence_to_dict,
+    _get_language_code,
+    _get_persistence,
 )
 
 export_bp = Blueprint("export", __name__)
+
 
 @export_bp.route("/api/export/anki", methods=["POST"])
 def export_anki():
@@ -17,9 +17,7 @@ def export_anki():
     exporter = current_app.config.get("LANGMINE_ANKI_EXPORTER")
 
     if exporter is None:
-        return jsonify({
-            "error": "Anki exporter not configured."
-        }), 503
+        return jsonify({"error": "Anki exporter not configured."}), 503
 
     data = request.get_json(silent=True) or {}
     video_id = data.get("video_id")
@@ -28,20 +26,14 @@ def export_anki():
     card_type = data.get("card_type", "basic")
 
     if video_id is not None:
-        sentences = persistence.get_sentences_by_video(
-            video_id, status="kept"
-        )
+        sentences = persistence.get_sentences_by_video(video_id, status="kept")
     elif all_kept:
         sentences = persistence.get_sentences_by_status("kept")
     else:
-        return jsonify({
-            "error": "Specify video_id or all_kept=true"
-        }), 400
+        return jsonify({"error": "Specify video_id or all_kept=true"}), 400
 
     if not sentences:
-        return jsonify({
-            "error": "No kept sentences to export"
-        }), 400
+        return jsonify({"error": "No kept sentences to export"}), 400
 
     try:
         from langmine.language_factory import get_anki_templates, get_language_manifest
@@ -79,8 +71,11 @@ def export_anki():
             s.status = "exported"
             persistence.update_sentence(s)
             persistence.log_event(
-                entity_type="sentence", entity_id=s.id or 0,
-                action="exported", old_value="kept", new_value="exported",
+                entity_type="sentence",
+                entity_id=s.id or 0,
+                action="exported",
+                old_value="kept",
+                new_value="exported",
                 language_code=lang,
             )
 
@@ -89,5 +84,3 @@ def export_anki():
         return jsonify({"error": str(e)}), 503
     except Exception as e:
         return jsonify({"error": f"Export failed: {e}"}), 500
-
-

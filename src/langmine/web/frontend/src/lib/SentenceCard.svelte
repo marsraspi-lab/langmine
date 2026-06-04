@@ -97,6 +97,10 @@
     return `#${rank}`;
   }
 
+  function autofocus(node) {
+    node.focus();
+  }
+
   function togglePopover(idx) {
     if (activeWordIdx === idx) {
       activeWordIdx = null;
@@ -201,10 +205,17 @@
           bind:value={editValue}
           onkeydown={(e) => handleEditKeydown(e, 'reading')}
           onblur={() => saveEdit('reading')}
-          autofocus
+          use:autofocus
         />
       {:else}
-        <span class="reading-text" onclick={() => startEdit('reading')} title="Click to edit">
+        <span
+          class="reading-text"
+          onclick={() => startEdit('reading')}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startEdit('reading'); }}
+          role="button"
+          tabindex="0"
+          title="Click to edit"
+        >
           {sentence.reading}
         </span>
       {/if}
@@ -220,10 +231,17 @@
           bind:value={editValue}
           onkeydown={(e) => handleEditKeydown(e, 'translation_de')}
           onblur={() => saveEdit('translation_de')}
-          autofocus
+          use:autofocus
         />
       {:else}
-        <span class="translation-text" onclick={() => startEdit('translation_de')} title="Click to edit">
+        <span
+          class="translation-text"
+          onclick={() => startEdit('translation_de')}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startEdit('translation_de'); }}
+          role="button"
+          tabindex="0"
+          title="Click to edit"
+        >
           {sentence.translation_de}
         </span>
       {/if}
@@ -239,10 +257,17 @@
           bind:value={editValue}
           onkeydown={(e) => handleEditKeydown(e, 'text_segmented')}
           onblur={() => saveEdit('text_segmented')}
-          autofocus
+          use:autofocus
         />
       {:else}
-        <span class="segmented-text" onclick={() => startSegmentedEdit()} title="Click to edit segmentation">
+        <span
+          class="segmented-text"
+          onclick={() => startSegmentedEdit()}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') startSegmentedEdit(); }}
+          role="button"
+          tabindex="0"
+          title="Click to edit segmentation"
+        >
           {sentence.text_segmented}
         </span>
       {/if}

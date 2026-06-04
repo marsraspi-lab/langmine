@@ -5,14 +5,14 @@ This means you can swap YouTube for Netflix, yt-dlp for local audio files,
 or SQLite for JSON files without changing this code.
 """
 
-from langmine.domain.ports import (
-    TranscriptSource,
-    AudioProcessor,
-    Persistence,
-    LanguageProcessor,
-)
-from langmine.domain.models import Video, Sentence
 from langmine.domain.classifier import SentenceClassifier
+from langmine.domain.models import Sentence, Video
+from langmine.domain.ports import (
+    AudioProcessor,
+    LanguageProcessor,
+    Persistence,
+    TranscriptSource,
+)
 from langmine.transcript import merge_sentences
 
 
@@ -44,6 +44,7 @@ def process_video(
         Dict with: i1_candidates (list[Sentence]), i0_count, stash_count,
         total_sentences, video_id.
     """
+
     def _progress(msg):
         if progress_callback:
             progress_callback(msg)
@@ -53,7 +54,9 @@ def process_video(
 
     # 1. Fetch and merge transcript
     _progress("Fetching transcript…")
-    merged = _fetch_and_merge_transcript(transcript_source, video_id, subtitle_language, gap_ms)
+    merged = _fetch_and_merge_transcript(
+        transcript_source, video_id, subtitle_language, gap_ms
+    )
 
     # 2. Save video metadata
     video = Video(
@@ -124,7 +127,7 @@ def _classify_and_bootstrap(
     language_processor.bootstrap_proficiency(
         persistence,
         max_level=int(config.hsk_bootstrap_level),
-        language_code=config.source_language
+        language_code=config.source_language,
     )
     return sentences
 
@@ -143,7 +146,9 @@ def _enrich_and_capture_screenshots(
         raise MineError(str(e), "enrichment") from e
 
     screenshot_dir = f"{output_dir}/screenshots"
-    total_screenshots = sum(1 for s in sentences if s.screenshot_enabled and s.status != "i0")
+    total_screenshots = sum(
+        1 for s in sentences if s.screenshot_enabled and s.status != "i0"
+    )
     captured = 0
 
     for i, s in enumerate(sentences):
@@ -151,12 +156,15 @@ def _enrich_and_capture_screenshots(
             continue
 
         try:
-            s.screenshot_path = audio_processor.capture_frame(
-                video_id=video_id,
-                timestamp_ms=s.start_ms,
-                output_dir=screenshot_dir,
-                sentence_id=str(i + 1).zfill(4),
-            ) or ""
+            s.screenshot_path = (
+                audio_processor.capture_frame(
+                    video_id=video_id,
+                    timestamp_ms=s.start_ms,
+                    output_dir=screenshot_dir,
+                    sentence_id=str(i + 1).zfill(4),
+                )
+                or ""
+            )
             if s.screenshot_path:
                 captured += 1
                 progress_fn(f"Screenshot saved: {s.screenshot_path}")
@@ -190,4 +198,3 @@ def _build_summary(sentences: list[Sentence], video_id: str) -> dict:
         "total_sentences": len(sentences),
         "video_id": video_id,
     }
-

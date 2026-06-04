@@ -9,9 +9,13 @@ resolved from config — no adapter is hardcoded.  Callers can also inject
 ports directly for testing.
 """
 
-from langmine.domain.ports import LanguageProcessor, Translator, Dictionary, FrequencySource
 from langmine.config import Config
-
+from langmine.domain.ports import (
+    Dictionary,
+    FrequencySource,
+    LanguageProcessor,
+    Translator,
+)
 
 # Language metadata for UI — code + display name for each available language.
 # Extend this when adding a new language extension.
@@ -48,22 +52,20 @@ def _try_load_processor(lang_code: str) -> None:
     are wired by the caller (app.py) via create_language_processor().
     """
     from langmine.adapters.google_translate import GoogleTranslateAdapter
+
     translator = GoogleTranslateAdapter()  # any Translator works for this check
 
     match lang_code:
         case "zh":
             from langmine.languages.chinese import (
-                ChineseLanguageService,
                 CcCedictAdapter,
+                ChineseLanguageService,
                 SubtlexChAdapter,
             )
-            ChineseLanguageService(
-                CcCedictAdapter(), translator, SubtlexChAdapter()
-            )
+
+            ChineseLanguageService(CcCedictAdapter(), translator, SubtlexChAdapter())
         case _:
-            raise NotImplementedError(
-                f"Language '{lang_code}' not yet implemented."
-            )
+            raise NotImplementedError(f"Language '{lang_code}' not yet implemented.")
 
 
 def create_language_processor(
@@ -86,6 +88,7 @@ def create_language_processor(
     match config.source_language:
         case "zh":
             from langmine.languages.chinese import ChineseLanguageService
+
             return ChineseLanguageService(dictionary, translator, frequency)
 
         case "es":
@@ -122,6 +125,7 @@ def get_proficiency_level(word: str, language_code: str = "") -> int | None:
     """
     if language_code == "zh":
         from langmine.languages.chinese.hsk_data import get_hsk_level
+
         return get_hsk_level(word)
 
     # Other languages don't have proficiency frameworks yet
@@ -138,6 +142,7 @@ def get_anki_templates(lang_code: str) -> dict:
     match lang_code:
         case "zh":
             from langmine.languages.chinese import get_anki_templates as _zh_templates
+
             return _zh_templates()
         case _:
             return {}
@@ -151,6 +156,7 @@ def get_language_manifest(lang_code: str) -> dict:
     match lang_code:
         case "zh":
             from langmine.languages.chinese import MANIFEST
+
             return MANIFEST
         case _:
             return {}
@@ -168,6 +174,7 @@ def create_language_adapters(config: Config) -> tuple[Dictionary, FrequencySourc
     match config.source_language:
         case "zh":
             from langmine.languages.chinese import CcCedictAdapter, SubtlexChAdapter
+
             return CcCedictAdapter(), SubtlexChAdapter()
 
         case "es" | "ko" | "ru":
@@ -176,9 +183,7 @@ def create_language_adapters(config: Config) -> tuple[Dictionary, FrequencySourc
             )
 
         case _:
-            raise ValueError(
-                f"Unsupported source language: {config.source_language}."
-            )
+            raise ValueError(f"Unsupported source language: {config.source_language}.")
 
 
 def get_transcript_languages(lang_code: str) -> list[str]:
@@ -189,6 +194,7 @@ def get_transcript_languages(lang_code: str) -> list[str]:
     match lang_code:
         case "zh":
             from langmine.languages.chinese import TRANSCRIPT_LANGUAGES
+
             return TRANSCRIPT_LANGUAGES
         case _:
             return []

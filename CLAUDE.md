@@ -15,6 +15,15 @@ cd src/langmine/web/frontend && npm install && npm run build && cd -
 # Full test suite (needs ffmpeg for audio tests)
 pytest tests/ -v
 
+# Linting and Formatting
+ruff check .           # Check for lint issues
+ruff check --fix .     # Fix auto-fixable issues
+ruff format .          # Format code
+
+# Pre-commit Hooks
+pre-commit install     # Install hooks
+pre-commit run --all   # Run all checks manually
+
 # Domain-only tests (no ffmpeg/network — always pass)
 pytest tests/ -v --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
 

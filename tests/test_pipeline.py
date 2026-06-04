@@ -3,12 +3,14 @@
 import pytest
 
 from langmine.config import Config
-from langmine.pipeline import process_video
+from langmine.domain.models import Sentence, VocabWord
 from langmine.domain.ports import (
-    TranscriptSource, AudioProcessor, Persistence, MergedSentence,
-    LanguageProcessor, Dictionary, Translator, FrequencySource,
+    AudioProcessor,
+    LanguageProcessor,
+    Persistence,
+    TranscriptSource,
 )
-from langmine.domain.models import Video, Sentence, VocabWord
+from langmine.pipeline import process_video
 
 _TEST_CONFIG = Config()
 
@@ -17,6 +19,7 @@ _TEST_CONFIG = Config()
 
 class FakeChineseProcessor(LanguageProcessor):
     """Returns predictable Chinese segmentation and frequency."""
+
     def __init__(self):
         self.bootstrap_calls = []
 
@@ -55,9 +58,12 @@ class FakeChineseProcessor(LanguageProcessor):
 class FakeTranscript(TranscriptSource):
     def __init__(self, chunks, fail_on_fetch=False):
         from langmine.domain.ports import TranscriptChunk
+
         # Spread chunks apart so they don't merge (1000ms gap between sentences)
-        self.chunks = [TranscriptChunk(text=t, start_ms=i * 2000, duration_ms=1000)
-                       for i, t in enumerate(chunks)]
+        self.chunks = [
+            TranscriptChunk(text=t, start_ms=i * 2000, duration_ms=1000)
+            for i, t in enumerate(chunks)
+        ]
         self.fail_on_fetch = fail_on_fetch
 
     def fetch(self, video_id: str, language: str = ""):
@@ -76,7 +82,16 @@ class FakeAudio(AudioProcessor):
     def download(self, video_id: str, output_dir: str) -> str:
         return f"{output_dir}/test.mp3"
 
-    def clip(self, audio_path, start_ms, end_ms, pad_before, pad_after, output_dir, sentence_id):
+    def clip(
+        self,
+        audio_path,
+        start_ms,
+        end_ms,
+        pad_before,
+        pad_after,
+        output_dir,
+        sentence_id,
+    ):
         return f"{output_dir}/sentence_{sentence_id}.mp3"
 
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
@@ -94,14 +109,26 @@ class FakePersistence(Persistence):
         self.events = []
 
     def get_known_words(self) -> set[str]:
-        return self._known | self._ignored | {w.word_simplified for w in self._vocab if w.status in ("known", "ignored")}
+        return (
+            self._known
+            | self._ignored
+            | {
+                w.word_simplified
+                for w in self._vocab
+                if w.status in ("known", "ignored")
+            }
+        )
 
     def save_video(self, video):
         if video.id is None:
             video.id = len(self.videos) + 1
         self.videos[video.youtube_id] = video
-    def get_video(self, yt_id): return self.videos.get(yt_id)
-    def list_videos(self): return list(self.videos.values())
+
+    def get_video(self, yt_id):
+        return self.videos.get(yt_id)
+
+    def list_videos(self):
+        return list(self.videos.values())
 
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
@@ -117,8 +144,12 @@ class FakePersistence(Persistence):
             result = [s for s in result if s.status == status]
         return result
 
-    def update_sentence(self, s): pass
-    def get_sentences_by_status(self, status): return []
+    def update_sentence(self, s):
+        pass
+
+    def get_sentences_by_status(self, status):
+        return []
+
     def save_vocab_word(self, w: VocabWord) -> None:
         self._vocab.append(w)
 
@@ -127,14 +158,23 @@ class FakePersistence(Persistence):
             if w.word_simplified == word_simplified:
                 return w
         return None
-    def mark_word_known(self, w): pass
-    def mark_word_learning(self, w): pass
-    def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
-    def list_vocab(self, page=1, per_page=200, status=None, search=None, sort="frequency"):
+
+    def mark_word_known(self, w):
+        pass
+
+    def mark_word_learning(self, w):
+        pass
+
+    def get_vocab_stats(self):
+        return {"known": 0, "learning": 0, "total": 0}
+
+    def list_vocab(
+        self, page=1, per_page=200, status=None, search=None, sort="frequency"
+    ):
         return [], 0
+
     def get_sentences_by_word(self, word):
-        return [s for s in self.sentences
-                if s.unknown_word == word or word in s.text]
+        return [s for s in self.sentences if s.unknown_word == word or word in s.text]
 
     def mark_word_ignored(self, word_simplified: str) -> None:
         self._ignored.add(word_simplified)
@@ -148,13 +188,15 @@ class FakePersistence(Persistence):
         new_value: str = "",
         language_code: str = "",
     ) -> None:
-        self.events.append({
-            "entity_type": entity_type,
-            "entity_id": entity_id,
-            "action": action,
-            "new_value": new_value,
-            "language_code": language_code,
-        })
+        self.events.append(
+            {
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "action": action,
+                "new_value": new_value,
+                "language_code": language_code,
+            }
+        )
 
 
 # === Tests ===
@@ -167,7 +209,7 @@ def test_process_video_saves_video():
     persistence = FakePersistence(known_words={"我", "很好", "你", "好", "世界"})
     processor = FakeChineseProcessor()
 
-    result = process_video(
+    process_video(
         transcript_source=transcript,
         audio_processor=audio,
         persistence=persistence,
@@ -301,6 +343,7 @@ def test_process_video_bootstraps_proficiency():
     processor = FakeChineseProcessor()
 
     from langmine.config import Config
+
     boot_config = Config()
     boot_config.hsk_bootstrap_level = "3"
     boot_config.source_language = "zh"
@@ -368,6 +411,7 @@ def test_process_video_logs_events():
 def test_process_video_handles_stage_errors():
     """MineError should be raised with the correct stage if a step fails."""
     from langmine.pipeline import MineError
+
     transcript = FakeTranscript([], fail_on_fetch=True)
     audio = FakeAudio()
     persistence = FakePersistence()
@@ -386,4 +430,3 @@ def test_process_video_handles_stage_errors():
 
     assert excinfo.value.stage == "transcript"
     assert "Fetch failed" in str(excinfo.value)
-
