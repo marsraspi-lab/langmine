@@ -20,7 +20,7 @@ The cardinal rule: domain knows nothing about the outside world.
 - [ ] `domain/` imports nothing from `adapters/`, `languages/`, or `web/`
 - [ ] `domain/` contains no I/O calls (sqlite3, subprocess, requests, urllib)
 - [ ] `domain/models.py` — pure dataclasses, no methods that touch external systems
-- [ ] `domain/ports.py` — all ports inherit `ABC`, all methods `@abstractmethod`, no implementation code
+- [ ] `domain/ports.py` — all ports inherit `ABC`, all methods `@abstractmethod`, no implementation code. 4 focused persistence interfaces (`VideoRepository`, `SentenceRepository`, `VocabRepository`, `EventStore`) plus `Persistence` (composite).
 - [ ] `domain/classifier.py` — accepts ports as arguments, never instantiates adapters
 
 ---
@@ -176,3 +176,4 @@ Forbidden:
 | Decouple Chinese | | ✅ Pass | `language_factory.py` as single switch point. `languages/chinese/` has 6 source files. 217 tests pass. |
 | Multi-Language | | ✅ Pass | `language_code` column on videos, sentences, vocab. DB schema v2. Factory exposes templates + manifest. 200 tests pass. |
 | Architecture hardening | 2026-06-03 | ✅ Pass | Deleted dead code (`processors.py`, `hsk.py`, `domain/services/`). Moved `Translator` wiring to `app.py`. Added 5 new CI checks (factory gate, languages→adapters, adapter→adapter, leaf modules, anchored patterns). 229 tests pass across 11 architecture rules. |
+| SOLID Phase 4 — Persistence Split | 2026-06-04 | ✅ Pass | Split `Persistence` god port (17 methods) into 4 focused interfaces: `VideoRepository`, `SentenceRepository`, `VocabRepository`, `EventStore`. `Persistence` inherits from all 4 for backwards compat. `SentenceClassifier` depends on `SentenceRepository` + `VocabRepository` (3 of 17 methods). `bootstrap_proficiency` accepts `VocabRepository`. Zero test churn — all FakePersistence subclasses unchanged. 267 tests pass. |

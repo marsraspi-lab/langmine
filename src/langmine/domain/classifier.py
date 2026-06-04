@@ -1,7 +1,8 @@
 """Sentence classifier — the i+1 engine.
 
-Pure domain logic. Depends only on LanguageProcessor and Persistence ports.
-Testable with fake ports — no YouTube, ffmpeg, or SQLite required.
+Pure domain logic. Depends only on LanguageProcessor, SentenceRepository,
+and VocabRepository ports. Testable with fake ports — no YouTube, ffmpeg,
+or SQLite required.
 """
 
 from langmine.domain.models import Sentence
@@ -9,6 +10,8 @@ from langmine.domain.ports import (
     LanguageProcessor,
     MergedSentence,
     Persistence,
+    SentenceRepository,
+    VocabRepository,
 )
 
 
@@ -17,7 +20,12 @@ class SentenceClassifier:
 
     Injected with ports:
       - LanguageProcessor: for segmentation, frequency, non-word detection
-      - Persistence: for known vocabulary lookup
+      - SentenceRepository: for sentence queries and updates
+      - VocabRepository: for known vocabulary lookup
+
+    Accepts Persistence for backwards compatibility (it implements both
+    SentenceRepository and VocabRepository). Internally stores the narrow
+    interfaces — the classifier only needs 3 of 17 Persistence methods.
     """
 
     def __init__(
@@ -26,7 +34,8 @@ class SentenceClassifier:
         persistence: Persistence,
     ):
         self._processor = language_processor
-        self._persistence = persistence
+        self._sentence_repo: SentenceRepository = persistence
+        self._vocab_repo: VocabRepository = persistence
 
     def classify(
         self,
@@ -47,7 +56,7 @@ class SentenceClassifier:
             i+1 sentences capped at max_cards.
             i+0 and stashed sentences not capped.
         """
-        known_words = self._persistence.get_known_words()
+        known_words = self._vocab_repo.get_known_words()
 
         results: list[Sentence] = []
         i1_candidates: list[Sentence] = []
@@ -129,7 +138,7 @@ class SentenceClassifier:
                         sentence.known_synonyms_json = str(
                             self._processor.find_known_synonyms(
                                 sentence.unknown_word,
-                                self._persistence.get_known_words(),
+                                self._vocab_repo.get_known_words(),
                             )
                         )
 
@@ -143,8 +152,8 @@ class SentenceClassifier:
         Returns sentences sorted by best-candidate-first:
         i1 (by frequency, most common first), then i0, then stashed.
         """
-        known_words = self._persistence.get_known_words()
-        sentences = self._persistence.get_sentences_by_video(video_id)
+        known_words = self._vocab_repo.get_known_words()
+        sentences = self._sentence_repo.get_sentences_by_video(video_id)
 
         i1_candidates: list[Sentence] = []
         i0_sentences: list[Sentence] = []
@@ -176,7 +185,7 @@ class SentenceClassifier:
                 s.unknown_word_rank = None
                 stashed.append(s)
 
-            self._persistence.update_sentence(s)
+            self._sentence_repo.update_sentence(s)
 
         # Sort i1 by frequency (most common first, None sorts last)
         i1_candidates.sort(

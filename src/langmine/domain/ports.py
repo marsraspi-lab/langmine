@@ -105,7 +105,7 @@ class LanguageProcessor(ABC):
 
     def bootstrap_proficiency(
         self,
-        persistence: "Persistence",
+        vocab_repo: "VocabRepository",
         max_level: int,
         language_code: str,
     ) -> None:
@@ -117,7 +117,7 @@ class LanguageProcessor(ABC):
 
         Default: no-op. Override in language-specific services.
         Args:
-            persistence: Vocab persistence to mark words.
+            vocab_repo: Vocab repository to mark words in.
             max_level: Maximum proficiency level to bootstrap (e.g. 3 = HSK 1-3).
                 No-op when <= 0.
             language_code: Language to scope the bootstrap to (e.g. 'zh').
@@ -191,19 +191,13 @@ class AudioProcessor(ABC):
         """Capture a video frame as JPEG. Returns path or None on failure."""
 
 
-class Persistence(ABC):
-    """Port for storing and retrieving all application state.
+class VideoRepository(ABC):
+    """Port for video CRUD.
 
-    Adapters: SQLite, JSON files, in-memory dicts (tests).
-    Domain code never touches SQL directly — only this interface.
-
-    Swap SQLite for a filesystem adapter without changing any domain code.
-
-    Query methods accept an optional language_code to scope results.
-    When empty, returns all languages (debug/migration). When set, filters by it.
+    Focused interface for consumers that only need video access
+    (e.g. sidebar listing, video delete).
     """
 
-    # Videos
     @abstractmethod
     def save_video(self, video: Video) -> None: ...
     @abstractmethod
@@ -218,7 +212,14 @@ class Persistence(ABC):
         """
         ...
 
-    # Sentences
+
+class SentenceRepository(ABC):
+    """Port for sentence-level queries and updates.
+
+    Focused interface for consumers that classify, reclassify,
+    or curate sentences (e.g. SentenceClassifier, merge endpoint).
+    """
+
     @abstractmethod
     def save_sentences(self, sentences: list[Sentence]) -> None: ...
     @abstractmethod
@@ -231,8 +232,22 @@ class Persistence(ABC):
     def get_sentences_by_status(
         self, status: str, language_code: str = ""
     ) -> list[Sentence]: ...
+    @abstractmethod
+    def get_sentences_by_word(self, word: str) -> list[Sentence]:
+        """Return all sentences containing a given word.
 
-    # Vocab
+        Matches against unknown_word field and text field.
+        """
+        ...
+
+
+class VocabRepository(ABC):
+    """Port for vocabulary-level queries and mutations.
+
+    Focused interface for consumers that manage vocabulary
+    (e.g. SentenceClassifier, bootstrap_proficiency, vocab endpoints).
+    """
+
     @abstractmethod
     def save_vocab_word(self, word: VocabWord) -> None: ...
     @abstractmethod
@@ -245,10 +260,8 @@ class Persistence(ABC):
     def mark_word_learning(self, word_simplified: str) -> None: ...
     @abstractmethod
     def mark_word_ignored(self, word_simplified: str) -> None: ...
-
     @abstractmethod
     def get_vocab_stats(self, language_code: str = "") -> dict: ...
-
     @abstractmethod
     def list_vocab(
         self,
@@ -274,13 +287,13 @@ class Persistence(ABC):
         """
         ...
 
-    @abstractmethod
-    def get_sentences_by_word(self, word: str) -> list[Sentence]:
-        """Return all sentences containing a given word.
 
-        Matches against unknown_word field and text field.
-        """
-        ...
+class EventStore(ABC):
+    """Port for append-only event logging.
+
+    Focused interface for audit trail and timeline visualization.
+    Events are never updated or deleted — append only.
+    """
 
     @abstractmethod
     def log_event(
@@ -298,6 +311,23 @@ class Persistence(ABC):
         Used for timeline visualization and vocab progress tracking.
         """
         ...
+
+
+class Persistence(VideoRepository, SentenceRepository, VocabRepository, EventStore):
+    """Port for storing and retrieving all application state.
+
+    Composite of VideoRepository, SentenceRepository, VocabRepository,
+    and EventStore. Kept for backwards compatibility — new domain consumers
+    should depend on the narrowest interface they need.
+
+    Adapters: SQLite, JSON files, in-memory dicts (tests).
+    Domain code never touches SQL directly — only this interface.
+
+    Swap SQLite for a filesystem adapter without changing any domain code.
+
+    Query methods accept an optional language_code to scope results.
+    When empty, returns all languages (debug/migration). When set, filters by it.
+    """
 
 
 class Translator(ABC):

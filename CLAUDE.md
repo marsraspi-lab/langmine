@@ -77,13 +77,13 @@ Forbidden edges (enforced by CI):
 
 | File | Role |
 |------|------|
-| `src/langmine/domain/ports.py` | All abstract interfaces (`Persistence`, `LanguageProcessor`, `TranscriptSource`, `AudioProcessor`, `Translator`, `Dictionary`, `FrequencySource`, `AnkiExporter`, `ImageSearch`) |
+| `src/langmine/domain/ports.py` | All abstract interfaces — 9 ports: `VideoRepository`, `SentenceRepository`, `VocabRepository`, `EventStore` (focused persistence), `Persistence` (composite of all 4 for backwards compat), `LanguageProcessor`, `TranscriptSource`, `AudioProcessor`, `Translator`, `Dictionary`, `FrequencySource`, `AnkiExporter`, `ImageSearch` |
 | `src/langmine/domain/models.py` | Pure dataclasses (`Video`, `Sentence`, `VocabWord`, `Event`) + `frequency_tier()` / `frequency_badge()` |
-| `src/langmine/domain/classifier.py` | `SentenceClassifier` — the i+1 engine, pure logic on ports |
+| `src/langmine/domain/classifier.py` | `SentenceClassifier` — the i+1 engine, pure logic on `SentenceRepository` + `VocabRepository` ports |
 | `src/langmine/language_factory.py` | **Only module allowed to import from `languages/`**. Match/case dispatch to language services. Also `get_anki_templates()`, `get_language_manifest()`, `get_available_languages()`. |
 | `src/langmine/web/server.py` | Entry point (`main()`). Parses CLI args, calls `create_production_app()`, starts Flask. |
 | `src/langmine/web/app.py` | `create_app()` injectable factory + `create_production_app()` wires all real adapters. **Only file in `web/` allowed to import adapters.** Also resolves `Translator` from config (Google Translate / DeepL). |
-| `src/langmine/web/routes.py` | All REST endpoints. Accesses ports via `current_app.config["LANGMINE_PERSISTENCE"]` etc. |
+| `src/langmine/web/routes/` | 6 Flask blueprints (`config`, `videos`, `sentences`, `vocab`, `export`, `images`) + `_helpers.py`. Accesses ports via `current_app.config["LANGMINE_PERSISTENCE"]` etc. |
 | `src/langmine/pipeline.py` | `process_video()` — full mining pipeline (transcript → classify → enrich → screenshots → persist) |
 | `src/langmine/config.py` | `Config` dataclass + `load_config()`/`save_config()` from `~/.langmine/config.yaml` |
 
