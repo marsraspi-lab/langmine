@@ -29,3 +29,17 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+      - id: frontend-format
+        name: Frontend Formatting (Prettier)
+        entry: bash -c "cd src/langmine/web/frontend && npm run format"
+        language: system
+        pass_filenames: false
+        files: \.(js|svelte|css|json|md)$
+
+      - id: frontend-lint
+        name: Frontend Lint (ESLint)
+        entry: bash -c "cd src/langmine/web/frontend && npm run lint"
+        language: system
+        pass_filenames: false
+        files: \.(js|svelte)$

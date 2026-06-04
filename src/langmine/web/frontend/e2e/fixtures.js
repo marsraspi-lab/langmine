@@ -9,28 +9,26 @@ import { test as base } from '@playwright/test';
  */
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
-    const errors = [];
+	page: async ({ page }, use) => {
+		const errors = [];
 
-    page.on('pageerror', (err) => {
-      errors.push(err.message);
-    });
+		page.on('pageerror', (err) => {
+			errors.push(err.message);
+		});
 
-    // Also catch console.error calls — these often precede a crash
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        errors.push(msg.text());
-      }
-    });
+		// Also catch console.error calls — these often precede a crash
+		page.on('console', (msg) => {
+			if (msg.type() === 'error') {
+				errors.push(msg.text());
+			}
+		});
 
-    await use(page);
+		await use(page);
 
-    if (errors.length > 0) {
-      throw new Error(
-        `Uncaught JS errors on page:\n  - ${errors.join('\n  - ')}`
-      );
-    }
-  },
+		if (errors.length > 0) {
+			throw new Error(`Uncaught JS errors on page:\n  - ${errors.join('\n  - ')}`);
+		}
+	}
 });
 
 export { expect } from '@playwright/test';
