@@ -250,40 +250,40 @@ test.describe('LangMine SPA', () => {
 		await expect(settings.sentenceGapInput).toHaveValue('0');
 	});
 
-		// ── Language-specific settings ─────────────────────────────────────
+	// ── Language-specific settings ─────────────────────────────────────
 
-		test('settings page shows language-specific section with bootstrap level', async () => {
-			await main.goto();
-			await main.clickNav('Settings');
-			await settings.expectFormVisible();
-			await settings.expectLangSpecificVisible('zh');
-			// Default should be 0 (Off)
-			await settings.expectBootstrapLevelSelected(0);
-		});
+	test('settings page shows language-specific section with bootstrap level', async () => {
+		await main.goto();
+		await main.clickNav('Settings');
+		await settings.expectFormVisible();
+		await settings.expectLangSpecificVisible('zh');
+		// Default should be 0 (Off)
+		await settings.expectBootstrapLevelSelected(0);
+	});
 
-		test('bootstrap level survives save and settings reload', async () => {
-			await main.goto();
-			await main.clickNav('Settings');
-			await settings.expectFormVisible();
-			await settings.expectLangSpecificVisible('zh');
+	test('bootstrap level survives save and settings reload', async () => {
+		await main.goto();
+		await main.clickNav('Settings');
+		await settings.expectFormVisible();
+		await settings.expectLangSpecificVisible('zh');
 
-			// Change to HSK 3 and save
-			await settings.selectBootstrapLevel(3);
-			await settings.saveBtn.click();
-			await main.expectToast('Settings saved');
+		// Change to HSK 3 and save
+		await settings.selectBootstrapLevel(3);
+		await settings.saveBtn.click();
+		await main.expectToast('Settings saved');
 
-			// Navigate away and back — value must survive the round-trip
-			await main.clickNav('Curation');
-			await main.page.waitForTimeout(500);
-			await main.clickNav('Settings');
-			await settings.expectFormVisible();
-			await settings.expectLangSpecificVisible('zh');
+		// Navigate away and back — value must survive the round-trip
+		await main.clickNav('Curation');
+		await main.page.waitForTimeout(500);
+		await main.clickNav('Settings');
+		await settings.expectFormVisible();
+		await settings.expectLangSpecificVisible('zh');
 
-			// Should still show 3 (the `selected={}` fix)
-			await settings.expectBootstrapLevelSelected(3);
-		});
+		// Should still show 3 (the `selected={}` fix)
+		await settings.expectBootstrapLevelSelected(3);
+	});
 
-		// ── M7: Inline editing ───────────────────────────────────────────────
+	// ── M7: Inline editing ───────────────────────────────────────────────
 
 	test('click reading to edit inline', async () => {
 		await main.goto();
@@ -360,7 +360,7 @@ test.describe('LangMine SPA', () => {
 		const data = await response.json();
 		expect(data.languages).toBeDefined();
 		expect(data.languages.length).toBeGreaterThan(0);
-		const zh = data.languages.find(l => l.code === 'zh');
+		const zh = data.languages.find((l) => l.code === 'zh');
 		expect(zh).toBeDefined();
 		expect(zh.settings_schema).toBeDefined();
 		expect(zh.settings_schema.length).toBeGreaterThan(0);

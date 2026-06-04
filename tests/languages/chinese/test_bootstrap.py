@@ -49,7 +49,9 @@ def test_bootstrap_disabled_when_level_zero():
     persistence = FakePersistence()
     processor = make_processor()
 
-    processor.bootstrap_proficiency(persistence, settings={"bootstrap_level": 0}, language_code="zh")
+    processor.bootstrap_proficiency(
+        persistence, settings={"bootstrap_level": 0}, language_code="zh"
+    )
 
     assert len(persistence._vocab) == 0
 
@@ -59,7 +61,9 @@ def test_bootstrap_marks_hsk1_words_as_known():
     persistence = FakePersistence()
     processor = make_processor()
 
-    processor.bootstrap_proficiency(persistence, settings={"bootstrap_level": 1}, language_code="zh")
+    processor.bootstrap_proficiency(
+        persistence, settings={"bootstrap_level": 1}, language_code="zh"
+    )
 
     # HSK 1 has ~150 words — all should be saved
     assert len(persistence._vocab) > 0
@@ -74,7 +78,9 @@ def test_bootstrap_respects_level_boundary():
     persistence = FakePersistence()
     processor = make_processor()
 
-    processor.bootstrap_proficiency(persistence, settings={"bootstrap_level": 3}, language_code="zh")
+    processor.bootstrap_proficiency(
+        persistence, settings={"bootstrap_level": 3}, language_code="zh"
+    )
 
     for w in persistence._vocab:
         assert w.hsk_level <= 3
@@ -96,7 +102,9 @@ def test_bootstrap_skips_existing_words():
     )
     processor = make_processor()
 
-    processor.bootstrap_proficiency(persistence, settings={"bootstrap_level": 1}, language_code="zh")
+    processor.bootstrap_proficiency(
+        persistence, settings={"bootstrap_level": 1}, language_code="zh"
+    )
 
     # "我们" should still be "learning" (not overwritten)
     existing = persistence.get_vocab_word("我们")
@@ -143,6 +151,8 @@ def test_bootstrap_noop_for_unimplemented_language():
             return "[]"
 
     processor = NoopProcessor()
-    processor.bootstrap_proficiency(persistence, settings={"bootstrap_level": 5}, language_code="es")
+    processor.bootstrap_proficiency(
+        persistence, settings={"bootstrap_level": 5}, language_code="es"
+    )
 
     assert len(persistence._vocab) == 0

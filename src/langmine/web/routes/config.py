@@ -33,7 +33,10 @@ def app_version():
 @config_bp.route("/api/languages")
 def list_languages():
     """List available source languages with code, display name, and settings schema."""
-    from langmine.language_factory import get_available_languages, get_language_settings_schema
+    from langmine.language_factory import (
+        get_available_languages,
+        get_language_settings_schema,
+    )
 
     languages = get_available_languages()
     for lang in languages:

@@ -194,7 +194,7 @@ export async function loadLanguages() {
 		const data = await api.listLanguages();
 		app.languages.splice(0, app.languages.length, ...data.languages);
 		// Populate settings schema for the current language
-		const current = data.languages.find(l => l.code === app.currentLanguage);
+		const current = data.languages.find((l) => l.code === app.currentLanguage);
 		app.languageSettingsSchema = current?.settings_schema || [];
 	} catch (err) {
 		console.error('Failed to load languages:', err);
@@ -208,7 +208,7 @@ export async function selectLanguage(code) {
 		app.currentLanguage = code;
 		app.config.source_language = code;
 		// Update settings schema for the new language
-		const lang = app.languages.find(l => l.code === code);
+		const lang = app.languages.find((l) => l.code === code);
 		app.languageSettingsSchema = lang?.settings_schema || [];
 		addToast(`Switched to ${code}`, 'info', 2000);
 		await loadVideos();
@@ -245,7 +245,7 @@ export async function reclassifyAndLoad(videoId, offset = 0, limit = 50) {
 export async function saveConfig(updates) {
 	try {
 		// Separate language-specific keys from global keys
-		const schemaKeys = new Set(app.languageSettingsSchema.map(s => s.key));
+		const schemaKeys = new SvelteSet(app.languageSettingsSchema.map((s) => s.key));
 		const globalUpdates = {};
 		const langSettings = {};
 		for (const [key, val] of Object.entries(updates)) {
@@ -264,7 +264,7 @@ export async function saveConfig(updates) {
 		if (globalUpdates.language_settings) {
 			app.config.language_settings ??= {};
 			Object.assign(
-				app.config.language_settings[app.currentLanguage] ??= {},
+				(app.config.language_settings[app.currentLanguage] ??= {}),
 				globalUpdates.language_settings[app.currentLanguage]
 			);
 		}

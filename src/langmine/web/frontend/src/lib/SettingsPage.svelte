@@ -141,23 +141,25 @@
 		{#if app.languageSettingsSchema.length > 0}
 			<section class="settings-section">
 				<h3>Language-Specific: {app.currentLanguage}</h3>
-				{#each app.languageSettingsSchema as field}
+				{#each app.languageSettingsSchema as field (field.key)}
 					<label>
 						{field.label}
 						{#if field.type === 'select'}
 							<select name={field.key}>
-								{#each field.options as opt}
+								{#each field.options as opt (opt.value)}
 									<option
 										value={opt.value}
-										selected={(app.config.language_settings?.[app.currentLanguage]?.[field.key] ?? field.default) === opt.value}
-									>{opt.label}</option>
+										selected={(app.config.language_settings?.[app.currentLanguage]?.[field.key] ??
+											field.default) === opt.value}>{opt.label}</option
+									>
 								{/each}
 							</select>
 						{:else if field.type === 'number'}
 							<input
 								type="number"
 								name={field.key}
-								value={app.config.language_settings?.[app.currentLanguage]?.[field.key] ?? field.default}
+								value={app.config.language_settings?.[app.currentLanguage]?.[field.key] ??
+									field.default}
 							/>
 						{/if}
 						{#if field.hint}<span class="hint">{field.hint}</span>{/if}
