@@ -41,7 +41,7 @@ class Config:
         "{{#audio}}{{audio}}{{/audio}}"
         '<hr id="answer">'
         '<div class="reading">{{sentence_reading}}</div>'
-        '<div class="translation">{{translation_de}}</div>'
+        '<div class="translation">{{translation}}</div>'
         "{{#unknown_word}}"
         '<div class="word">🆕 {{unknown_word}}</div>'
         "{{/unknown_word}}"
@@ -88,7 +88,7 @@ class Config:
         "{{#audio}}{{audio}}{{/audio}}\n"
         '<hr id="answer">\n'
         '<div class="reading">{{sentence_reading}}</div>\n'
-        '<div class="translation">{{translation_de}}</div>\n'
+        '<div class="translation">{{translation}}</div>\n'
         "<div>🆕 {{unknown_word}}</div>\n"
         '{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}\n'
     )

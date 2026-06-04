@@ -224,8 +224,8 @@
 						{/if}
 
 						<!-- Translation (togglable) -->
-						{#if showTranslation && sentence.translation_de}
-							<div class="sentence-translation">{sentence.translation_de}</div>
+						{#if showTranslation && sentence.translation}
+							<div class="sentence-translation">{sentence.translation}</div>
 						{/if}
 
 						<!-- Frequency badge for unknown word -->

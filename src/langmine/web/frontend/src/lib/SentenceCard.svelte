@@ -2,12 +2,13 @@
 	import { fly } from 'svelte/transition';
 	import { app, updateSentenceField, markWordStatus } from './stores.svelte.js';
 
-	/** @type {{ sentence: Object, onkeep: Function, ondelete: Function, oniknowthis: Function }} */
+	/** @type {{ sentence: Object, onkeep: Function, ondelete: Function, onmerge: Function, ondeletescreenshot: Function, showMerge: boolean, wordStatuses: Object }} */
 	let {
 		sentence,
 		onkeep = () => {},
 		ondelete = () => {},
 		onmerge = () => {},
+		ondeletescreenshot = () => {},
 		showMerge = false,
 		wordStatuses = {}
 	} = $props();
@@ -160,6 +161,18 @@
 		SHOW_DELETE_CONFIRM = false;
 		ondelete(sentence.id);
 	}
+
+	let SHOW_DELETE_SCREENSHOT_CONFIRM = $state(false);
+	function confirmDeleteScreenshot() {
+		SHOW_DELETE_SCREENSHOT_CONFIRM = true;
+	}
+	function cancelDeleteScreenshotConfirm() {
+		SHOW_DELETE_SCREENSHOT_CONFIRM = false;
+	}
+	function doDeleteScreenshot() {
+		SHOW_DELETE_SCREENSHOT_CONFIRM = false;
+		ondeletescreenshot(sentence.id);
+	}
 </script>
 
 <svelte:window onclick={onWindowClick} />
@@ -217,29 +230,29 @@
 		</div>
 	{/if}
 
-	{#if editingField === 'translation_de' || sentence.translation_de}
+	{#if editingField === 'translation' || sentence.translation}
 		<div class="editable-field" class:saving>
-			{#if editingField === 'translation_de'}
+			{#if editingField === 'translation'}
 				<input
 					type="text"
 					class="edit-input translation-input"
 					bind:value={editValue}
-					onkeydown={(e) => handleEditKeydown(e, 'translation_de')}
-					onblur={() => saveEdit('translation_de')}
+					onkeydown={(e) => handleEditKeydown(e, 'translation')}
+					onblur={() => saveEdit('translation')}
 					use:autofocus
 				/>
 			{:else}
 				<span
 					class="translation-text"
-					onclick={() => startEdit('translation_de')}
+					onclick={() => startEdit('translation')}
 					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') startEdit('translation_de');
+						if (e.key === 'Enter' || e.key === ' ') startEdit('translation');
 					}}
 					role="button"
 					tabindex="0"
 					title="Click to edit"
 				>
-					{sentence.translation_de}
+					{sentence.translation}
 				</span>
 			{/if}
 		</div>
@@ -351,6 +364,16 @@
 				alt="Screenshot"
 				onerror={(e) => console.error('[screenshot] Not found:', e.target.src)}
 			/>
+			<div class="screenshot-actions">
+				{#if SHOW_DELETE_SCREENSHOT_CONFIRM}
+					<button class="btn-delete-screenshot" onclick={doDeleteScreenshot}> ⚠️ Confirm </button>
+					<button class="btn-cancel" onclick={cancelDeleteScreenshotConfirm}> Cancel </button>
+				{:else}
+					<button class="btn-delete-screenshot" onclick={confirmDeleteScreenshot}>
+						🗑 Delete Screenshot
+					</button>
+				{/if}
+			</div>
 		</div>
 	{/if}
 
@@ -612,6 +635,24 @@
 		max-height: 200px;
 		border-radius: 4px;
 		border: 1px solid var(--border);
+	}
+	.screenshot-actions {
+		margin-top: 6px;
+		display: flex;
+		gap: 8px;
+	}
+	.btn-delete-screenshot {
+		padding: 4px 12px;
+		border: 1px solid var(--accent);
+		border-radius: var(--radius);
+		background: transparent;
+		color: var(--accent);
+		font-size: 0.78rem;
+		cursor: pointer;
+		transition: background 0.15s;
+	}
+	.btn-delete-screenshot:hover {
+		background: rgba(233, 69, 96, 0.15);
 	}
 	.card-actions {
 		display: flex;

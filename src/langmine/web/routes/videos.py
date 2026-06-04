@@ -105,6 +105,15 @@ def mine_video():
         except Exception:
             pass
 
+    # Parse optional target subtitle language for translation (M27)
+    target_subtitle_language = (
+        request.form.get("target_subtitle_language", "")
+        if request.content_type and "multipart" in request.content_type
+        else data.get("target_subtitle_language", "")
+    )
+    if target_subtitle_language and is_file_upload:
+        target_subtitle_language = ""  # Not applicable for file uploads
+
     # ── Choose code path ─────────────────────────────────────────────
     accept = request.headers.get("Accept", "")
     use_sse = "text/event-stream" in accept
@@ -128,6 +137,7 @@ def mine_video():
                 output_dir=output_dir,
                 config=config,
                 subtitle_language=language if not is_file_upload else "",
+                target_subtitle_language=target_subtitle_language,
             )
 
             video = persistence.get_video(video_id)
@@ -198,6 +208,7 @@ def mine_video():
                     config=config,
                     progress_callback=_on_progress,
                     subtitle_language=language if not is_file_upload else "",
+                    target_subtitle_language=target_subtitle_language,
                 )
 
                 video = persistence.get_video(video_id)
@@ -403,7 +414,7 @@ def preview_video():
             "text": m.text,
             "text_segmented": " / ".join(tokens),
             "reading": processor.get_reading(m.text),
-            "translation_de": processor.translate_sentence(m.text),
+            "translation": processor.translate_sentence(m.text),
             "words": words,
             "start_ms": m.start_ms,
             "end_ms": m.end_ms,

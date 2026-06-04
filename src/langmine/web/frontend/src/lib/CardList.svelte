@@ -6,6 +6,7 @@
 		loadSentences,
 		keepSentence,
 		deleteSentence,
+		deleteScreenshot,
 		reclassifyAndLoad,
 		addToast
 	} from './stores.svelte.js';
@@ -94,6 +95,9 @@
 	function onDelete(id) {
 		deleteSentence(id);
 	}
+	function onDeleteScreenshot(id) {
+		deleteScreenshot(id);
+	}
 
 	// M24: sentence joining
 	async function onMerge(id) {
@@ -167,6 +171,7 @@
 					onkeep={onKeep}
 					ondelete={onDelete}
 					onmerge={onMerge}
+					ondeletescreenshot={onDeleteScreenshot}
 					showMerge={idx > 0}
 					wordStatuses={sentence.wordStatuses}
 				/>

@@ -111,12 +111,12 @@ export async function loadSentences(videoId, filter) {
 	app.sentences.splice(0, app.sentences.length, ...data.sentences);
 }
 
-export async function mineVideo(url, file = null, language = '') {
+export async function mineVideo(url, file = null, language = '', targetLanguage = '') {
 	app.mining = true;
 	app.mineStatus = '⏳ Mining...';
 	try {
 		let data;
-		for await (const event of api.mineVideoStream(url, file, language)) {
+		for await (const event of api.mineVideoStream(url, file, language, targetLanguage)) {
 			if (event.error) {
 				const err = event.error;
 				const msg = err?.message ?? (typeof err === 'string' ? err : JSON.stringify(err));
@@ -148,6 +148,16 @@ export async function mineVideo(url, file = null, language = '') {
 		return null;
 	} finally {
 		app.mining = false;
+	}
+}
+
+export async function deleteScreenshot(id) {
+	try {
+		await api.deleteScreenshot(id);
+		await refreshAfterAction();
+		addToast('Screenshot deleted', 'success', 2000);
+	} catch (err) {
+		addToast(`Failed to delete screenshot: ${err.message}`, 'error');
 	}
 }
 

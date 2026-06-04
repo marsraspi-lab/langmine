@@ -20,6 +20,7 @@
 	let subLoading = $state(false);
 	let subCheckTimer = null;
 	let selectedSubLang = $state('');
+	let selectedTargetSubLang = $state('');
 
 	// M26: Sorted subtitle lists for optgroup dropdown
 	let allSubs = $derived(subInfo?.subtitles ?? []);
@@ -42,7 +43,7 @@
 			app.mineStatus = 'Enter a YouTube URL.';
 			return;
 		}
-		await mineVideo(url, transcriptFile, selectedSubLang);
+		await mineVideo(url, transcriptFile, selectedSubLang, selectedTargetSubLang);
 		urlInput = '';
 		transcriptFile = null;
 		// Reset the file input
@@ -120,6 +121,17 @@
 					const matchAuto = sortedAutoSubs.find((s) => s.language_code.startsWith(lang));
 					const best = matchManual ?? matchAuto ?? sortedManualSubs[0] ?? sortedAutoSubs[0];
 					if (best) selectedSubLang = best.language_code;
+
+					// Pre-select target subtitle matching target_language config
+					const targetLang = app.config.target_language || '';
+					if (targetLang) {
+						const tMatchManual = sortedManualSubs.find((s) =>
+							s.language_code.startsWith(targetLang)
+						);
+						const tMatchAuto = sortedAutoSubs.find((s) => s.language_code.startsWith(targetLang));
+						const tBest = tMatchManual ?? tMatchAuto;
+						if (tBest) selectedTargetSubLang = tBest.language_code;
+					}
 				}
 			} catch {
 				// best-effort — ignore failures
@@ -183,6 +195,28 @@
 			{/if}
 		{:else if subInfo && !subInfo.available}
 			<div class="subtitle-chip none">❌ No subtitles available</div>
+		{/if}
+		{#if subInfo && subInfo.available}
+			<div class="subtitle-chip manual sub-lang-row target-sub-row">
+				<span>🌐</span>
+				<select bind:value={selectedTargetSubLang} class="sub-lang-select">
+					<option value="">Google Translate</option>
+					{#if hasManualSubs}
+						<optgroup label="── Manual subtitles ──">
+							{#each sortedManualSubs as s (s.language_code)}
+								<option value={s.language_code}>{s.language_name} (manual)</option>
+							{/each}
+						</optgroup>
+					{/if}
+					{#if hasAutoSubs}
+						<optgroup label="── Auto-generated captions ──">
+							{#each sortedAutoSubs as s (s.language_code)}
+								<option value={s.language_code}>{s.language_name} (auto)</option>
+							{/each}
+						</optgroup>
+					{/if}
+				</select>
+			</div>
 		{/if}
 		<label class="file-upload-label" class:has-file={transcriptFile !== null}>
 			<span

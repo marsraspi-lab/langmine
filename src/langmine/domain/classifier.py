@@ -117,7 +117,8 @@ class SentenceClassifier:
         """Populate NLP fields: pinyin, translation, word definitions, frequency badges.
 
         Mutates sentences in place and returns them.
-        Only enriches i+1 and kept sentences (the ones shown to the user).
+        Translates all sentences regardless of status.
+        Word-level synonyms are only populated for i+1 and kept sentences.
         """
         for sentence in sentences:
             # Reading for all sentences
@@ -126,21 +127,21 @@ class SentenceClassifier:
             # Annotations for all sentences
             sentence.annotation_json = self._processor.get_annotation(sentence.text)
 
-            # Translation and word info for i+1 and kept sentences
-            if sentence.status in ("i1", "kept"):
-                sentence.translation_de = self._processor.translate_sentence(
-                    sentence.text
-                )
+            # Translation: use subtitle-aligned text if available,
+            # otherwise fall back to MT (Google Translate).
+            if not sentence.translation:
+                sentence.translation = self._processor.translate_sentence(sentence.text)
 
-                if sentence.unknown_word:
-                    entry = self._processor.lookup_word(sentence.unknown_word)
-                    if entry:
-                        sentence.known_synonyms_json = str(
-                            self._processor.find_known_synonyms(
-                                sentence.unknown_word,
-                                self._vocab_repo.get_known_words(),
-                            )
+            # Word-level synonyms for i+1 and kept sentences only
+            if sentence.status in ("i1", "kept") and sentence.unknown_word:
+                entry = self._processor.lookup_word(sentence.unknown_word)
+                if entry:
+                    sentence.known_synonyms_json = str(
+                        self._processor.find_known_synonyms(
+                            sentence.unknown_word,
+                            self._vocab_repo.get_known_words(),
                         )
+                    )
 
         return sentences
 
@@ -195,4 +196,12 @@ class SentenceClassifier:
             )
         )
 
-        return i1_candidates + i0_sentences + stashed
+        results = i1_candidates + i0_sentences + stashed
+
+        # Re-enrich after reclassification so sentences get fresh translations,
+        # readings, and annotations (B3).
+        self.enrich(results)
+        for s in results:
+            self._sentence_repo.update_sentence(s)
+
+        return results

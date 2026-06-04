@@ -241,7 +241,7 @@ def client_with_ordered_sentences(client, persistence):
             text="我们 需要 提高 效率",
             text_segmented="我们 / 需要 / 提高 / 效率",
             reading="wǒmen xūyào tígāo xiàolǜ",
-            translation_de="Wir müssen Effizienz verbessern",
+            translation="Wir müssen Effizienz verbessern",
             unknown_word="效率",
             unknown_word_rank=3412,
             status="i1",
@@ -253,7 +253,7 @@ def client_with_ordered_sentences(client, persistence):
             text="我们 一般 早上 起床",
             text_segmented="我们 / 一般 / 早上 / 起床",
             reading="wǒmen yībān zǎoshang qǐchuáng",
-            translation_de="Wir stehen normalerweise morgens auf",
+            translation="Wir stehen normalerweise morgens auf",
             unknown_word="一般",
             unknown_word_rank=1847,
             audio_clip_path="/tmp/clip1.mp3",
@@ -266,7 +266,7 @@ def client_with_ordered_sentences(client, persistence):
             text="我 爱 学习",
             text_segmented="我 / 爱 / 学习",
             reading="wǒ ài xuéxí",
-            translation_de="Ich liebe es zu lernen",
+            translation="Ich liebe es zu lernen",
             status="i0",
         ),
     ]
@@ -314,7 +314,7 @@ class TestTranscriptEndpoint:
             "text",
             "text_segmented",
             "reading",
-            "translation_de",
+            "translation",
             "unknown_word",
             "start_ms",
             "end_ms",
@@ -396,7 +396,7 @@ class TestProperNameInTranscript:
             text="曹操 是 英雄",
             text_segmented="曹操 / 是 / 英雄",
             reading="cáo cāo shì yīng xióng",
-            translation_de="Cao Cao ist ein Held",
+            translation="Cao Cao ist ein Held",
             status="i1",
         )
         persistence.save_sentences([sentence])
@@ -426,7 +426,7 @@ class TestProperNameInTranscript:
             text="曹操 是 英雄",
             text_segmented="曹操 / 是 / 英雄",
             reading="cáo cāo shì yīng xióng",
-            translation_de="Cao Cao ist ein Held",
+            translation="Cao Cao ist ein Held",
             status="i1",
         )
         persistence.save_sentences([sentence])

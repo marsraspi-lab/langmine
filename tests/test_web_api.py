@@ -15,6 +15,7 @@ from langmine.domain.ports import (
     AudioProcessor,
     LanguageProcessor,
     Persistence,
+    SubtitleInfo,
     TranscriptChunk,
     TranscriptSource,
 )
@@ -265,22 +266,41 @@ class FakePersistence(Persistence):
 
 
 class FakeTranscriptSource(TranscriptSource):
-    """Fake transcript source — returns hardcoded Chinese sentences."""
+    """Fake transcript source — returns hardcoded Chinese sentences.
+    When language starts with 'de', returns German translations instead."""
+
+    _ZH_CHUNKS = [
+        TranscriptChunk(text="我们", start_ms=0, duration_ms=500),
+        TranscriptChunk(text="一般", start_ms=600, duration_ms=400),
+        TranscriptChunk(text="早上", start_ms=1100, duration_ms=400),
+        TranscriptChunk(text="七点", start_ms=1600, duration_ms=300),
+        TranscriptChunk(text="起床", start_ms=2000, duration_ms=500),
+        TranscriptChunk(text="我", start_ms=3000, duration_ms=300),
+        TranscriptChunk(text="爱", start_ms=3400, duration_ms=300),
+        TranscriptChunk(text="学习", start_ms=3800, duration_ms=500),
+    ]
+
+    _DE_CHUNKS = [
+        TranscriptChunk(text="Wir stehen", start_ms=0, duration_ms=500),
+        TranscriptChunk(text="normalerweise", start_ms=600, duration_ms=400),
+        TranscriptChunk(text="morgens", start_ms=1100, duration_ms=400),
+        TranscriptChunk(text="um sieben", start_ms=1600, duration_ms=300),
+        TranscriptChunk(text="auf", start_ms=2000, duration_ms=500),
+        TranscriptChunk(text="Ich", start_ms=3000, duration_ms=300),
+        TranscriptChunk(text="liebe", start_ms=3400, duration_ms=300),
+        TranscriptChunk(text="es zu lernen", start_ms=3800, duration_ms=500),
+    ]
 
     def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
-        return [
-            TranscriptChunk(text="我们", start_ms=0, duration_ms=500),
-            TranscriptChunk(text="一般", start_ms=600, duration_ms=400),
-            TranscriptChunk(text="早上", start_ms=1100, duration_ms=400),
-            TranscriptChunk(text="七点", start_ms=1600, duration_ms=300),
-            TranscriptChunk(text="起床", start_ms=2000, duration_ms=500),
-            TranscriptChunk(text="我", start_ms=3000, duration_ms=300),
-            TranscriptChunk(text="爱", start_ms=3400, duration_ms=300),
-            TranscriptChunk(text="学习", start_ms=3800, duration_ms=500),
-        ]
+        if language and language.startswith("de"):
+            return self._DE_CHUNKS
+        return self._ZH_CHUNKS
 
     def list_subtitles(self, video_id: str):
-        return []
+        return [
+            SubtitleInfo("zh-Hans", "Chinese (Simplified)", "manual"),
+            SubtitleInfo("de", "German", "manual"),
+        ]
 
 
 class FakeAudioProcessor(AudioProcessor):
@@ -468,7 +488,7 @@ def client_for_merge(client, persistence):
         text="我们 学习",
         text_segmented="我们 / 学习",
         reading="wo3men xue2xi2",
-        translation_de="Wir lernen",
+        translation="Wir lernen",
         unknown_word="学习",
         status="i1",
     )
@@ -479,7 +499,7 @@ def client_for_merge(client, persistence):
         text="今天 天气 好",
         text_segmented="今天 / 天气 / 好",
         reading="jin1tian tian1qi4 hao3",
-        translation_de="Heute ist schönes Wetter",
+        translation="Heute ist schönes Wetter",
         status="i0",
     )
     s3 = Sentence(
@@ -489,7 +509,7 @@ def client_for_merge(client, persistence):
         text="我 爱 你",
         text_segmented="我 / 爱 / 你",
         reading="",
-        translation_de="Ich liebe dich",
+        translation="Ich liebe dich",
         unknown_word="爱",
         status="i1",
     )
@@ -500,7 +520,7 @@ def client_for_merge(client, persistence):
         text="你好",
         text_segmented="你好",
         reading="ni3hao3",
-        translation_de="",
+        translation="",
         status="i0",
     )
     s5 = Sentence(
@@ -510,7 +530,7 @@ def client_for_merge(client, persistence):
         text="再见",
         text_segmented="再见",
         reading="zai4jian4",
-        translation_de="Tschüss",
+        translation="Tschüss",
         status="deleted",
     )
     for s in [s1, s2, s3, s4, s5]:
@@ -586,6 +606,40 @@ class TestMineVideo:
         # Sentences should be persisted
         sentences = persistence.get_sentences_by_video(video.id)
         assert len(sentences) > 0
+
+    def test_mine_with_target_subtitle_language(self, client, persistence):
+        """Mining with target_subtitle_language uses subtitle alignment
+        for translations instead of MT."""
+        resp = client.post(
+            "/api/videos/mine",
+            data=json.dumps(
+                {
+                    "url": "https://youtube.com/watch?v=testVid1234",
+                    "language": "zh-Hans",
+                    "target_subtitle_language": "de",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = json.loads(resp.data)
+
+        # Mine succeeded — sentences were created
+        assert data["total_sentences"] > 0
+
+        # Verify subtitle-aligned translations in persisted sentences
+        video = persistence.get_video("testVid1234")
+        sentences = persistence.get_sentences_by_video(video.id)
+        assert len(sentences) > 0
+        # At least some sentences overlapping with DE_CHUNKS should have
+        # German translations from subtitle alignment (not MT "[DE] ...")
+        translations = [s.translation for s in sentences if s.translation]
+        assert len(translations) > 0
+        # Subtitle alignment produces German text; verify at least one
+        # contains a German word from DE_CHUNKS
+        assert any(
+            "Wir" in t or "Ich" in t or "liebe" in t or "auf" in t for t in translations
+        )
 
 
 class TestGetSentences:
@@ -888,7 +942,7 @@ class TestMergeSentences:
             text="我们 一般",
             text_segmented="我们 / 一般",
             reading="wǒmen yībān",
-            translation_de="Wir allgemein",
+            translation="Wir allgemein",
             status="i1",
         )
         # Sentence B (later)
@@ -899,7 +953,7 @@ class TestMergeSentences:
             text="早上 起床",
             text_segmented="早上 / 起床",
             reading="zǎoshang qǐchuáng",
-            translation_de="morgens aufstehen",
+            translation="morgens aufstehen",
             status="i1",
         )
         persistence.save_sentences([sA, sB])
@@ -1117,7 +1171,7 @@ class TestMergeWithPrevious:
 
         # enrich() regenerates translation for merged text:
         # "我 爱 你 你好" → "[DE] ..."
-        assert "[DE]" in merged["translation_de"]
+        assert "[DE]" in merged["translation"]
 
     def test_merge_reclassifies(self, client_for_merge):
         """After merge, the sentence is reclassified based on word statuses."""

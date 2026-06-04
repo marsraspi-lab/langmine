@@ -127,13 +127,13 @@ class SQLitePersistence(Persistence):
         for s in sentences:
             if s.id:
                 self.conn.execute(
-                    """UPDATE sentences SET status=?, translation_de=?,
+                    """UPDATE sentences SET status=?, translation=?,
                        reading=?, text_segmented=?, unknown_word=?,
                        screenshot_enabled=?, updated_at=?
                        WHERE id=?""",
                     (
                         s.status,
-                        s.translation_de,
+                        s.translation,
                         s.reading,
                         s.text_segmented,
                         s.unknown_word,
@@ -148,7 +148,7 @@ class SQLitePersistence(Persistence):
                 cursor = self.conn.execute(
                     """INSERT INTO sentences
                        (video_id, start_ms, end_ms, text, text_segmented,
-                        non_words_json, reading, translation_de, unknown_word,
+                        non_words_json, reading, translation, unknown_word,
                         unknown_word_rank, known_synonyms_json,
                         audio_clip_path, screenshot_path, screenshot_enabled,
                         status, language_code, created_at, updated_at)
@@ -161,7 +161,7 @@ class SQLitePersistence(Persistence):
                         s.text_segmented,
                         s.non_words_json,
                         s.reading,
-                        s.translation_de,
+                        s.translation,
                         s.unknown_word,
                         s.unknown_word_rank,
                         s.known_synonyms_json,
@@ -196,15 +196,16 @@ class SQLitePersistence(Persistence):
             raise ValueError("Cannot update sentence without id")
         now = datetime.now(UTC).isoformat()
         self.conn.execute(
-            """UPDATE sentences SET status=?, translation_de=?,
+            """UPDATE sentences SET status=?, translation=?,
                reading=?, text_segmented=?, unknown_word=?,
-               screenshot_enabled=?, updated_at=? WHERE id=?""",
+               screenshot_path=?, screenshot_enabled=?, updated_at=? WHERE id=?""",
             (
                 sentence.status,
-                sentence.translation_de,
+                sentence.translation,
                 sentence.reading,
                 sentence.text_segmented,
                 sentence.unknown_word,
+                sentence.screenshot_path,
                 int(sentence.screenshot_enabled),
                 now,
                 sentence.id,
@@ -437,7 +438,7 @@ class SQLitePersistence(Persistence):
             text_segmented=row["text_segmented"] or "",
             non_words_json=row["non_words_json"] or "",
             reading=row["reading"] or "",
-            translation_de=row["translation_de"] or "",
+            translation=row["translation"] or "",
             unknown_word=row["unknown_word"],
             unknown_word_rank=row["unknown_word_rank"],
             known_synonyms_json=row["known_synonyms_json"] or "",
