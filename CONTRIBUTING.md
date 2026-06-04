@@ -175,7 +175,7 @@ LangMine follows the **Interface Segregation Principle** — consumers depend on
 
 **New code should depend on the narrowest interface** (e.g. `SentenceRepository` + `VocabRepository` instead of `Persistence`). Existing routes use `Persistence` for backwards compatibility.
 
-**Adding a language:** Create `languages/<code>/` with 5 files + template directory: `__init__.py` (with `MANIFEST` dict + `get_anki_templates()`), `service.py` (implementing `LanguageProcessor`, where `bootstrap_proficiency` accepts a `VocabRepository`), `dictionary.py`, `frequency.py`, and `anki/` directory with `basic/` and `cloze/` subdirectories containing `front.html`, `back.html`, `css.css`. Add `case "<code>"` to all match/case blocks in `language_factory.py` and add an entry to the `LANGUAGES` list. No code changes needed in domain, web, or adapters.
+**Adding a language:** Create `languages/<code>/` with 5 files + template directory: `__init__.py` (with `MANIFEST` dict, `TRANSCRIPT_LANGUAGES` list, standard exports, and a `register_language()` call — see `languages/chinese/__init__.py` for the canonical example), `service.py` (implementing `LanguageProcessor`, where `bootstrap_proficiency` accepts a `VocabRepository`), `dictionary.py`, `frequency.py`, and `anki/` directory with `basic/` and `cloze/` subdirectories containing `front.html`, `back.html`, `css.css`. The factory auto-discovers language packages via `pkgutil.iter_modules()` — no code changes needed in `language_factory.py`, domain, web, or adapters.
 
 ### Testing with Fake Ports
 
