@@ -12,19 +12,81 @@ from pathlib import Path
 
 from langmine.domain.ports import Dictionary
 
-
 # Common German words used to detect German definitions
 _GERMAN_INDICATORS = {
-    "der", "die", "das", "und", "oder", "nicht", "sein", "haben",
-    "werden", "mit", "auf", "für", "aus", "bei", "nach", "von",
-    "ein", "eine", "einen", "einem", "einer", "des", "dem", "den",
-    "sich", "auch", "als", "wie", "nur", "noch", "schon", "zum",
-    "zur", "im", "am", "um", "über", "unter", "vor", "hinter",
-    "neben", "zwischen", "durch", "gegen", "ohne", "bis", "aber",
-    "sondern", "denn", "weil", "wenn", "dass", "können", "müssen",
-    "sollen", "wollen", "dürfen", "mögen", "möchten", "machen",
-    "tun", "sagen", "gehen", "kommen", "sehen", "geben", "wissen",
-    "lassen", "stehen", "finden", "bleiben", "liegen", "heißen",
+    "der",
+    "die",
+    "das",
+    "und",
+    "oder",
+    "nicht",
+    "sein",
+    "haben",
+    "werden",
+    "mit",
+    "auf",
+    "für",
+    "aus",
+    "bei",
+    "nach",
+    "von",
+    "ein",
+    "eine",
+    "einen",
+    "einem",
+    "einer",
+    "des",
+    "dem",
+    "den",
+    "sich",
+    "auch",
+    "als",
+    "wie",
+    "nur",
+    "noch",
+    "schon",
+    "zum",
+    "zur",
+    "im",
+    "am",
+    "um",
+    "über",
+    "unter",
+    "vor",
+    "hinter",
+    "neben",
+    "zwischen",
+    "durch",
+    "gegen",
+    "ohne",
+    "bis",
+    "aber",
+    "sondern",
+    "denn",
+    "weil",
+    "wenn",
+    "dass",
+    "können",
+    "müssen",
+    "sollen",
+    "wollen",
+    "dürfen",
+    "mögen",
+    "möchten",
+    "machen",
+    "tun",
+    "sagen",
+    "gehen",
+    "kommen",
+    "sehen",
+    "geben",
+    "wissen",
+    "lassen",
+    "stehen",
+    "finden",
+    "bleiben",
+    "liegen",
+    "heißen",
 }
 
 
@@ -44,7 +106,10 @@ class CcCedictAdapter(Dictionary):
         if dict_path is None:
             # dictionary.py → chinese/ → languages/ → langmine/ → src/ → project root → data/
             dict_path = (
-                Path(__file__).parent.parent.parent.parent.parent / "data" / "cedict" / "cedict_ts.u8"
+                Path(__file__).parent.parent.parent.parent.parent
+                / "data"
+                / "cedict"
+                / "cedict_ts.u8"
             )
         self._dict_path = str(dict_path)
         self._entries: dict[str, dict] | None = None

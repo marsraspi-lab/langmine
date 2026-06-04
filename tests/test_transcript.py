@@ -1,16 +1,17 @@
 """Tests for transcript fetching and sentence merging."""
 
-import pytest
-from unittest.mock import patch, MagicMock
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from langmine.transcript import (
+    TranscriptChunk,
+    _parse_list_subs_output,
+    _parse_srt,
     fetch_transcript,
     merge_sentences,
-    TranscriptChunk,
-    _parse_srt,
-    _parse_list_subs_output,
 )
 
 
@@ -57,10 +58,12 @@ class TestParseSrt:
     """Tests for _parse_srt, the SRT→TranscriptChunk parser."""
 
     def test_parse_basic_srt(self):
-        srt = _make_srt([
-            ("Hello world", 0, 1000),
-            ("Second line", 2000, 1500),
-        ])
+        srt = _make_srt(
+            [
+                ("Hello world", 0, 1000),
+                ("Second line", 2000, 1500),
+            ]
+        )
         with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt)
             srt_path = f.name
@@ -78,12 +81,7 @@ class TestParseSrt:
             Path(srt_path).unlink()
 
     def test_parse_multiline_subtitle(self):
-        srt = (
-            "1\n"
-            "00:00:01,000 --> 00:00:04,000\n"
-            "Line one\n"
-            "Line two\n\n"
-        )
+        srt = "1\n00:00:01,000 --> 00:00:04,000\nLine one\nLine two\n\n"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt)
             srt_path = f.name
@@ -108,11 +106,7 @@ class TestParseSrt:
 
     def test_parse_handles_dots_in_timestamp(self):
         """Some SRT variants use dots (00:00:01.000) instead of commas."""
-        srt = (
-            "1\n"
-            "00:00:01.000 --> 00:00:04.500\n"
-            "Hello\n\n"
-        )
+        srt = "1\n00:00:01.000 --> 00:00:04.500\nHello\n\n"
         with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False) as f:
             f.write(srt)
             srt_path = f.name
@@ -152,6 +146,7 @@ class TestFetchTranscript:
                 tmpl_dir = Path(out_tmpl).parent
                 # Find video_id from URL in cmd
                 import re as _re
+
                 for arg in cmd:
                     m = _re.search(r"v=([A-Za-z0-9_-]{11})", arg)
                     if m:
@@ -166,11 +161,13 @@ class TestFetchTranscript:
 
     def test_fetch_returns_list_of_chunks(self):
         """fetch_transcript should return a list of TranscriptChunk objects."""
-        srt = _make_srt([
-            ("我们", 1000, 2000),
-            ("一般", 3500, 1500),
-            ("早上", 5500, 2000),
-        ])
+        srt = _make_srt(
+            [
+                ("我们", 1000, 2000),
+                ("一般", 3500, 1500),
+                ("早上", 5500, 2000),
+            ]
+        )
 
         with patch("subprocess.run", side_effect=self._mock_ytdlp_run(srt)):
             chunks = fetch_transcript("dQw4w9WgXcQ")
@@ -180,8 +177,8 @@ class TestFetchTranscript:
         for chunk in chunks:
             assert isinstance(chunk, TranscriptChunk)
             assert isinstance(chunk.text, str)
-            assert isinstance(chunk.start_ms, (int, float))
-            assert isinstance(chunk.duration_ms, (int, float))
+            assert isinstance(chunk.start_ms, int | float)
+            assert isinstance(chunk.duration_ms, int | float)
             assert chunk.text.strip() != ""
 
     def test_fetch_raises_on_invalid_url(self):
@@ -221,11 +218,13 @@ class TestFetchTranscript:
 
     def test_chunks_have_increasing_timestamps(self):
         """Chunks should be returned in chronological order."""
-        srt = _make_srt([
-            ("我们", 1000, 2000),
-            ("一般", 3500, 1500),
-            ("早上", 5500, 2000),
-        ])
+        srt = _make_srt(
+            [
+                ("我们", 1000, 2000),
+                ("一般", 3500, 1500),
+                ("早上", 5500, 2000),
+            ]
+        )
 
         with patch("subprocess.run", side_effect=self._mock_ytdlp_run(srt)):
             chunks = fetch_transcript("dQw4w9WgXcQ")
@@ -261,6 +260,7 @@ class TestFetchTranscript:
             return self._mock_ytdlp_run(srt)(*args, **kwargs)
 
         from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter
+
         adapter = YouTubeTranscriptAdapter(language_codes=["zh-Hans", "zh"])
         with patch("subprocess.run", side_effect=capture_run):
             adapter.fetch("dQw4w9WgXcQ", language="zh")
@@ -281,6 +281,7 @@ class TestFetchTranscript:
             return self._mock_ytdlp_run(srt)(*args, **kwargs)
 
         from langmine.adapters.youtube_transcript import YouTubeTranscriptAdapter
+
         adapter = YouTubeTranscriptAdapter(language_codes=["zh-Hans", "zh"])
         with patch("subprocess.run", side_effect=capture_run):
             adapter.fetch("dQw4w9WgXcQ")
@@ -428,7 +429,9 @@ zh-Hans-en  Chinese (Simplified) from English  vtt, srt, ttml, srv3
         subs = _parse_list_subs_output(output)
         assert len(subs) == 1
         assert subs[0].language_code == "zh-Hans-en"
-        assert subs[0].language_name == "Chinese (Simplified)"  # not "Chinese (Simplified) from English"
+        assert (
+            subs[0].language_name == "Chinese (Simplified)"
+        )  # not "Chinese (Simplified) from English"
         assert subs[0].kind == "auto"
 
     def test_auto_translated_all_marked_auto(self):

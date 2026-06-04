@@ -11,11 +11,12 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from langmine.domain.ports import TranscriptChunk, MergedSentence, SubtitleInfo
+from langmine.domain.ports import MergedSentence, SubtitleInfo, TranscriptChunk
 
 
-def fetch_transcript(video_id_or_url: str, user_agent: str = "",
-                     language_codes: list[str] | None = None) -> list[TranscriptChunk]:
+def fetch_transcript(
+    video_id_or_url: str, user_agent: str = "", language_codes: list[str] | None = None
+) -> list[TranscriptChunk]:
     """Fetch subtitle chunks for a YouTube video via yt-dlp.
 
     Downloads subtitles as SRT, then parses them into TranscriptChunk objects.
@@ -43,12 +44,15 @@ def fetch_transcript(video_id_or_url: str, user_agent: str = "",
         cmd = [
             "yt-dlp",
             "--write-sub",
-            "--sub-lang", sub_lang,
-            "--sub-format", "srt",
+            "--sub-lang",
+            sub_lang,
+            "--sub-format",
+            "srt",
             "--skip-download",
             "--no-playlist",
             "--no-warnings",
-            "-o", out_tmpl,
+            "-o",
+            out_tmpl,
         ]
         if user_agent:
             cmd.insert(1, "--user-agent")
@@ -60,17 +64,15 @@ def fetch_transcript(video_id_or_url: str, user_agent: str = "",
 
         if result.returncode != 0:
             if "video unavailable" in stderr or "private video" in stderr:
-                raise ValueError(
-                    f"Video '{video_id}' is unavailable or private."
-                )
+                raise ValueError(f"Video '{video_id}' is unavailable or private.")
             elif "429" in stderr or "blocked" in stderr:
                 raise ValueError(
-                    f"YouTube is blocking requests from this IP address. "
-                    f"Options:\n"
-                    f"  • Wait a few hours — blocks are usually temporary\n"
-                    f"  • Use a VPN or different network\n"
-                    f"  • Set a custom User-Agent in Settings (network.user_agent)\n"
-                    f"  • Use a transcript file (.srt/.vtt) via the upload option"
+                    "YouTube is blocking requests from this IP address. "
+                    "Options:\n"
+                    "  • Wait a few hours — blocks are usually temporary\n"
+                    "  • Use a VPN or different network\n"
+                    "  • Set a custom User-Agent in Settings (network.user_agent)\n"
+                    "  • Use a transcript file (.srt/.vtt) via the upload option"
                 )
             else:
                 raise ValueError(
@@ -185,17 +187,19 @@ def _parse_srt(path: Path) -> list[TranscriptChunk]:
         duration_ms = max(end_ms - start_ms, 1)  # guard against zero duration
 
         # Text is everything after the timestamp line
-        text_lines = lines[ts_idx + 1:]
+        text_lines = lines[ts_idx + 1 :]
         text = " ".join(line.strip() for line in text_lines if line.strip())
 
         if not text:
             continue
 
-        chunks.append(TranscriptChunk(
-            text=text,
-            start_ms=float(start_ms),
-            duration_ms=float(duration_ms),
-        ))
+        chunks.append(
+            TranscriptChunk(
+                text=text,
+                start_ms=float(start_ms),
+                duration_ms=float(duration_ms),
+            )
+        )
 
     return chunks
 
@@ -241,10 +245,7 @@ def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
         if section is None:
             continue
 
-        match = re.match(
-            r"^(\S+)\s{2,}(.+?)\s+(vtt|srt|ttml|ass)(.*)$",
-            line
-        )
+        match = re.match(r"^(\S+)\s{2,}(.+?)\s+(vtt|srt|ttml|ass)(.*)$", line)
         if not match:
             continue
 
@@ -258,11 +259,13 @@ def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
         if " from " in lang_name:
             lang_name = lang_name.rsplit(" from ", 1)[0]
 
-        subtitles.append(SubtitleInfo(
-            language_code=lang_code,
-            language_name=lang_name,
-            kind=kind,
-        ))
+        subtitles.append(
+            SubtitleInfo(
+                language_code=lang_code,
+                language_name=lang_name,
+                kind=kind,
+            )
+        )
 
     return subtitles
 

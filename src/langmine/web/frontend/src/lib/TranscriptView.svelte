@@ -139,6 +139,7 @@
           class="transcript-sentence"
           class:active={idx === activeSentenceIdx}
           onclick={() => activeSentenceIdx = idx}
+          onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') activeSentenceIdx = idx; }}
           role="button"
           tabindex="0"
         >
@@ -158,6 +159,7 @@
                   <span
                     class="word-token word-{word.status}"
                     onclick={(e) => handleWordClick(word, widx, idx, e)}
+                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleWordClick(word, widx, idx, e); }}
                     role="button"
                     tabindex="0"
                   >
@@ -202,7 +204,13 @@
 
   <!-- Word popover -->
   {#if activeWord}
-    <div class="word-popover-overlay" onclick={closePopover} role="button" tabindex="0"></div>
+    <div class="word-popover-overlay"
+         onclick={closePopover}
+         onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') closePopover(); }}
+         role="button"
+         tabindex="0"
+         aria-label="Close popover"
+    ></div>
     <div class="word-popover">
       <div class="popover-word">{activeWord.word.token}</div>
       <div class="popover-meta">

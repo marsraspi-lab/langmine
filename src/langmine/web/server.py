@@ -18,8 +18,9 @@ def main():
         prog="langmine",
         description="YouTube sentence mining for language learning (Web UI)",
     )
-    parser.add_argument("--version", action="version",
-                        version=f"langmine {_get_version()}")
+    parser.add_argument(
+        "--version", action="version", version=f"langmine {_get_version()}"
+    )
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on")
 

@@ -1,7 +1,7 @@
 """yt-dlp + ffmpeg audio adapter — wraps audio.py behind AudioProcessor port."""
 
+from langmine.audio import capture_frame, clip_audio, download_audio
 from langmine.domain.ports import AudioProcessor
-from langmine.audio import download_audio, clip_audio, capture_frame
 
 
 class YtdlpAudioAdapter(AudioProcessor):
@@ -11,7 +11,9 @@ class YtdlpAudioAdapter(AudioProcessor):
         self._user_agent = user_agent
 
     def download(self, video_id: str, output_dir: str) -> str:
-        return download_audio(video_id, output_dir=output_dir, user_agent=self._user_agent)
+        return download_audio(
+            video_id, output_dir=output_dir, user_agent=self._user_agent
+        )
 
     def clip(
         self,

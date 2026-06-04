@@ -15,18 +15,36 @@ import jieba
 import pypinyin
 
 from langmine.domain.ports import (
-    LanguageProcessor,
     Dictionary,
-    Translator,
     FrequencySource,
+    LanguageProcessor,
+    Translator,
 )
-
 
 # Particles and function words that should NOT count as words for i+1
 CHINESE_PARTICLES = {
-    "的", "了", "吗", "吧", "呢", "啊", "哦", "嗯", "嘛",
-    "啦", "呀", "呗", "咯", "哈", "哇", "哎", "唉", "哟",
-    "着", "过", "地", "得",
+    "的",
+    "了",
+    "吗",
+    "吧",
+    "呢",
+    "啊",
+    "哦",
+    "嗯",
+    "嘛",
+    "啦",
+    "呀",
+    "呗",
+    "咯",
+    "哈",
+    "哇",
+    "哎",
+    "唉",
+    "哟",
+    "着",
+    "过",
+    "地",
+    "得",
 }
 
 
@@ -67,8 +85,24 @@ class ChineseLanguageService(LanguageProcessor):
             return True
 
         # Chinese numeral (standalone digit-words are not content words)
-        if token in {"零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十",
-                      "百", "千", "万", "亿", "两"}:
+        if token in {
+            "零",
+            "一",
+            "二",
+            "三",
+            "四",
+            "五",
+            "六",
+            "七",
+            "八",
+            "九",
+            "十",
+            "百",
+            "千",
+            "万",
+            "亿",
+            "两",
+        }:
             return True
 
         # Dates and number patterns: 2024年, 三月, 七点, 第X
@@ -82,12 +116,14 @@ class ChineseLanguageService(LanguageProcessor):
         return False
 
     # Proper name POS tags (jieba posseg)
-    PROPER_NAME_TAGS = frozenset({
-        "nr",    # person name (e.g., 曹操, 刘备)
-        "ns",    # place name (e.g., 北京, 长安)
-        "nrfg",  # person name — given name
-        "nrt",   # person name — transliterated
-    })
+    PROPER_NAME_TAGS = frozenset(
+        {
+            "nr",  # person name (e.g., 曹操, 刘备)
+            "ns",  # place name (e.g., 北京, 长安)
+            "nrfg",  # person name — given name
+            "nrt",  # person name — transliterated
+        }
+    )
 
     def is_proper_name(self, token: str, context_sentence: str = "") -> bool:
         """Detect proper names via jieba POS tagging.
@@ -125,9 +161,7 @@ class ChineseLanguageService(LanguageProcessor):
         """Get frequency rank through the FrequencySource port."""
         return self._frequency.get_frequency(word)
 
-    def find_known_synonyms(
-        self, word: str, known_words: set[str]
-    ) -> list[str]:
+    def find_known_synonyms(self, word: str, known_words: set[str]) -> list[str]:
         """Detect known synonyms via Dictionary port.
 
         Checks the word's CC-CEDICT definition for 'same as X' / 'see also X'
@@ -165,7 +199,8 @@ class ChineseLanguageService(LanguageProcessor):
         Pleco tone colors: 1=red, 2=green, 3=blue, 4=purple, 5=gray.
         """
         import json as _json
-        from pypinyin import pinyin, Style
+
+        from pypinyin import Style, pinyin
 
         py_list = pinyin(text, style=Style.TONE3)
         entries = []
@@ -179,15 +214,20 @@ class ChineseLanguageService(LanguageProcessor):
             else:
                 pinyin_str = py_with_tone or char
 
-            entries.append({
-                "char": char,
-                "pinyin": pinyin_str,
-                "tone": tone,
-            })
+            entries.append(
+                {
+                    "char": char,
+                    "pinyin": pinyin_str,
+                    "tone": tone,
+                }
+            )
         return _json.dumps(entries)
 
     def bootstrap_proficiency(
-        self, persistence, max_level: int, language_code: str,
+        self,
+        persistence,
+        max_level: int,
+        language_code: str,
     ) -> None:
         """Pre-mark HSK words up to max_level as known (M21).
 
@@ -200,12 +240,12 @@ class ChineseLanguageService(LanguageProcessor):
 
         import json as _json
         from pathlib import Path
+
         from langmine.domain.models import VocabWord
 
         # service.py → chinese/ → languages/ → langmine/ → src/ → project root
         hsk_path = (
-            Path(__file__).resolve().parents[4]
-            / "data" / "hsk" / "hsk_levels.json"
+            Path(__file__).resolve().parents[4] / "data" / "hsk" / "hsk_levels.json"
         )
         if not hsk_path.exists():
             return
@@ -219,9 +259,11 @@ class ChineseLanguageService(LanguageProcessor):
             existing = persistence.get_vocab_word(word)
             if existing is not None:
                 continue  # Don't overwrite user modifications
-            persistence.save_vocab_word(VocabWord(
-                word_simplified=word,
-                hsk_level=word_level,
-                status="known",
-                language_code=language_code,
-            ))
+            persistence.save_vocab_word(
+                VocabWord(
+                    word_simplified=word,
+                    hsk_level=word_level,
+                    status="known",
+                    language_code=language_code,
+                )
+            )

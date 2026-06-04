@@ -1,17 +1,22 @@
 """Tests for M14 ruby annotations — character-level pinyin with tone colors."""
 
 import json
+
 import pytest
 
-from langmine.domain.ports import (
-    LanguageProcessor, Persistence, TranscriptSource, AudioProcessor,
-    TranscriptChunk,
-)
-from langmine.domain.models import Sentence, Video
+from langmine.config import Config
 from langmine.domain.classifier import SentenceClassifier
-
+from langmine.domain.models import Sentence, Video
+from langmine.domain.ports import (
+    AudioProcessor,
+    LanguageProcessor,
+    Persistence,
+    TranscriptChunk,
+    TranscriptSource,
+)
 
 # === Fake ports ===
+
 
 class FakeRubyProcessor(LanguageProcessor):
     """Returns predictable ruby data for testing."""
@@ -34,7 +39,8 @@ class FakeRubyProcessor(LanguageProcessor):
     def is_non_word(self, token):
         return token in {"的", "了", "吗", "啊", "呢", "吧"}
 
-    def is_proper_name(self, token, context_sentence=""): return False
+    def is_proper_name(self, token, context_sentence=""):
+        return False
 
     def find_known_synonyms(self, word, known_words):
         return []
@@ -50,11 +56,13 @@ class FakeRubyProcessor(LanguageProcessor):
                 tone = 4
             else:
                 tone = 5  # neutral for non-letters
-            entries.append({
-                "char": char,
-                "pinyin": f"py:{char}",
-                "tone": tone,
-            })
+            entries.append(
+                {
+                    "char": char,
+                    "pinyin": f"py:{char}",
+                    "tone": tone,
+                }
+            )
         return json.dumps(entries)
 
 
@@ -70,6 +78,7 @@ class FakePersistence:
 
 
 # === Tests: Ruby generation ===
+
 
 class TestRubyGeneration:
     """get_annotation() produces character-level pinyin + tone data."""
@@ -117,6 +126,7 @@ class TestRubyGeneration:
 
 # === Tests: Sentence enrichment ===
 
+
 class TestRubyEnrichment:
     """SentenceClassifier.enrich() populates annotation_json on sentences."""
 
@@ -128,9 +138,13 @@ class TestRubyEnrichment:
 
         sentences = [
             Sentence(
-                video_id=1, start_ms=0, end_ms=1000,
-                text="你好", text_segmented="你 / 好",
-                status="i1", unknown_word="你好",
+                video_id=1,
+                start_ms=0,
+                end_ms=1000,
+                text="你好",
+                text_segmented="你 / 好",
+                status="i1",
+                unknown_word="你好",
             )
         ]
         classifier.enrich(sentences)
@@ -147,8 +161,11 @@ class TestRubyEnrichment:
 
         sentences = [
             Sentence(
-                video_id=1, start_ms=0, end_ms=1000,
-                text="测试文本", text_segmented="测试 / 文本",
+                video_id=1,
+                start_ms=0,
+                end_ms=1000,
+                text="测试文本",
+                text_segmented="测试 / 文本",
                 status="kept",
             )
         ]
@@ -160,6 +177,7 @@ class TestRubyEnrichment:
 
 # === Tests: API integration ===
 
+
 class TestRubyAPI:
     """Sentence API response includes ruby field."""
 
@@ -167,17 +185,24 @@ class TestRubyAPI:
         """_sentence_to_dict returns ruby field from annotation_json."""
         from langmine.web.routes import _sentence_to_dict
 
-        ruby = json.dumps([
-            {"char": "你", "pinyin": "ni3", "tone": 3},
-            {"char": "好", "pinyin": "hao3", "tone": 3},
-        ])
+        ruby = json.dumps(
+            [
+                {"char": "你", "pinyin": "ni3", "tone": 3},
+                {"char": "好", "pinyin": "hao3", "tone": 3},
+            ]
+        )
 
         sentence = Sentence(
-            id=1, video_id=1,
-            start_ms=0, end_ms=1000,
-            text="你好", text_segmented="你 / 好",
-            reading="ni3 hao3", translation_de="Hallo",
-            annotation_json=ruby, status="kept",
+            id=1,
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            text="你好",
+            text_segmented="你 / 好",
+            reading="ni3 hao3",
+            translation_de="Hallo",
+            annotation_json=ruby,
+            status="kept",
         )
 
         result = _sentence_to_dict(sentence)
@@ -193,10 +218,14 @@ class TestRubyAPI:
         from langmine.web.routes import _sentence_to_dict
 
         sentence = Sentence(
-            id=1, video_id=1,
-            start_ms=0, end_ms=1000,
-            text="你好", text_segmented="你 / 好",
-            annotation_json="", status="kept",
+            id=1,
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            text="你好",
+            text_segmented="你 / 好",
+            annotation_json="",
+            status="kept",
         )
 
         result = _sentence_to_dict(sentence)
@@ -207,10 +236,14 @@ class TestRubyAPI:
         from langmine.web.routes import _sentence_to_dict
 
         sentence = Sentence(
-            id=1, video_id=1,
-            start_ms=0, end_ms=1000,
-            text="你好", text_segmented="你 / 好",
-            annotation_json="{invalid json", status="kept",
+            id=1,
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            text="你好",
+            text_segmented="你 / 好",
+            annotation_json="{invalid json",
+            status="kept",
         )
 
         result = _sentence_to_dict(sentence)
@@ -224,15 +257,32 @@ import json as _json
 
 # Minimal fake ports for API tests
 class FakeRbProcessor(LanguageProcessor):
-    def segment(self, text): return text.split()
-    def get_reading(self, text): return " ".join(f"py:{t}" for t in text.split())
-    def lookup_word(self, word): return {"definition_de": f"def:{word}", "definition_en": f"def:{word}"}
-    def translate_sentence(self, text): return f"[DE] {text}"
-    def get_frequency(self, word): return 1000
-    def is_non_word(self, token): return token in {"的", "了", "吗", "啊", "呢", "吧"}
-    def is_proper_name(self, token, context_sentence=""): return False
-    def find_known_synonyms(self, word, known_words): return []
-    def get_annotation(self, text): return "[]"
+    def segment(self, text):
+        return text.split()
+
+    def get_reading(self, text):
+        return " ".join(f"py:{t}" for t in text.split())
+
+    def lookup_word(self, word):
+        return {"definition_de": f"def:{word}", "definition_en": f"def:{word}"}
+
+    def translate_sentence(self, text):
+        return f"[DE] {text}"
+
+    def get_frequency(self, word):
+        return 1000
+
+    def is_non_word(self, token):
+        return token in {"的", "了", "吗", "啊", "呢", "吧"}
+
+    def is_proper_name(self, token, context_sentence=""):
+        return False
+
+    def find_known_synonyms(self, word, known_words):
+        return []
+
+    def get_annotation(self, text):
+        return "[]"
 
 
 class FakeRbPersistence(Persistence):
@@ -244,34 +294,65 @@ class FakeRbPersistence(Persistence):
         self._next_sid = 1
 
     def save_video(self, v):
-        if v.id is None: v.id = self._next_vid; self._next_vid += 1; self._videos.append(v)
-    def list_videos(self): return self._videos
+        if v.id is None:
+            v.id = self._next_vid
+            self._next_vid += 1
+            self._videos.append(v)
+
+    def list_videos(self):
+        return self._videos
+
     def get_video(self, yt_id):
         for v in self._videos:
-            if v.youtube_id == yt_id: return v
+            if v.youtube_id == yt_id:
+                return v
         return None
-    def video_exists(self, yt_id): return any(v.youtube_id == yt_id for v in self._videos)
+
     def delete_video(self, video_id: int) -> bool:
         return False  # not found in fake
+
     def save_sentences(self, sentences):
         for s in sentences:
-            if s.id is None: s.id = self._next_sid; self._next_sid += 1
+            if s.id is None:
+                s.id = self._next_sid
+                self._next_sid += 1
             self._sentences.append(s)
+
     def get_sentences_by_video(self, vid, status=None):
         results = [s for s in self._sentences if s.video_id == vid]
-        if status: results = [s for s in results if s.status == status]
+        if status:
+            results = [s for s in results if s.status == status]
         return results
+
     def update_sentence(self, s):
         for i, existing in enumerate(self._sentences):
-            if existing.id == s.id: self._sentences[i] = s; break
-    def get_known_words(self): return self._ignored
-    def get_vocab_word(self, w): return None
-    def save_vocab_word(self, w): pass
-    def mark_word_known(self, w): pass
-    def mark_word_learning(self, w): pass
-    def get_vocab_stats(self): return {"known": 0, "learning": 0, "total": 0}
-    def list_vocab(self, **kw): return [], 0
-    def get_sentences_by_word(self, w): return []
+            if existing.id == s.id:
+                self._sentences[i] = s
+                break
+
+    def get_known_words(self):
+        return self._ignored
+
+    def get_vocab_word(self, w):
+        return None
+
+    def save_vocab_word(self, w):
+        pass
+
+    def mark_word_known(self, w):
+        pass
+
+    def mark_word_learning(self, w):
+        pass
+
+    def get_vocab_stats(self):
+        return {"known": 0, "learning": 0, "total": 0}
+
+    def list_vocab(self, **kw):
+        return [], 0
+
+    def get_sentences_by_word(self, w):
+        return []
 
     def mark_word_ignored(self, word_simplified: str) -> None:
         self._ignored.add(word_simplified)
@@ -287,20 +368,27 @@ class FakeRbPersistence(Persistence):
     ) -> None:
         pass
 
-    def get_stash_candidates(self, limit=20): return []
-    def get_sentences_by_status(self, status): return []
-    def reclassify_stashed(self, vid): return 0
+    def get_sentences_by_status(self, status):
+        return []
 
 
 class FakeRbTranscript(TranscriptSource):
-    def fetch(self, video_id, language=""): return [TranscriptChunk(text="test", start_ms=0, duration_ms=500)]
-    def list_subtitles(self, video_id): return []
+    def fetch(self, video_id, language=""):
+        return [TranscriptChunk(text="test", start_ms=0, duration_ms=500)]
+
+    def list_subtitles(self, video_id):
+        return []
 
 
 class FakeRbAudio(AudioProcessor):
-    def download(self, video_id, output_dir): return "/tmp/test.mp3"
-    def clip(self, *args, **kwargs): return "/tmp/clip.mp3"
-    def capture_frame(self, *args, **kwargs): return None
+    def download(self, video_id, output_dir):
+        return "/tmp/test.mp3"
+
+    def clip(self, *args, **kwargs):
+        return "/tmp/clip.mp3"
+
+    def capture_frame(self, *args, **kwargs):
+        return None
 
 
 @pytest.fixture
@@ -311,11 +399,13 @@ def rb_persistence():
 @pytest.fixture
 def rb_client(rb_persistence):
     from langmine.web.app import create_app
+
     app = create_app(
         persistence=rb_persistence,
         language_processor=FakeRbProcessor(),
         transcript_source=FakeRbTranscript(),
         audio_processor=FakeRbAudio(),
+        config=Config(),
     )
     app.config["TESTING"] = True
     return app.test_client()
@@ -326,14 +416,20 @@ def client_with_ruby_sentence(rb_client, rb_persistence):
     """Seed a sentence with pre-populated annotation_json."""
     video = Video(youtube_id="test12345678", title="Test", channel="C")
     rb_persistence.save_video(video)
-    ruby = _json.dumps([
-        {"char": "你", "pinyin": "ni", "tone": 3},
-        {"char": "好", "pinyin": "hao", "tone": 3},
-    ])
+    ruby = _json.dumps(
+        [
+            {"char": "你", "pinyin": "ni", "tone": 3},
+            {"char": "好", "pinyin": "hao", "tone": 3},
+        ]
+    )
     sentence = Sentence(
-        video_id=video.id, start_ms=0, end_ms=1000,
-        text="你好", text_segmented="你 / 好",
-        annotation_json=ruby, status="kept",
+        video_id=video.id,
+        start_ms=0,
+        end_ms=1000,
+        text="你好",
+        text_segmented="你 / 好",
+        annotation_json=ruby,
+        status="kept",
     )
     rb_persistence.save_sentences([sentence])
     return rb_client, sentence

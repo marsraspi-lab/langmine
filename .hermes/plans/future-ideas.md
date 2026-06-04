@@ -6,7 +6,7 @@ Ideas to revisit when the time is right. Not scheduled, not committed — just p
 
 ## Stats / Dashboard Page with Layer Cake
 
-**Status:** parked  
+**Status:** parked
 **Date:** 2026-06-01
 
 ### What
@@ -49,7 +49,7 @@ The current `/api/stats` returns 3 integers (`known`, `learning`, `total`). Laye
 
 ## Auto-Translated Subtitles as Translation Source
 
-**Status:** parked  
+**Status:** parked
 **Date:** 2026-06-01
 
 ### What

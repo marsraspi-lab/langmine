@@ -87,7 +87,13 @@ cd src/langmine/web/frontend && npm install && npm run build && cd -
 ```
 
 This installs LangMine in editable mode with all Python dependencies:
-`yt-dlp`, `jieba`, `pypinyin`, `deep-translator`, `flask`, `pyyaml`, `requests`, `pytest`, `pytest-cov`
+`yt-dlp`, `jieba`, `pypinyin`, `deep-translator`, `flask`, `pyyaml`, `requests`, `pytest`, `pytest-cov`, `ruff`, `pre-commit`
+
+After installation, it is recommended to set up the automated pre-commit hooks:
+
+```bash
+pre-commit install
+```
 
 Chinese language processing uses `jieba` (segmentation), `pypinyin` (reading), and CC-CEDICT. Other languages use their own NLP toolchain — see `languages/` directory.
 
@@ -377,7 +383,7 @@ Frequency rank → badge mapping is pure domain logic in `domain/models.py`:
 |-----|-------------|
 | SSE error display (#23) | ✅ — `MineError(stage)` wraps pipeline phases, structured SSE errors, friendly UI messages per stage, screenshot path logging, missing-image console logging |
 
-> **Current:** M0–M26 shipped. 243 pytest + 57 E2E all green.  
+> **Current:** M0–M26 shipped. 243 pytest + 57 E2E all green.
 > **Up next:** Stats dashboard — vocabulary growth charts, per-video breakdown, daily mining volume.
 
 ---

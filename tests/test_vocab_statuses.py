@@ -1,9 +1,14 @@
 """Tests for GET /api/vocab/statuses endpoint (M19)."""
 
 import pytest
+
+from langmine.config import Config
 from tests.test_web_api import (
-    FakePersistence, FakeLanguageProcessor, FakeTranscriptSource,
-    FakeAudioProcessor, VocabWord,
+    FakeAudioProcessor,
+    FakeLanguageProcessor,
+    FakePersistence,
+    FakeTranscriptSource,
+    VocabWord,
 )
 
 
@@ -31,11 +36,13 @@ def audio():
 def client(persistence, processor, transcript, audio):
     """Flask test client with fake ports injected."""
     from langmine.web.app import create_app
+
     app = create_app(
         persistence=persistence,
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        config=Config(),
     )
     app.config["TESTING"] = True
     return app.test_client()
@@ -67,10 +74,14 @@ class TestVocabStatuses:
     def test_groups_words_by_status(self, client, persistence):
         """Words are correctly grouped by their status."""
         persistence.save_vocab_word(VocabWord(word_simplified="我们", status="known"))
-        persistence.save_vocab_word(VocabWord(word_simplified="学习", status="learning"))
+        persistence.save_vocab_word(
+            VocabWord(word_simplified="学习", status="learning")
+        )
         persistence.save_vocab_word(VocabWord(word_simplified="的", status="ignored"))
         persistence.save_vocab_word(VocabWord(word_simplified="你好", status="known"))
-        persistence.save_vocab_word(VocabWord(word_simplified="世界", status="learning"))
+        persistence.save_vocab_word(
+            VocabWord(word_simplified="世界", status="learning")
+        )
 
         resp = client.get("/api/vocab/statuses")
         data = resp.get_json()

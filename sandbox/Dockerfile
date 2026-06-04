@@ -98,10 +98,16 @@ COPY pyproject.toml ./
 RUN \
     --mount=type=cache,target=/root/.cache/pip \
     mkdir -p src/langmine && touch src/langmine/__init__.py \
-    && pip install . \
+    && pip install ".[dev]" \
     && rm -rf src/langmine
 
-# ── Layer 5: Shell aliases + workdir ───────────────────────────────
+# ── Layer 5: Pre-install pre-commit hooks ──────────────────────────
+# This ensures the environments for Ruff and other hooks are already
+# built inside the image, so they don't download on every session start.
+COPY .pre-commit-config.yaml ./
+RUN git init . && pre-commit install-hooks && rm -rf .git .pre-commit-config.yaml
+
+# ── Layer 6: Shell aliases + workdir ───────────────────────────────
 RUN echo 'alias rg="rg --smart-case"' >> /root/.bashrc && \
     echo 'alias fd="fd --hidden"'    >> /root/.bashrc
 

@@ -4,12 +4,12 @@ Pure domain logic. Depends only on LanguageProcessor and Persistence ports.
 Testable with fake ports — no YouTube, ffmpeg, or SQLite required.
 """
 
+from langmine.domain.models import Sentence
 from langmine.domain.ports import (
     LanguageProcessor,
-    Persistence,
     MergedSentence,
+    Persistence,
 )
-from langmine.domain.models import Sentence
 
 
 class SentenceClassifier:
@@ -119,7 +119,9 @@ class SentenceClassifier:
 
             # Translation and word info for i+1 and kept sentences
             if sentence.status in ("i1", "kept"):
-                sentence.translation_de = self._processor.translate_sentence(sentence.text)
+                sentence.translation_de = self._processor.translate_sentence(
+                    sentence.text
+                )
 
                 if sentence.unknown_word:
                     entry = self._processor.lookup_word(sentence.unknown_word)
@@ -132,41 +134,6 @@ class SentenceClassifier:
                         )
 
         return sentences
-
-    def reclassify_stashed(self, video_id: int) -> int:
-        """Re-classify stashed sentences for a video after vocab changes.
-
-        When a word is marked learned or ignored, stashed sentences may
-        drop to exactly 1 unknown word — promoting them to i+1.
-
-        Returns count of sentences promoted to i+1.
-        """
-        known_words = self._persistence.get_known_words()
-        stashed = self._persistence.get_sentences_by_video(
-            video_id, status="stashed"
-        )
-        promoted = 0
-        for s in stashed:
-            tokens = [t.strip() for t in s.text_segmented.split(" / ") if t.strip()]
-            if not tokens:
-                continue
-            content_words = [
-                t for t in tokens if not self._processor.is_non_word(t)
-            ]
-            unknown = [w for w in content_words if w not in known_words]
-            unknown_count = len(unknown)
-            old_status = s.status
-            if unknown_count == 0:
-                s.status = "i0"
-                self._persistence.update_sentence(s)
-            elif unknown_count == 1:
-                s.status = "i1"
-                s.unknown_word = unknown[0]
-                s.unknown_word_rank = self._processor.get_frequency(unknown[0])
-                self._persistence.update_sentence(s)
-                promoted += 1
-            # unknown_count >= 2: stays stashed — no change
-        return promoted
 
     def reclassify_all(self, video_id: int) -> list[Sentence]:
         """Re-classify ALL sentences for a video after vocab changes (M22).
@@ -189,9 +156,7 @@ class SentenceClassifier:
                 i0_sentences.append(s)
                 continue
 
-            content_words = [
-                t for t in tokens if not self._processor.is_non_word(t)
-            ]
+            content_words = [t for t in tokens if not self._processor.is_non_word(t)]
             unknown = [w for w in content_words if w not in known_words]
             unknown_count = len(unknown)
 

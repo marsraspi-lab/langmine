@@ -4,17 +4,16 @@ Verifies that gap_ms=0 (file upload) keeps each subtitle entry as its
 own sentence, while gap_ms=500 (YouTube) merges entries with tight gaps.
 """
 
+from langmine.domain.ports import TranscriptChunk
 from langmine.transcript import merge_sentences
 from langmine.transcript_parser import parse_subtitle_file
-from langmine.domain.ports import TranscriptChunk
 
 
 def _load_sample_srt() -> list[TranscriptChunk]:
     """Parse the sample SRT fixture and return transcript chunks."""
     import os
-    fixture_path = os.path.join(
-        os.path.dirname(__file__), "fixtures", "sample.srt"
-    )
+
+    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures", "sample.srt")
     with open(fixture_path) as f:
         content = f.read()
     return parse_subtitle_file(content, filename="sample.srt")

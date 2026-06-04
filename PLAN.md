@@ -1,9 +1,9 @@
 # LangMine — YouTube Sentence Mining Tool
 
-> **Status:** Implemented M0–M24 (sentence joining) ✅ — 234 pytest + 51 E2E.  
-> **This is the original design document.** The actual implementation followed a different milestone numbering (M0–M15 per README). See [README.md](README.md) for current state and [ACCEPTANCE-CHECKLIST.md](ACCEPTANCE-CHECKLIST.md) for the full feature matrix.  
-> **Languages:** Chinese (v1.2) — Spanish, Korean, Russian planned via `languages/<lang>/` extensions  
-> **L1:** German  
+> **Status:** Implemented M0–M24 (sentence joining) ✅ — 234 pytest + 51 E2E.
+> **This is the original design document.** The actual implementation followed a different milestone numbering (M0–M15 per README). See [README.md](README.md) for current state and [ACCEPTANCE-CHECKLIST.md](ACCEPTANCE-CHECKLIST.md) for the full feature matrix.
+> **Languages:** Chinese (v1.2) — Spanish, Korean, Russian planned via `languages/<lang>/` extensions
+> **L1:** German
 > **Form factor:** Local web app (Python backend → browser tab, no Electron)
 
 ---
@@ -371,8 +371,8 @@ paths:
 
 ## Implementation Milestones (Vertical Slices)
 
-> **Methodology:** Strict TDD on every milestone. Red → Green → Refactor.  
-> No production code without a failing test first.  
+> **Methodology:** Strict TDD on every milestone. Red → Green → Refactor.
+> No production code without a failing test first.
 > Each milestone is shippable — you can stop at any point and have a usable tool.
 
 ---

@@ -10,10 +10,9 @@ Frequency tier thresholds for badge display:
 """
 
 import os
-from pathlib import Path
 
+from langmine.domain.models import frequency_badge, frequency_tier
 from langmine.domain.ports import FrequencySource
-from langmine.domain.models import frequency_tier, frequency_badge
 
 
 class JiebaFrequencyAdapter(FrequencySource):
@@ -27,6 +26,7 @@ class JiebaFrequencyAdapter(FrequencySource):
     def _load(self):
         """Parse jieba's dict.txt: word freq tag."""
         import jieba
+
         dict_path = os.path.join(os.path.dirname(jieba.__file__), "dict.txt")
 
         with open(dict_path, encoding="utf-8") as f:

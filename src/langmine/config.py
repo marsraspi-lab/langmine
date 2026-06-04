@@ -7,7 +7,6 @@ No dependency on adapters or domain — safe to import from any layer.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -31,8 +30,7 @@ class Config:
         ".screenshot img { max-width: 100%; border-radius: 4px; }"
     )
     card_front_template: str = (
-        '<div class="chinese">{{sentence_zh}}</div>'
-        "{{#audio}}{{audio}}{{/audio}}"
+        '<div class="chinese">{{sentence_zh}}</div>{{#audio}}{{audio}}{{/audio}}'
     )
     card_back_template: str = (
         '<div class="chinese">{{sentence_zh}}</div>'
@@ -78,16 +76,16 @@ class Config:
     )
     cloze_card_front_template: str = (
         '<div class="chinese">{{cloze:sentence_zh}}</div>\n'
-        '{{#audio}}{{audio}}{{/audio}}\n'
+        "{{#audio}}{{audio}}{{/audio}}\n"
         '{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}\n'
     )
     cloze_card_back_template: str = (
         '<div class="chinese">{{sentence_zh}}</div>\n'
-        '{{#audio}}{{audio}}{{/audio}}\n'
+        "{{#audio}}{{audio}}{{/audio}}\n"
         '<hr id="answer">\n'
         '<div class="reading">{{sentence_reading}}</div>\n'
         '<div class="translation">{{translation_de}}</div>\n'
-        '<div>🆕 {{unknown_word}}</div>\n'
+        "<div>🆕 {{unknown_word}}</div>\n"
         '{{#screenshot}}<div class="hint-img">{{screenshot}}</div>{{/screenshot}}\n'
     )
 
@@ -232,4 +230,6 @@ def save_config(config: Config, config_dir: str | None = None) -> None:
     yaml_file = config_path / "config.yaml"
     data = _config_to_dict(config)
     with open(yaml_file, "w") as f:
-        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        yaml.dump(
+            data, f, allow_unicode=True, default_flow_style=False, sort_keys=False
+        )

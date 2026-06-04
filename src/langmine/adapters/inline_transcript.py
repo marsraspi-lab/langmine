@@ -4,7 +4,7 @@ Used as a fallback when youtube-transcript-api is IP-blocked.
 The user downloads subtitles from their browser and uploads them.
 """
 
-from langmine.domain.ports import TranscriptSource, TranscriptChunk, SubtitleInfo
+from langmine.domain.ports import SubtitleInfo, TranscriptChunk, TranscriptSource
 
 
 class InlineTranscriptSource(TranscriptSource):

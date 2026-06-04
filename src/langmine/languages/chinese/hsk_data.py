@@ -19,7 +19,9 @@ def _load() -> dict[str, int]:
     # hsk_data.py → chinese/ → languages/ → langmine/ → src/ → project root → data/hsk/
     path = (
         Path(__file__).resolve().parent.parent.parent.parent.parent
-        / "data" / "hsk" / "hsk_levels.json"
+        / "data"
+        / "hsk"
+        / "hsk_levels.json"
     )
     with open(path, encoding="utf-8") as f:
         _HSK = json.load(f)

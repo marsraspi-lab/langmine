@@ -4,9 +4,7 @@ These are the core concepts of LangMine. They contain no database logic,
 no API calls, no file system access. Just data and domain rules.
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
-
+from dataclasses import dataclass
 
 # === Frequency Rank (domain logic, no I/O) ===
 
@@ -45,12 +43,12 @@ class Video:
     title: str = ""
     channel: str = ""
     duration_sec: int = 0
-    transcript_json: str = ""     # raw transcript JSON
-    audio_path: str = ""           # path to full MP3
+    transcript_json: str = ""  # raw transcript JSON
+    audio_path: str = ""  # path to full MP3
     processed_at: str | None = None
-    language_code: str = ""        # "zh", "es", "ko", etc.
-    subtitle_language: str = ""    # e.g. "zh-Hans" — chosen subtitle track
-    subtitle_kind: str = ""        # "manual", "auto", or ""
+    language_code: str = ""  # "zh", "es", "ko", etc.
+    subtitle_language: str = ""  # e.g. "zh-Hans" — chosen subtitle track
+    subtitle_kind: str = ""  # "manual", "auto", or ""
 
     # Set by persistence layer
     id: int | None = None
@@ -64,22 +62,22 @@ class Sentence:
     start_ms: float
     end_ms: float
     text: str
-    text_segmented: str = ""        # "我们 / 一般 / 早上 / 七点 / 起床"
-    non_words_json: str = ""        # JSON list of filtered-out tokens
-    reading: str = ""               # Phonetic: pinyin for zh, IPA for es, romanization for ko
-    translation_de: str = ""        # German translation
+    text_segmented: str = ""  # "我们 / 一般 / 早上 / 七点 / 起床"
+    non_words_json: str = ""  # JSON list of filtered-out tokens
+    reading: str = ""  # Phonetic: pinyin for zh, IPA for es, romanization for ko
+    translation_de: str = ""  # German translation
     unknown_word: str | None = None  # the i+1 target word
     unknown_word_rank: int | None = None
-    known_synonyms_json: str = ""   # JSON list of known synonyms
+    known_synonyms_json: str = ""  # JSON list of known synonyms
     audio_clip_path: str = ""
     screenshot_path: str = ""
     screenshot_enabled: bool = True
     cloze_image_url: str | None = None  # User-selected image for cloze hint
-    annotation_json: str = ""          # Character-level annotations (ruby for CJK, IPA, etc.)
-    status: str = "new"            # i1 | i0 | stashed | kept | deleted | exported
-    language_code: str = ""        # "zh", "es", "ko", etc.
-    created_at: str = ""           # ISO 8601 — when sentence was first extracted
-    updated_at: str = ""           # ISO 8601 — when status last changed
+    annotation_json: str = ""  # Character-level annotations (ruby for CJK, IPA, etc.)
+    status: str = "new"  # i1 | i0 | stashed | kept | deleted | exported
+    language_code: str = ""  # "zh", "es", "ko", etc.
+    created_at: str = ""  # ISO 8601 — when sentence was first extracted
+    updated_at: str = ""  # ISO 8601 — when status last changed
 
     # Set by persistence layer
     id: int | None = None
@@ -93,12 +91,12 @@ class VocabWord:
     word_traditional: str = ""
     reading: str = ""
     definition_de: str = ""
-    hsk_level: int | None = None      # 1-6 or None if not in HSK
+    hsk_level: int | None = None  # 1-6 or None if not in HSK
     frequency_rank: int | None = None  # from SUBTLEX-CH
-    status: str = "known"             # known | learning
-    language_code: str = ""           # "zh", "es", "ko", etc.
-    created_at: str = ""              # ISO 8601 — when word was first added
-    updated_at: str = ""              # ISO 8601 — when status last changed
+    status: str = "known"  # known | learning
+    language_code: str = ""  # "zh", "es", "ko", etc.
+    created_at: str = ""  # ISO 8601 — when word was first added
+    updated_at: str = ""  # ISO 8601 — when status last changed
 
     # Set by persistence layer
     id: int | None = None
@@ -111,12 +109,12 @@ class Event:
     Events are append-only — never updated or deleted.
     """
 
-    entity_type: str      # "video" | "sentence" | "word"
-    entity_id: int        # FK to videos.id / sentences.id / vocab.id
-    action: str           # "mined" | "classified_i1" | "kept" | "deleted" | ...
-    old_value: str = ""   # previous status (or empty if not applicable)
-    new_value: str = ""   # new status (or key detail)
-    timestamp: str = ""   # ISO 8601 — set by persistence layer
+    entity_type: str  # "video" | "sentence" | "word"
+    entity_id: int  # FK to videos.id / sentences.id / vocab.id
+    action: str  # "mined" | "classified_i1" | "kept" | "deleted" | ...
+    old_value: str = ""  # previous status (or empty if not applicable)
+    new_value: str = ""  # new status (or key detail)
+    timestamp: str = ""  # ISO 8601 — set by persistence layer
     language_code: str = ""
 
     # Set by persistence layer

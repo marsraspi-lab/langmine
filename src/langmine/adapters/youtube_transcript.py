@@ -2,7 +2,7 @@
 
 import subprocess
 
-from langmine.domain.ports import TranscriptSource, TranscriptChunk, SubtitleInfo
+from langmine.domain.ports import SubtitleInfo, TranscriptChunk, TranscriptSource
 from langmine.transcript import fetch_transcript
 
 
@@ -15,15 +15,22 @@ class YouTubeTranscriptAdapter(TranscriptSource):
 
     def fetch(self, video_id: str, language: str = "") -> list[TranscriptChunk]:
         lang_codes = [language] if language else self._language_codes
-        return fetch_transcript(video_id, user_agent=self._user_agent,
-                                language_codes=lang_codes)
+        return fetch_transcript(
+            video_id, user_agent=self._user_agent, language_codes=lang_codes
+        )
 
     def list_subtitles(self, video_id: str) -> list[SubtitleInfo]:
         """List available subtitle tracks via yt-dlp --list-subs."""
         from langmine.transcript import _parse_list_subs_output
 
         url = f"https://www.youtube.com/watch?v={video_id}"
-        cmd = ["yt-dlp", "--list-subs", "--skip-download", "--no-playlist", "--no-warnings"]
+        cmd = [
+            "yt-dlp",
+            "--list-subs",
+            "--skip-download",
+            "--no-playlist",
+            "--no-warnings",
+        ]
         if self._user_agent:
             cmd.insert(1, "--user-agent")
             cmd.insert(2, self._user_agent)

@@ -28,7 +28,7 @@
 ## Pre-Migration Checklist
 
 - [ ] Verify `svelte` 5.55.5 in `package.json` ✓ (already confirmed)
-- [ ] Verify no `svelte/store` imports exist outside `stores.js` 
+- [ ] Verify no `svelte/store` imports exist outside `stores.js`
 - [ ] 247 unit + 58 E2E tests passing on main ✓ (confirmed after PR #33 merge)
 
 ---

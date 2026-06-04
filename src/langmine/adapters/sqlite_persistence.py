@@ -5,12 +5,12 @@ Swap for FileSystemPersistence, PostgresPersistence, or InMemoryPersistence
 without changing any domain code.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from langmine.domain.ports import Persistence
-from langmine.domain.models import Video, Sentence, VocabWord, Event
 from langmine.db import Database
+from langmine.domain.models import Sentence, Video, VocabWord
+from langmine.domain.ports import Persistence
 
 
 class SQLitePersistence(Persistence):
@@ -38,10 +38,16 @@ class SQLitePersistence(Persistence):
                    transcript_json=?, audio_path=?,
                    subtitle_language=?, subtitle_kind=?
                    WHERE id=?""",
-                (video.title, video.channel, video.duration_sec,
-                 video.transcript_json, video.audio_path,
-                 video.subtitle_language, video.subtitle_kind,
-                 video.id),
+                (
+                    video.title,
+                    video.channel,
+                    video.duration_sec,
+                    video.transcript_json,
+                    video.audio_path,
+                    video.subtitle_language,
+                    video.subtitle_kind,
+                    video.id,
+                ),
             )
         else:
             cursor = self.conn.execute(
@@ -50,10 +56,17 @@ class SQLitePersistence(Persistence):
                     transcript_json, audio_path, language_code,
                     subtitle_language, subtitle_kind)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (video.youtube_id, video.title, video.channel,
-                 video.duration_sec, video.transcript_json, video.audio_path,
-                 video.language_code,
-                 video.subtitle_language, video.subtitle_kind),
+                (
+                    video.youtube_id,
+                    video.title,
+                    video.channel,
+                    video.duration_sec,
+                    video.transcript_json,
+                    video.audio_path,
+                    video.language_code,
+                    video.subtitle_language,
+                    video.subtitle_kind,
+                ),
             )
             video.id = cursor.lastrowid
         self.conn.commit()
@@ -73,12 +86,6 @@ class SQLitePersistence(Persistence):
             params,
         ).fetchall()
         return [self._row_to_video(r) for r in rows]
-
-    def video_exists(self, youtube_id: str) -> bool:
-        row = self.conn.execute(
-            "SELECT 1 FROM videos WHERE youtube_id = ?", (youtube_id,)
-        ).fetchone()
-        return row is not None
 
     def delete_video(self, video_id: int) -> bool:
         """Delete a video and all related data (cascading delete).
@@ -105,14 +112,10 @@ class SQLitePersistence(Persistence):
         )
 
         # Delete sentences
-        self.conn.execute(
-            "DELETE FROM sentences WHERE video_id = ?", (video_id,)
-        )
+        self.conn.execute("DELETE FROM sentences WHERE video_id = ?", (video_id,))
 
         # Delete the video
-        self.conn.execute(
-            "DELETE FROM videos WHERE id = ?", (video_id,)
-        )
+        self.conn.execute("DELETE FROM videos WHERE id = ?", (video_id,))
 
         self.conn.commit()
         return True
@@ -120,7 +123,7 @@ class SQLitePersistence(Persistence):
     # === Sentences ===
 
     def save_sentences(self, sentences: list[Sentence]) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         for s in sentences:
             if s.id:
                 self.conn.execute(
@@ -128,9 +131,16 @@ class SQLitePersistence(Persistence):
                        reading=?, text_segmented=?, unknown_word=?,
                        screenshot_enabled=?, updated_at=?
                        WHERE id=?""",
-                    (s.status, s.translation_de, s.reading,
-                     s.text_segmented, s.unknown_word,
-                     int(s.screenshot_enabled), now, s.id),
+                    (
+                        s.status,
+                        s.translation_de,
+                        s.reading,
+                        s.text_segmented,
+                        s.unknown_word,
+                        int(s.screenshot_enabled),
+                        now,
+                        s.id,
+                    ),
                 )
             else:
                 s.created_at = now
@@ -143,12 +153,26 @@ class SQLitePersistence(Persistence):
                         audio_clip_path, screenshot_path, screenshot_enabled,
                         status, language_code, created_at, updated_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (s.video_id, s.start_ms, s.end_ms, s.text,
-                     s.text_segmented, s.non_words_json, s.reading,
-                     s.translation_de, s.unknown_word, s.unknown_word_rank,
-                     s.known_synonyms_json, s.audio_clip_path,
-                     s.screenshot_path, int(s.screenshot_enabled), s.status,
-                     s.language_code, now, now),
+                    (
+                        s.video_id,
+                        s.start_ms,
+                        s.end_ms,
+                        s.text,
+                        s.text_segmented,
+                        s.non_words_json,
+                        s.reading,
+                        s.translation_de,
+                        s.unknown_word,
+                        s.unknown_word_rank,
+                        s.known_synonyms_json,
+                        s.audio_clip_path,
+                        s.screenshot_path,
+                        int(s.screenshot_enabled),
+                        s.status,
+                        s.language_code,
+                        now,
+                        now,
+                    ),
                 )
                 s.id = cursor.lastrowid
         self.conn.commit()
@@ -167,32 +191,30 @@ class SQLitePersistence(Persistence):
         rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
-    def get_stash_candidates(self, limit: int = 20, language_code: str = "") -> list[Sentence]:
-        query = """SELECT * FROM sentences WHERE status = 'stashed'"""
-        params: list = []
-        if language_code:
-            query += " AND language_code = ?"
-            params.append(language_code)
-        query += " ORDER BY unknown_word_rank ASC NULLS LAST LIMIT ?"
-        params.append(limit)
-        rows = self.conn.execute(query, tuple(params)).fetchall()
-        return [self._row_to_sentence(r) for r in rows]
-
     def update_sentence(self, sentence: Sentence) -> None:
         if not sentence.id:
             raise ValueError("Cannot update sentence without id")
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.conn.execute(
             """UPDATE sentences SET status=?, translation_de=?,
                reading=?, text_segmented=?, unknown_word=?,
                screenshot_enabled=?, updated_at=? WHERE id=?""",
-            (sentence.status, sentence.translation_de, sentence.reading,
-             sentence.text_segmented, sentence.unknown_word,
-             int(sentence.screenshot_enabled), now, sentence.id),
+            (
+                sentence.status,
+                sentence.translation_de,
+                sentence.reading,
+                sentence.text_segmented,
+                sentence.unknown_word,
+                int(sentence.screenshot_enabled),
+                now,
+                sentence.id,
+            ),
         )
         self.conn.commit()
 
-    def get_sentences_by_status(self, status: str, language_code: str = "") -> list[Sentence]:
+    def get_sentences_by_status(
+        self, status: str, language_code: str = ""
+    ) -> list[Sentence]:
         query = "SELECT * FROM sentences WHERE status = ?"
         params: list = [status]
         if language_code:
@@ -201,16 +223,10 @@ class SQLitePersistence(Persistence):
         rows = self.conn.execute(query, tuple(params)).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
-    def reclassify_stashed(self, video_id: int) -> int:
-        """Re-run i+1 classification on stashed sentences for a video.
-        Returns count of sentences that dropped to i+1.
-        Stub for now — full implementation in M2."""
-        return 0
-
     # === Vocab ===
 
     def save_vocab_word(self, word: VocabWord) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         existing = self.get_vocab_word(word.word_simplified)
         if existing:
             word.created_at = existing.created_at  # preserve original creation time
@@ -219,9 +235,17 @@ class SQLitePersistence(Persistence):
                    hsk_level=?, frequency_rank=?, status=?, language_code=?,
                    updated_at=?
                    WHERE word_simplified=?""",
-                (word.word_traditional, word.reading, word.definition_de,
-                 word.hsk_level, word.frequency_rank, word.status,
-                 word.language_code, now, word.word_simplified),
+                (
+                    word.word_traditional,
+                    word.reading,
+                    word.definition_de,
+                    word.hsk_level,
+                    word.frequency_rank,
+                    word.status,
+                    word.language_code,
+                    now,
+                    word.word_simplified,
+                ),
             )
             self.conn.commit()
         else:
@@ -233,15 +257,26 @@ class SQLitePersistence(Persistence):
                     hsk_level, frequency_rank, status, language_code,
                     created_at, updated_at)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (word.word_simplified, word.word_traditional, word.reading,
-                 word.definition_de, word.hsk_level, word.frequency_rank,
-                 word.status, word.language_code, now, now),
+                (
+                    word.word_simplified,
+                    word.word_traditional,
+                    word.reading,
+                    word.definition_de,
+                    word.hsk_level,
+                    word.frequency_rank,
+                    word.status,
+                    word.language_code,
+                    now,
+                    now,
+                ),
             )
             self.conn.commit()
             # Log first-encountered event
             self.log_event(
-                entity_type="word", entity_id=word.id or 0,
-                action="first_encountered", new_value=word.word_simplified,
+                entity_type="word",
+                entity_id=word.id or 0,
+                action="first_encountered",
+                new_value=word.word_simplified,
                 language_code=word.language_code,
             )
 
@@ -263,7 +298,7 @@ class SQLitePersistence(Persistence):
         return {r[0] for r in rows}
 
     def mark_word_known(self, word_simplified: str) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.conn.execute(
             "UPDATE vocab SET status = 'known', updated_at = ? WHERE word_simplified = ?",
             (now, word_simplified),
@@ -271,7 +306,7 @@ class SQLitePersistence(Persistence):
         self.conn.commit()
 
     def mark_word_learning(self, word_simplified: str) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.conn.execute(
             "UPDATE vocab SET status = 'learning', updated_at = ? WHERE word_simplified = ?",
             (now, word_simplified),
@@ -279,7 +314,7 @@ class SQLitePersistence(Persistence):
         self.conn.commit()
 
     def mark_word_ignored(self, word_simplified: str) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.conn.execute(
             "UPDATE vocab SET status = 'ignored', updated_at = ? WHERE word_simplified = ?",
             (now, word_simplified),
@@ -365,14 +400,13 @@ class SQLitePersistence(Persistence):
         new_value: str = "",
         language_code: str = "",
     ) -> None:
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         self.conn.execute(
             """INSERT INTO events
                (entity_type, entity_id, action, old_value, new_value,
                 timestamp, language_code)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (entity_type, entity_id, action, old_value, new_value,
-             now, language_code),
+            (entity_type, entity_id, action, old_value, new_value, now, language_code),
         )
         self.conn.commit()
 

@@ -41,7 +41,13 @@
   }
 </script>
 
-<div class="image-picker-overlay" onclick={onClose} role="button" tabindex="0"></div>
+<div class="image-picker-overlay"
+     onclick={onClose}
+     onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') onClose(); }}
+     role="button"
+     tabindex="0"
+     aria-label="Close image picker"
+></div>
 <div class="image-picker-modal">
   <div class="image-picker-header">
     <span>🖼️ Images for "{word}"</span>

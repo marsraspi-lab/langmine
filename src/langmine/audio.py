@@ -15,8 +15,12 @@ from pathlib import Path
 # Project-bundled binaries — survive Docker container resets
 # bin/ is a local setup artifact (gitignored), downloaded once via setup
 _PROJECT_BIN = Path(__file__).parent.parent.parent / "bin"
-_FFMPEG = str(_PROJECT_BIN / "ffmpeg") if (_PROJECT_BIN / "ffmpeg").exists() else "ffmpeg"
-_FFPROBE = str(_PROJECT_BIN / "ffprobe") if (_PROJECT_BIN / "ffprobe").exists() else "ffprobe"
+_FFMPEG = (
+    str(_PROJECT_BIN / "ffmpeg") if (_PROJECT_BIN / "ffmpeg").exists() else "ffmpeg"
+)
+_FFPROBE = (
+    str(_PROJECT_BIN / "ffprobe") if (_PROJECT_BIN / "ffprobe").exists() else "ffprobe"
+)
 
 
 def _ffmpeg_location_args() -> list[str]:
@@ -57,11 +61,14 @@ def download_audio(
     cmd = [
         "yt-dlp",
         "-x",
-        "--audio-format", "mp3",
-        "--audio-quality", "0",
+        "--audio-format",
+        "mp3",
+        "--audio-quality",
+        "0",
         "--no-playlist",
         "--no-warnings",
-        "-o", str(output_path.with_suffix(".%(ext)s")),
+        "-o",
+        str(output_path.with_suffix(".%(ext)s")),
         *_ffmpeg_location_args(),
     ]
     if user_agent:
@@ -71,9 +78,7 @@ def download_audio(
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
 
     if result.returncode != 0:
-        raise RuntimeError(
-            f"Failed to download audio for {video_id}: {result.stderr}"
-        )
+        raise RuntimeError(f"Failed to download audio for {video_id}: {result.stderr}")
 
     # yt-dlp appends the extension, so the actual file is video_id.mp3
     actual_path = str(output_path)
@@ -124,11 +129,16 @@ def clip_audio(
         [
             _FFMPEG,
             "-y",
-            "-ss", str(clip_start_sec),
-            "-i", audio_path,
-            "-t", str(duration_sec),
-            "-acodec", "libmp3lame",
-            "-q:a", "2",
+            "-ss",
+            str(clip_start_sec),
+            "-i",
+            audio_path,
+            "-t",
+            str(duration_sec),
+            "-acodec",
+            "libmp3lame",
+            "-q:a",
+            "2",
             str(output_path),
         ],
         capture_output=True,
@@ -137,9 +147,7 @@ def clip_audio(
     )
 
     if result.returncode != 0:
-        raise RuntimeError(
-            f"Failed to clip audio: {result.stderr}"
-        )
+        raise RuntimeError(f"Failed to clip audio: {result.stderr}")
 
     return str(output_path)
 
@@ -166,6 +174,7 @@ def capture_frame(
         Absolute path to the JPEG file, or None on failure.
     """
     import tempfile
+
     from langmine.transcript import _extract_video_id
 
     video_id = _extract_video_id(video_id_or_url)
@@ -192,11 +201,14 @@ def capture_frame(
                 "yt-dlp",
                 "--download-sections",
                 f"*{segment_start:.1f}-{segment_end:.1f}",
-                "-f", "best[height<=480]",
-                "--recode-video", "mp4",
+                "-f",
+                "best[height<=480]",
+                "--recode-video",
+                "mp4",
                 "--no-playlist",
                 "--no-warnings",
-                "-o", str(segment_path),
+                "-o",
+                str(segment_path),
                 *_ffmpeg_location_args(),
                 url,
             ],
@@ -213,10 +225,14 @@ def capture_frame(
             [
                 _FFMPEG,
                 "-y",
-                "-ss", str(frame_time),
-                "-i", str(segment_path),
-                "-frames:v", "1",
-                "-q:v", "3",
+                "-ss",
+                str(frame_time),
+                "-i",
+                str(segment_path),
+                "-frames:v",
+                "1",
+                "-q:v",
+                "3",
                 str(output_path),
             ],
             capture_output=True,
@@ -238,6 +254,7 @@ def get_video_info(video_id_or_url: str, user_agent: str = "") -> dict[str, str]
     On failure, returns empty strings — the caller always proceeds.
     """
     import json
+
     from langmine.transcript import _extract_video_id
 
     try:
