@@ -7,10 +7,14 @@ Provides:
   - JiebaFrequencyAdapter (fallback FrequencySource)
   - get_hsk_level (HSK proficiency utility)
   - get_anki_templates() (Anki card templates from files)
+
+Self-registers with the language factory at import time via
+register_language() — no factory edits needed when adding a language.
 """
 
 from pathlib import Path
 
+from langmine.language_factory import register_language
 from langmine.languages.chinese.dictionary import CcCedictAdapter
 from langmine.languages.chinese.frequency import SubtlexChAdapter
 from langmine.languages.chinese.hsk_data import get_hsk_level
@@ -29,6 +33,9 @@ MANIFEST = {
 # youtube-transcript-api will try each until it finds a transcript
 # (including auto-generated). The first match wins.
 TRANSCRIPT_LANGUAGES = ["zh-Hans", "zh-Hant", "zh-CN", "zh-TW", "zh"]
+
+# Standardized proficiency lookup (HSK 2.0)
+get_proficiency_level = get_hsk_level
 
 
 def get_anki_templates() -> dict:
@@ -53,6 +60,21 @@ def get_anki_templates() -> dict:
     }
 
 
+# Self-register with the language factory (Open/Closed Principle).
+# Adding a new language means creating a package directory with the
+# same standard exports + this register_language() call — no factory edits.
+register_language(
+    "zh",
+    name="Chinese",
+    service_class=ChineseLanguageService,
+    dictionary_class=CcCedictAdapter,
+    frequency_class=SubtlexChAdapter,
+    transcript_languages=TRANSCRIPT_LANGUAGES,
+    manifest=MANIFEST,
+    get_anki_templates=get_anki_templates,
+    get_proficiency_level=get_proficiency_level,
+)
+
 __all__ = [
     "ChineseLanguageService",
     "CcCedictAdapter",
@@ -60,5 +82,7 @@ __all__ = [
     "JiebaFrequencyAdapter",
     "get_hsk_level",
     "MANIFEST",
+    "TRANSCRIPT_LANGUAGES",
+    "get_proficiency_level",
     "get_anki_templates",
 ]

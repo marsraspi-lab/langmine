@@ -80,7 +80,7 @@ Forbidden edges (enforced by CI):
 | `src/langmine/domain/ports.py` | All abstract interfaces — 9 ports: `VideoRepository`, `SentenceRepository`, `VocabRepository`, `EventStore` (focused persistence), `Persistence` (composite of all 4 for backwards compat), `LanguageProcessor`, `TranscriptSource`, `AudioProcessor`, `Translator`, `Dictionary`, `FrequencySource`, `AnkiExporter`, `ImageSearch` |
 | `src/langmine/domain/models.py` | Pure dataclasses (`Video`, `Sentence`, `VocabWord`, `Event`) + `frequency_tier()` / `frequency_badge()` |
 | `src/langmine/domain/classifier.py` | `SentenceClassifier` — the i+1 engine, pure logic on `SentenceRepository` + `VocabRepository` ports |
-| `src/langmine/language_factory.py` | **Only module allowed to import from `languages/`**. Match/case dispatch to language services. Also `get_anki_templates()`, `get_language_manifest()`, `get_available_languages()`. |
+| `src/langmine/language_factory.py` | **Only module allowed to import from `languages/`** (via lazy `importlib`). Language registry pattern — `register_language()`, `_ensure_loaded()`, auto-discovery via `pkgutil.iter_modules()`. Also `create_language_processor()`, `create_language_adapters()`, `get_anki_templates()`, `get_language_manifest()`, `get_available_languages()`, `get_transcript_languages()`, `get_proficiency_level()`. Adding a language no longer requires editing this file. |
 | `src/langmine/web/server.py` | Entry point (`main()`). Parses CLI args, calls `create_production_app()`, starts Flask. |
 | `src/langmine/web/app.py` | `create_app()` injectable factory + `create_production_app()` wires all real adapters. **Only file in `web/` allowed to import adapters.** Also resolves `Translator` from config (Google Translate / DeepL). |
 | `src/langmine/web/routes/` | 6 Flask blueprints (`config`, `videos`, `sentences`, `vocab`, `export`, `images`) + `_helpers.py`. Accesses ports via `current_app.config["LANGMINE_PERSISTENCE"]` etc. |
@@ -95,8 +95,9 @@ Forbidden edges (enforced by CI):
 # app.py — wiring + injection
 config = load_config()
 translator = _create_translator(config)          # cross-cutting port (config-driven)
+dictionary, frequency = create_language_adapters(config)  # language-specific ports
 persistence = SQLitePersistence()
-processor = create_language_processor(config, translator=translator)
+processor = create_language_processor(config, translator=translator, dictionary=dictionary, frequency=frequency)
 app = create_app(persistence, processor, ...)    # injects into app.config
 
 # routes.py — retrieval
@@ -107,7 +108,7 @@ Cross-cutting ports (`Translator`, `Persistence`, `TranscriptSource`, `AudioProc
 
 ### Adding a Language
 
-Create `languages/<code>/` with: `__init__.py` (containing `MANIFEST` dict + `get_anki_templates()`), `service.py`, `dictionary.py`, `frequency.py`, and `anki/{basic,cloze}/` template directories. Add `case "<code>"` to all match/case blocks in `language_factory.py` and add to the `LANGUAGES` list. No changes to `domain/`, `web/`, or `adapters/` needed.
+Create `languages/<code>/` with: `__init__.py` (containing `MANIFEST` dict, `TRANSCRIPT_LANGUAGES` list, standard exports, and a `register_language()` call — see `languages/chinese/__init__.py` for the canonical example), `service.py`, `dictionary.py`, `frequency.py`, and `anki/{basic,cloze}/` template directories. The factory auto-discovers language packages — no changes to `language_factory.py`, `domain/`, `web/`, or `adapters/` needed.
 
 ## Testing Patterns
 

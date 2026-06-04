@@ -7,7 +7,19 @@ a LanguageProcessor without knowing which language is configured.
 All port implementations (Translator, Dictionary, FrequencySource) are
 resolved from config — no adapter is hardcoded.  Callers can also inject
 ports directly for testing.
+
+Language Registry (Open/Closed):
+    Adding a language no longer requires editing this file.  Create a
+    package under languages/<code>/ with the standard exports and call
+    register_language() in its __init__.py.  The factory auto-discovers
+    registered languages via pkgutil.iter_modules().
 """
+
+from __future__ import annotations
+
+import importlib
+import pkgutil
+from collections.abc import Callable
 
 from langmine.config import Config
 from langmine.domain.ports import (
@@ -17,55 +29,108 @@ from langmine.domain.ports import (
     Translator,
 )
 
-# Language metadata for UI — code + display name for each available language.
-# Extend this when adding a new language extension.
-LANGUAGES = [
-    {"code": "zh", "name": "Chinese"},
-    # {"code": "es", "name": "Spanish"},  # uncomment when implemented
-    # {"code": "ko", "name": "Korean"},
-    # {"code": "ru", "name": "Russian"},
-]
+# === Language Registry ===
+
+_LANGUAGE_REGISTRY: dict[str, dict] = {}
+
+
+def register_language(
+    code: str,
+    *,
+    name: str,
+    service_class: type[LanguageProcessor],
+    dictionary_class: type[Dictionary],
+    frequency_class: type[FrequencySource],
+    transcript_languages: list[str],
+    manifest: dict | None = None,
+    get_anki_templates: Callable[[], dict] | None = None,
+    get_proficiency_level: Callable[[str], int | None] | None = None,
+) -> None:
+    """Register a language extension.
+
+    Called from each language package's __init__.py at import time.
+    All kwargs are keyword-only to keep the registry schema explicit.
+
+    Args:
+        code: ISO 639-1 language code (e.g. 'zh', 'es').
+        name: Display name (e.g. 'Chinese', 'Spanish').
+        service_class: LanguageProcessor subclass for this language.
+        dictionary_class: Dictionary adapter class (no-arg constructible).
+        frequency_class: FrequencySource adapter class (no-arg constructible).
+        transcript_languages: YouTube subtitle codes in preference order.
+        manifest: Anki/UI metadata dict (deck_name, note_type, etc.).
+        get_anki_templates: Callable returning card template dict.
+        get_proficiency_level: Proficiency lookup (e.g. HSK level), or None.
+    """
+    _LANGUAGE_REGISTRY[code] = {
+        "name": name,
+        "service_class": service_class,
+        "dictionary_class": dictionary_class,
+        "frequency_class": frequency_class,
+        "transcript_languages": transcript_languages,
+        "manifest": manifest or {},
+        "get_anki_templates": get_anki_templates or (lambda: {}),
+        "get_proficiency_level": get_proficiency_level,
+    }
+
+
+def _ensure_loaded(lang_code: str) -> None:
+    """Ensure a language is registered, running discovery if needed.
+
+    No-op if already registered.  Calls _discover_languages() to import
+    all language packages (by directory name), which triggers each
+    package's register_language() call and populates the code→entry mapping.
+    Raises ValueError for unknown codes.
+    """
+    if lang_code in _LANGUAGE_REGISTRY:
+        return
+
+    # Discovery imports packages by directory name (e.g. "chinese"),
+    # and each package's register_language() maps its logical code
+    # (e.g. "zh") to its entry.
+    _discover_languages()
+
+    if lang_code not in _LANGUAGE_REGISTRY:
+        raise ValueError(
+            f"Unsupported source language: {lang_code}. "
+            f"No registered language package found for this code."
+        )
+
+
+def _discover_languages() -> None:
+    """Scan the languages/ directory and import all language packages.
+
+    Imports each package by its directory name (e.g. "chinese").
+    Each package's __init__.py calls register_language() at import time,
+    which maps its logical code (e.g. "zh") to its entry in the registry.
+    Broken packages (ImportError, etc.) are silently skipped.
+    """
+    import langmine.languages
+
+    for _, name, _ in pkgutil.iter_modules(langmine.languages.__path__):
+        if name in _LANGUAGE_REGISTRY:
+            continue
+        try:
+            importlib.import_module(f"langmine.languages.{name}")
+        except Exception:
+            # Skip packages that fail to load (missing deps, syntax errors, etc.)
+            pass
+
+
+# === Public API ===
 
 
 def get_available_languages() -> list[dict]:
     """Return list of available languages: [{code, name}, ...].
 
-    Only returns languages that successfully load (no NotImplementedError).
+    Auto-discovers language packages under languages/ and returns
+    every successfully registered language.
     """
-    available = []
-    for lang in LANGUAGES:
-        code = lang["code"]
-        try:
-            _try_load_processor(code)
-            available.append(lang)
-        except NotImplementedError:
-            continue  # skip languages not yet implemented
-        except Exception:
-            available.append(lang)  # let errors surface at call time
-    return available
-
-
-def _try_load_processor(lang_code: str) -> None:
-    """Try to instantiate a processor for lang_code. Raises if not possible.
-
-    Uses lightweight adapters just for the load check — real ports
-    are wired by the caller (app.py) via create_language_processor().
-    """
-    from langmine.adapters.google_translate import GoogleTranslateAdapter
-
-    translator = GoogleTranslateAdapter()  # any Translator works for this check
-
-    match lang_code:
-        case "zh":
-            from langmine.languages.chinese import (
-                CcCedictAdapter,
-                ChineseLanguageService,
-                SubtlexChAdapter,
-            )
-
-            ChineseLanguageService(CcCedictAdapter(), translator, SubtlexChAdapter())
-        case _:
-            raise NotImplementedError(f"Language '{lang_code}' not yet implemented.")
+    _discover_languages()
+    return [
+        {"code": code, "name": entry["name"]}
+        for code, entry in _LANGUAGE_REGISTRY.items()
+    ]
 
 
 def create_language_processor(
@@ -85,51 +150,26 @@ def create_language_processor(
         dictionary: Dictionary port implementation.
         frequency: FrequencySource port implementation.
     """
-    match config.source_language:
-        case "zh":
-            from langmine.languages.chinese import ChineseLanguageService
-
-            return ChineseLanguageService(dictionary, translator, frequency)
-
-        case "es":
-            raise NotImplementedError(
-                "Spanish language extension not yet implemented. "
-                "Create languages/spanish/ with SpanishLanguageService."
-            )
-
-        case "ko":
-            raise NotImplementedError(
-                "Korean language extension not yet implemented. "
-                "Create languages/korean/ with KoreanLanguageService."
-            )
-
-        case "ru":
-            raise NotImplementedError(
-                "Russian language extension not yet implemented. "
-                "Create languages/russian/ with RussianLanguageService."
-            )
-
-        case _:
-            raise ValueError(
-                f"Unsupported source language: {config.source_language}. "
-                "Add a language extension under languages/<lang>/."
-            )
+    _ensure_loaded(config.source_language)
+    service_class = _LANGUAGE_REGISTRY[config.source_language]["service_class"]
+    return service_class(dictionary, translator, frequency)
 
 
 def get_proficiency_level(word: str, language_code: str = "") -> int | None:
     """Return a proficiency level for a word (e.g. HSK 1-6), or None.
 
-    Delegates to the proficiency framework of the configured language.
-    Currently only Chinese (HSK) is supported. Returns None for other
-    languages or when no proficiency data matches the word.
+    Delegates to the proficiency framework registered for the language.
+    Returns None when no proficiency framework is registered or when
+    the word is not found in the framework.
     """
-    if language_code == "zh":
-        from langmine.languages.chinese.hsk_data import get_hsk_level
+    if not language_code:
+        return None
 
-        return get_hsk_level(word)
-
-    # Other languages don't have proficiency frameworks yet
-    return None
+    _ensure_loaded(language_code)
+    fn = _LANGUAGE_REGISTRY[language_code].get("get_proficiency_level")
+    if fn is None:
+        return None
+    return fn(word)
 
 
 def get_anki_templates(lang_code: str) -> dict:
@@ -137,64 +177,48 @@ def get_anki_templates(lang_code: str) -> dict:
 
     Returns dict with: basic_front, basic_back, basic_css,
     cloze_front, cloze_back, cloze_css.
-    Falls back to empty strings for unimplemented languages.
+    Falls back to empty dict for languages without templates.
     """
-    match lang_code:
-        case "zh":
-            from langmine.languages.chinese import get_anki_templates as _zh_templates
+    if not lang_code:
+        return {}
 
-            return _zh_templates()
-        case _:
-            return {}
+    _ensure_loaded(lang_code)
+    return _LANGUAGE_REGISTRY[lang_code]["get_anki_templates"]()
 
 
 def get_language_manifest(lang_code: str) -> dict:
     """Return the language manifest dict with deck_name, note_type, etc.
 
-    Returns empty dict for unimplemented languages.
+    Returns empty dict for languages without a manifest.
     """
-    match lang_code:
-        case "zh":
-            from langmine.languages.chinese import MANIFEST
+    if not lang_code:
+        return {}
 
-            return MANIFEST
-        case _:
-            return {}
+    _ensure_loaded(lang_code)
+    return _LANGUAGE_REGISTRY[lang_code]["manifest"]
+
+
+def get_transcript_languages(lang_code: str) -> list[str]:
+    """Return preferred YouTube transcript language codes for a language.
+
+    Returns empty list for languages without transcript configuration.
+    """
+    if not lang_code:
+        return []
+
+    _ensure_loaded(lang_code)
+    return _LANGUAGE_REGISTRY[lang_code]["transcript_languages"]
 
 
 def create_language_adapters(config: Config) -> tuple[Dictionary, FrequencySource]:
     """Create language-specific Dictionary and FrequencySource adapters.
 
     Called by app.py during wiring — the factory remains the single
-    module allowed to import from languages/.
+    module allowed to import from languages/ (via lazy importlib loading).
 
     Returns:
         (dictionary, frequency) tuple for the configured source language.
     """
-    match config.source_language:
-        case "zh":
-            from langmine.languages.chinese import CcCedictAdapter, SubtlexChAdapter
-
-            return CcCedictAdapter(), SubtlexChAdapter()
-
-        case "es" | "ko" | "ru":
-            raise NotImplementedError(
-                f"Language '{config.source_language}' not yet implemented."
-            )
-
-        case _:
-            raise ValueError(f"Unsupported source language: {config.source_language}.")
-
-
-def get_transcript_languages(lang_code: str) -> list[str]:
-    """Return preferred YouTube transcript language codes for a language.
-
-    Returns empty list for unimplemented languages (library default behavior).
-    """
-    match lang_code:
-        case "zh":
-            from langmine.languages.chinese import TRANSCRIPT_LANGUAGES
-
-            return TRANSCRIPT_LANGUAGES
-        case _:
-            return []
+    _ensure_loaded(config.source_language)
+    entry = _LANGUAGE_REGISTRY[config.source_language]
+    return entry["dictionary_class"](), entry["frequency_class"]()

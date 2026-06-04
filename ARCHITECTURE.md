@@ -57,7 +57,8 @@ for f in $LANG_IMPORTERS; do
 ```
 
 - [ ] No file outside `language_factory.py` or `languages/` imports from `languages/`
-- [ ] New languages added via match/case blocks in `language_factory.py`
+- [ ] Language packages self-register via `register_language()` in `__init__.py` (Open/Closed)
+- [ ] Factory discovers languages via `pkgutil.iter_modules()` — no match/case per language
 - [ ] `Translator` is injected as a port (wired in `app.py`), not hardcoded in the factory
 
 ---
@@ -177,3 +178,4 @@ Forbidden:
 | Multi-Language | | ✅ Pass | `language_code` column on videos, sentences, vocab. DB schema v2. Factory exposes templates + manifest. 200 tests pass. |
 | Architecture hardening | 2026-06-03 | ✅ Pass | Deleted dead code (`processors.py`, `hsk.py`, `domain/services/`). Moved `Translator` wiring to `app.py`. Added 5 new CI checks (factory gate, languages→adapters, adapter→adapter, leaf modules, anchored patterns). 229 tests pass across 11 architecture rules. |
 | SOLID Phase 4 — Persistence Split | 2026-06-04 | ✅ Pass | Split `Persistence` god port (17 methods) into 4 focused interfaces: `VideoRepository`, `SentenceRepository`, `VocabRepository`, `EventStore`. `Persistence` inherits from all 4 for backwards compat. `SentenceClassifier` depends on `SentenceRepository` + `VocabRepository` (3 of 17 methods). `bootstrap_proficiency` accepts `VocabRepository`. Zero test churn — all FakePersistence subclasses unchanged. 267 tests pass. |
+| SOLID Phase 5 — Language Registry | 2026-06-04 | ✅ Pass | Replaced 8 match/case blocks in `language_factory.py` with self-registration pattern. Each language package calls `register_language()` in its `__init__.py`. Factory uses `pkgutil.iter_modules()` for auto-discovery and `importlib.import_module()` for lazy loading. Adding a language no longer requires any factory edits — just create a package with standard exports. 252 tests pass, 11/11 architecture checks pass. |
