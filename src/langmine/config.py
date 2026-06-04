@@ -15,6 +15,10 @@ import yaml
 class Config:
     """LangMine configuration with sensible defaults."""
 
+    def __post_init__(self):
+        """Expand ~ in paths so downstream code gets resolved paths."""
+        self.data_dir = str(Path(self.data_dir).expanduser())
+
     # Anki
     anki_connect_url: str = "http://host.docker.internal:8765"
     deck_name: str = "Chinese::Sentence Mining"

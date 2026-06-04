@@ -13,7 +13,7 @@ pip install -e ".[dev]"
 cd src/langmine/web/frontend && npm install && npm run build && cd -
 
 # Full test suite (needs ffmpeg for audio tests)
-pytest tests/ -v
+python -m pytest tests/ -v
 
 # Linting and Formatting
 ruff check .           # Check for lint issues
@@ -25,13 +25,13 @@ pre-commit install        # Install hooks
 pre-commit run --all-files # Run all checks manually
 
 # Domain-only tests (no ffmpeg/network — always pass)
-pytest tests/ -v --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
+python -m pytest tests/ -v --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py
 
 # Architecture tests (AST-based, 0.4s)
-pytest tests/test_architecture.py -v
+python -m pytest tests/test_architecture.py -v
 
 # Single test file
-pytest tests/test_web_api.py -v
+python -m pytest tests/test_web_api.py -v
 
 # E2E tests (Playwright)
 cd src/langmine/web/frontend && npx playwright test
@@ -191,7 +191,7 @@ done
 Or run the AST-based tests for precise, false-positive-free results:
 
 ```bash
-pytest tests/test_architecture.py -v   # 11 architecture rules, ~0.4s
+python -m pytest tests/test_architecture.py -v   # 11 architecture rules, ~0.4s
 ```
 
 ## Conventions

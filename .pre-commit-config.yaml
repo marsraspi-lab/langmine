@@ -18,14 +18,14 @@ repos:
     hooks:
       - id: architecture-checks
         name: Architecture Checks (AST-based)
-        entry: bash -c "PYTHONPATH=. pytest tests/test_architecture.py -v"
+        entry: bash -c "python -m pytest tests/test_architecture.py -v"
         language: system
         pass_filenames: false
         always_run: true
 
       - id: fast-tests
         name: Fast Test Suite (No I/O)
-        entry: bash -c "PYTHONPATH=. pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py"
+        entry: bash -c "python -m pytest tests/ -q --ignore=tests/test_audio.py --ignore=tests/test_pipeline.py"
         language: system
         pass_filenames: false
         always_run: true
