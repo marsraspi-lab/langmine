@@ -65,8 +65,8 @@
 						{#if sentence.reading}
 							<div class="sentence-reading">{sentence.reading}</div>
 						{/if}
-						{#if sentence.translation_de}
-							<div class="sentence-translation">{sentence.translation_de}</div>
+						{#if sentence.translation}
+							<div class="sentence-translation">{sentence.translation}</div>
 						{/if}
 					</div>
 				{/each}

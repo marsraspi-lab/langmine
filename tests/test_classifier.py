@@ -505,3 +505,58 @@ def test_reclassify_all_sort_order():
     assert results[0].status == "i0"
     assert results[1].status == "stashed"
     assert results[2].status == "stashed"
+
+
+class SpyLanguageProcessor(FakeLanguageProcessor):
+    """LanguageProcessor that records translate_sentence calls."""
+
+    def __init__(self):
+        super().__init__()
+        self.translate_calls: list[str] = []
+
+    def translate_sentence(self, text: str) -> str:
+        self.translate_calls.append(text)
+        return f"[MT] {text}"
+
+
+class TestEnrichSkipsMT:
+    """enrich() should skip MT when translation is already set
+    (e.g., from subtitle alignment)."""
+
+    def test_enrich_skips_mt_when_translation_present(self):
+        processor = SpyLanguageProcessor()
+        persistence = FakePersistence()
+        classifier = SentenceClassifier(processor, persistence)
+
+        sentence = Sentence(
+            text="你好",
+            text_segmented="你好",
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            translation="Hallo",
+        )
+        classifier.enrich([sentence])
+
+        # Translation was already "Hallo" — should not have called MT
+        assert sentence.translation == "Hallo"
+        assert len(processor.translate_calls) == 0
+
+    def test_enrich_calls_mt_when_translation_empty(self):
+        processor = SpyLanguageProcessor()
+        persistence = FakePersistence()
+        classifier = SentenceClassifier(processor, persistence)
+
+        sentence = Sentence(
+            text="你好",
+            text_segmented="你好",
+            video_id=1,
+            start_ms=0,
+            end_ms=1000,
+            translation="",
+        )
+        classifier.enrich([sentence])
+
+        # Translation was empty — should have called MT
+        assert sentence.translation == "[MT] 你好"
+        assert len(processor.translate_calls) == 1

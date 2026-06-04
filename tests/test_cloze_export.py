@@ -21,7 +21,7 @@ def _make_sentence(
         text=text,
         text_segmented=text.replace(" ", " / "),
         reading=reading,
-        translation_de=translation,
+        translation=translation,
         unknown_word=unknown,
         unknown_word_rank=1847,
         audio_clip_path=audio,

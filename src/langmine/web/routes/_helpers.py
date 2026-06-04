@@ -18,7 +18,7 @@ from langmine.domain.ports import (
 )
 
 VALID_SENTENCE_STATUSES = {"kept", "deleted"}
-EDITABLE_FIELDS = {"reading", "translation_de", "text_segmented"}
+EDITABLE_FIELDS = {"reading", "translation", "text_segmented"}
 
 
 def _get_language_code() -> str:
@@ -174,7 +174,7 @@ def _sentence_to_dict(
         "text": sentence.text,
         "text_segmented": sentence.text_segmented,
         "reading": sentence.reading,
-        "translation_de": sentence.translation_de,
+        "translation": sentence.translation,
         "unknown_word": sentence.unknown_word,
         "unknown_word_rank": sentence.unknown_word_rank,
         "start_ms": sentence.start_ms,

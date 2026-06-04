@@ -200,7 +200,7 @@ class TestRubyAPI:
             text="你好",
             text_segmented="你 / 好",
             reading="ni3 hao3",
-            translation_de="Hallo",
+            translation="Hallo",
             annotation_json=ruby,
             status="kept",
         )

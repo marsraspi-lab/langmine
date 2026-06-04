@@ -24,7 +24,7 @@ sentences_bp = Blueprint("sentences", __name__)
 
 @sentences_bp.route("/api/sentences/<int:sentence_id>", methods=["PATCH"])
 def update_sentence(sentence_id: int):
-    """Update sentence fields: status, reading, translation_de, text_segmented.
+    """Update sentence fields: status, reading, translation, text_segmented.
 
     text_segmented changes trigger re-classification of unknown words.
     """
@@ -102,7 +102,7 @@ def update_sentence(sentence_id: int):
 def merge_with_previous(sentence_id: int):
     """Merge sentence B into the previous sentence A (M24).
 
-    Concatenates text, text_segmented, reading, translation_de.
+    Concatenates text, text_segmented, reading, translation.
     Re-enriches NLP fields. Re-generates audio clip for merged span.
     Marks sentence B as deleted.
     """
@@ -140,16 +140,19 @@ def merge_with_previous(sentence_id: int):
             sentence_a.reading += " " + sentence_b.reading
         else:
             sentence_a.reading = sentence_b.reading
-    if sentence_b.translation_de:
-        if sentence_a.translation_de:
-            sentence_a.translation_de += " " + sentence_b.translation_de
+    if sentence_b.translation:
+        if sentence_a.translation:
+            sentence_a.translation += " " + sentence_b.translation
         else:
-            sentence_a.translation_de = sentence_b.translation_de
+            sentence_a.translation = sentence_b.translation
 
     # Span timing
     sentence_a.end_ms = sentence_b.end_ms
 
-    # Re-enrich NLP for the merged text (reading, translation, annotations)
+    # Re-enrich NLP for the merged text (reading, translation, annotations).
+    # Clear translation first — the text changed, so the old translation
+    # is stale and enrich() now skips MT for pre-populated translations.
+    sentence_a.translation = ""
     processor = _get_processor()
     if processor:
         classifier = _get_classifier()
@@ -288,6 +291,39 @@ def serve_screenshot(sentence_id: int):
         mimetype="image/jpeg",
         as_attachment=False,
     )
+
+
+@sentences_bp.route("/api/sentences/<int:sentence_id>/screenshot", methods=["DELETE"])
+def delete_screenshot(sentence_id: int):
+    """Delete the screenshot for a sentence (both file and database reference)."""
+    persistence = _get_persistence()
+    sentence = _find_sentence(persistence, sentence_id)
+    if sentence is None:
+        return jsonify({"error": "Sentence not found"}), 404
+
+    if not sentence.screenshot_path:
+        return jsonify({"error": "No screenshot to delete"}), 404
+
+    # Remove the file from disk
+    expanded_path = os.path.expanduser(sentence.screenshot_path)
+    try:
+        os.remove(expanded_path)
+    except FileNotFoundError:
+        pass  # File already gone — still clear the DB reference
+
+    # Clear the path in the model and persist
+    sentence.screenshot_path = ""
+    persistence.update_sentence(sentence)
+
+    persistence.log_event(
+        entity_type="sentence",
+        entity_id=sentence.id,
+        action="screenshot_deleted",
+        new_value="deleted",
+        language_code=sentence.language_code,
+    )
+
+    return jsonify({"ok": True})
 
 
 # === Image Search API (M12) ===

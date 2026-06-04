@@ -450,13 +450,15 @@ export class SubtitleChip {
 	}
 
 	get chip() {
-		return this.page.locator('.subtitle-chip');
+		// First subtitle-chip is always the source language one
+		return this.page.locator('.subtitle-chip').first();
 	}
 	get langSelect() {
-		return this.page.locator('select.sub-lang-select');
+		// Only the source subtitle dropdown (first .sub-lang-row)
+		return this.page.locator('.sub-lang-row:first-of-type select.sub-lang-select');
 	}
 	get langOptions() {
-		return this.page.locator('select.sub-lang-select option');
+		return this.page.locator('.sub-lang-row:first-of-type select.sub-lang-select option');
 	}
 	get videoBadges() {
 		return this.page.locator('.sub-badge');
@@ -467,7 +469,7 @@ export class SubtitleChip {
 	}
 
 	async expectChipVisible(kind) {
-		await expect(this.page.locator(`.subtitle-chip.${kind}`)).toBeVisible();
+		await expect(this.page.locator(`.subtitle-chip.${kind}`).first()).toBeVisible();
 	}
 
 	async expectChipText(text) {

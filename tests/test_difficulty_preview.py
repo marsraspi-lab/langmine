@@ -299,7 +299,7 @@ class TestDifficultyPreview:
         assert "non-word" in s3_statuses  # 很
 
     def test_preview_includes_segmented_pinyin_translation(self, client):
-        """Preview sentences include text_segmented, pinyin, and translation_de."""
+        """Preview sentences include text_segmented, pinyin, and translation."""
         resp = client.post(
             "/api/videos/preview",
             json={"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
@@ -309,7 +309,7 @@ class TestDifficultyPreview:
 
         assert " / " in s["text_segmented"]
         assert s["reading"].startswith("py:")
-        assert s["translation_de"].startswith("[DE]")
+        assert s["translation"].startswith("[DE]")
         assert "start_ms" in s
         assert "end_ms" in s
         assert "unknown_count" in s

@@ -65,7 +65,7 @@ class Sentence:
     text_segmented: str = ""  # "我们 / 一般 / 早上 / 七点 / 起床"
     non_words_json: str = ""  # JSON list of filtered-out tokens
     reading: str = ""  # Phonetic: pinyin for zh, IPA for es, romanization for ko
-    translation_de: str = ""  # German translation
+    translation: str = ""  # German translation
     unknown_word: str | None = None  # the i+1 target word
     unknown_word_rank: int | None = None
     known_synonyms_json: str = ""  # JSON list of known synonyms

@@ -27,7 +27,7 @@ _DEFAULT_BACK = (
     "{{#audio}}{{audio}}{{/audio}}"
     '<hr id="answer">'
     '<div class="reading">{{sentence_reading}}</div>'
-    '<div class="translation">{{translation_de}}</div>'
+    '<div class="translation">{{translation}}</div>'
     "{{#unknown_word}}"
     '<div class="word">🆕 {{unknown_word}}</div>'
     "{{/unknown_word}}"
@@ -171,7 +171,7 @@ class AnkiConnectAdapter(AnkiExporter):
                     "fields": {
                         "sentence_zh": sentence_text,
                         "sentence_reading": s.reading or "",
-                        "translation_de": s.translation_de or "",
+                        "translation": s.translation or "",
                         "unknown_word": s.unknown_word or "",
                         "audio": audio_field,
                         "screenshot": screenshot_field,
@@ -239,7 +239,7 @@ class AnkiConnectAdapter(AnkiExporter):
             "inOrderFields": [
                 "sentence_zh",
                 "sentence_reading",
-                "translation_de",
+                "translation",
                 "unknown_word",
                 "audio",
                 "screenshot",

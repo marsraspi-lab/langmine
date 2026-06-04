@@ -34,11 +34,16 @@ def process_video(
     config,
     progress_callback=None,
     subtitle_language: str = "",
+    target_subtitle_language: str = "",
 ) -> dict:
     """Mine and classify all sentences from a video.
 
-    Full pipeline: transcript → merge → classify → persist.
+    Full pipeline: transcript → merge → classify → enrich → persist.
     Uses injected ports — no direct YouTube/ffmpeg/SQLite dependencies.
+
+    If target_subtitle_language is provided, fetches target-language
+    subtitles and uses time-overlap alignment to set sentence.translation
+    before enrichment. Enrich fills gaps via MT.
 
     Returns:
         Dict with: i1_candidates (list[Sentence]), i0_count, stash_count,
@@ -72,6 +77,26 @@ def process_video(
     sentences = _classify_and_bootstrap(
         classifier, language_processor, persistence, video, merged, max_cards, config
     )
+
+    # 3.5 Align target-language subtitles as translations (if selected)
+    if target_subtitle_language:
+        try:
+            target_chunks = transcript_source.fetch(
+                video_id, language=target_subtitle_language
+            )
+            if target_chunks:
+                from langmine.subtitle_aligner import align_target_subtitles
+
+                align_target_subtitles(sentences, target_chunks)
+                _progress(
+                    f"Aligned {sum(1 for s in sentences if s.translation)} "
+                    f"translations from {target_subtitle_language} subtitles."
+                )
+        except Exception:
+            _progress(
+                f"Target subtitle '{target_subtitle_language}' unavailable, "
+                f"falling back to MT."
+            )
 
     # 4. Enrich and capture screenshots
     _progress("Enriching with translations…")

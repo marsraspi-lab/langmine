@@ -8,7 +8,7 @@ SQLitePersistence (the Persistence port adapter), not directly by domain code.
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS sentences (
     text_segmented TEXT,
     non_words_json TEXT,
     reading TEXT,
-    translation_de TEXT,
+    translation TEXT,
     unknown_word TEXT,
     unknown_word_rank INTEGER,
     known_synonyms_json TEXT,
@@ -185,6 +185,16 @@ class Database:
                     )
                 except sqlite3.OperationalError:
                     pass  # Column already renamed or doesn't exist
+
+        if current < 7:
+            # v6 → v7: renamed translation_de → translation on sentences
+            # (language-agnostic field name; was German-specific)
+            try:
+                self._conn.execute(
+                    "ALTER TABLE sentences RENAME COLUMN translation_de TO translation"
+                )
+            except sqlite3.OperationalError:
+                pass  # Column already renamed or doesn't exist
 
         self._conn.execute(
             "UPDATE schema_version SET version = ? WHERE version < ?",

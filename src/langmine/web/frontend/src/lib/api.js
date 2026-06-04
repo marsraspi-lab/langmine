@@ -53,16 +53,21 @@ export const api = {
 		})),
 	/** Stream mine progress via SSE. Returns an async generator yielding
 	 *  {status: "message"} for progress, then the final result object. */
-	mineVideoStream: async function* (url, file = null, language = '') {
+	mineVideoStream: async function* (url, file = null, language = '', targetLanguage = '') {
 		let body;
 		if (file) {
 			const formData = new FormData();
 			formData.append('url', url);
 			formData.append('file', file);
 			if (language) formData.append('language', language);
+			if (targetLanguage) formData.append('target_subtitle_language', targetLanguage);
 			body = formData;
 		} else {
-			body = JSON.stringify({ url, ...(language ? { language } : {}) });
+			body = JSON.stringify({
+				url,
+				...(language ? { language } : {}),
+				...(targetLanguage ? { target_subtitle_language: targetLanguage } : {})
+			});
 		}
 		const headers = { Accept: 'text/event-stream' };
 		if (!file) headers['Content-Type'] = 'application/json';
@@ -104,7 +109,13 @@ export const api = {
 			card_type: cardType
 		}),
 	reclassifySentences: (videoId, offset = 0, limit = 50) =>
-		post(`/videos/${videoId}/reclassify?offset=${offset}&limit=${limit}`)
+		post(`/videos/${videoId}/reclassify?offset=${offset}&limit=${limit}`),
+	deleteScreenshot: (sentenceId) =>
+		fetch(BASE + `/sentences/${sentenceId}/screenshot`, { method: 'DELETE' }).then(async (res) => {
+			const data = await res.json();
+			if (!res.ok) throw new Error(data.error || 'Failed to delete screenshot');
+			return data;
+		})
 };
 
 // Vocab API calls

@@ -32,7 +32,7 @@ class TestClozeConfig:
         cfg = Config()
         assert hasattr(cfg, "cloze_card_back_template")
         assert "{{sentence_reading}}" in cfg.cloze_card_back_template
-        assert "{{translation_de}}" in cfg.cloze_card_back_template
+        assert "{{translation}}" in cfg.cloze_card_back_template
 
     def test_cloze_roundtrip_through_dict(self):
         """Cloze fields survive config_to_dict → dict_to_config roundtrip."""

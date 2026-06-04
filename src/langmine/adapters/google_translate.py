@@ -3,7 +3,11 @@
 Implements the Translator port.
 """
 
+import logging
+
 from langmine.domain.ports import Translator
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleTranslateAdapter(Translator):
@@ -32,5 +36,6 @@ class GoogleTranslateAdapter(Translator):
             src = "zh-CN" if source_lang == "zh" else source_lang
             result = GoogleTranslator(source=src, target=target_lang).translate(text)
             return result if result else ""
-        except Exception:
+        except Exception as e:
+            logger.warning("Google Translate failed for text %r: %s", text[:80], e)
             return ""
