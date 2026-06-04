@@ -225,7 +225,7 @@ class ChineseLanguageService(LanguageProcessor):
 
     def bootstrap_proficiency(
         self,
-        persistence,
+        vocab_repo,
         max_level: int,
         language_code: str,
     ) -> None:
@@ -256,10 +256,10 @@ class ChineseLanguageService(LanguageProcessor):
         for word, word_level in hsk_words.items():
             if word_level > max_level:
                 continue
-            existing = persistence.get_vocab_word(word)
+            existing = vocab_repo.get_vocab_word(word)
             if existing is not None:
                 continue  # Don't overwrite user modifications
-            persistence.save_vocab_word(
+            vocab_repo.save_vocab_word(
                 VocabWord(
                     word_simplified=word,
                     hsk_level=word_level,

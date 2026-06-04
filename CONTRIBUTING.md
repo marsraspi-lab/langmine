@@ -155,18 +155,27 @@ Forbidden:
 
 ### Ports (abstract interfaces in `domain/ports.py`)
 
+LangMine follows the **Interface Segregation Principle** — consumers depend on the narrowest interface they need:
+
 | Port | Adapters | What it abstracts |
 |------|----------|------------------|
-| `Persistence` | `SQLitePersistence` | Database — store videos, sentences, vocab |
-| `LanguageProcessor` | Factory + `languages/*/service.py` | NLP — segment, reading, dictionary, frequency |
+| `VideoRepository` | (via `Persistence`) | Video CRUD — save, get, list, delete |
+| `SentenceRepository` | (via `Persistence`) | Sentence queries and updates — classify, reclassify, curate |
+| `VocabRepository` | (via `Persistence`) | Vocabulary management — known words, word status, stats |
+| `EventStore` | (via `Persistence`) | Append-only event log for audit trail |
+| `Persistence` | `SQLitePersistence` | **Composite** of all 4 above — backwards compat for routes |
+| `LanguageProcessor` | Factory + `languages/*/service.py` | NLP — segment, reading, dictionary, frequency, annotation |
 | `TranscriptSource` | `YouTubeTranscriptAdapter` | Subtitles — fetch from YouTube |
 | `AudioProcessor` | `YtdlpAudioAdapter` | Audio — download MP3, clip sentences, capture frames |
 | `Translator` | `GoogleTranslateAdapter` | Sentence translation (via deep-translator) |
 | `Dictionary` | `languages/*/dictionary.py` (e.g. CC-CEDICT) | Word lookup |
 | `FrequencySource` | `languages/*/frequency.py` (e.g. SUBTLEX-CH) | Word frequency |
 | `AnkiExporter` | `AnkiConnectAdapter` | Flashcard export (AnkiConnect JSON-RPC) |
+| `ImageSearch` | `GoogleImageSearchAdapter` | Image search for cloze card hints |
 
-**Adding a language:** Create `languages/<code>/` with 5 files + template directory: `__init__.py` (with `MANIFEST` dict + `get_anki_templates()`), `service.py`, `dictionary.py`, `frequency.py`, and `anki/` directory with `basic/` and `cloze/` subdirectories containing `front.html`, `back.html`, `css.css`. Add `case "<code>"` to all match/case blocks in `language_factory.py` and add an entry to the `LANGUAGES` list. No code changes needed in domain, web, or adapters.
+**New code should depend on the narrowest interface** (e.g. `SentenceRepository` + `VocabRepository` instead of `Persistence`). Existing routes use `Persistence` for backwards compatibility.
+
+**Adding a language:** Create `languages/<code>/` with 5 files + template directory: `__init__.py` (with `MANIFEST` dict + `get_anki_templates()`), `service.py` (implementing `LanguageProcessor`, where `bootstrap_proficiency` accepts a `VocabRepository`), `dictionary.py`, `frequency.py`, and `anki/` directory with `basic/` and `cloze/` subdirectories containing `front.html`, `back.html`, `css.css`. Add `case "<code>"` to all match/case blocks in `language_factory.py` and add an entry to the `LANGUAGES` list. No code changes needed in domain, web, or adapters.
 
 ### Testing with Fake Ports
 
