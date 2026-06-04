@@ -64,19 +64,21 @@ def test_data_dir_created_on_first_load():
 
 
 def test_data_dir_default_and_round_trip():
-    """Config data_dir should default to ~/.langmine/data and survive YAML round-trip."""
+    """Config data_dir should expand ~ and survive YAML round-trip."""
+    from pathlib import Path
+
     from langmine.config import save_config
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Default value
+        # Default value — ~ is expanded to the user's home directory
         config = load_config(config_dir=tmpdir)
-        assert config.data_dir == "~/.langmine/data"
+        assert config.data_dir == str(Path.home() / ".langmine" / "data")
 
         # Override and save
         config.data_dir = "/custom/data/path"
         save_config(config, config_dir=tmpdir)
 
-        # Reload and verify
+        # Reload and verify (no ~ to expand, so round-trips as-is)
         config2 = load_config(config_dir=tmpdir)
         assert config2.data_dir == "/custom/data/path"
 
