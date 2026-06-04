@@ -5,7 +5,7 @@ Defines the Config dataclass (all tunables with defaults), loads from
 No dependency on adapters or domain — safe to import from any layer.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -96,8 +96,8 @@ class Config:
     google_api_key: str = ""
     google_cse_id: str = ""
 
-    # HSK bootstrapping (M21)
-    hsk_bootstrap_level: int = 0  # 0=disabled, 1-6=pre-mark HSK ≤ N as known
+    # Language-specific settings (per-language mining config)
+    language_settings: dict[str, dict] = field(default_factory=dict)
 
 
 def load_config(config_dir: str | None = None) -> Config:
@@ -152,7 +152,6 @@ def _config_to_dict(config: Config) -> dict:
             "audio_pad_after_ms": config.audio_pad_after_ms,
             "max_cards_per_video": config.max_cards_per_video,
             "max_stash_cards": config.max_stash_cards,
-            "hsk_bootstrap_level": config.hsk_bootstrap_level,
         },
         "storage": {
             "data_dir": config.data_dir,
@@ -162,6 +161,7 @@ def _config_to_dict(config: Config) -> dict:
             "google_api_key": config.google_api_key,
             "google_cse_id": config.google_cse_id,
         },
+        "language_settings": config.language_settings,
     }
 
 
@@ -206,7 +206,7 @@ def _dict_to_config(data: dict) -> Config:
         audio_pad_after_ms=data["mining"]["audio_pad_after_ms"],
         max_cards_per_video=data["mining"]["max_cards_per_video"],
         max_stash_cards=data["mining"]["max_stash_cards"],
-        hsk_bootstrap_level=data["mining"].get("hsk_bootstrap_level", 0),
+        language_settings=data.get("language_settings", {}),
         data_dir=data.get("storage", {}).get("data_dir", "~/.langmine/data"),
         user_agent=data.get("network", {}).get("user_agent", ""),
         google_api_key=data.get("network", {}).get("google_api_key", ""),

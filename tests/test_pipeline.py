@@ -51,8 +51,8 @@ class FakeChineseProcessor(LanguageProcessor):
     def get_annotation(self, text: str) -> str:
         return "[]"
 
-    def bootstrap_proficiency(self, persistence, max_level, language_code):
-        self.bootstrap_calls.append((max_level, language_code))
+    def bootstrap_proficiency(self, persistence, settings, language_code):
+        self.bootstrap_calls.append((settings, language_code))
 
 
 class FakeTranscript(TranscriptSource):
@@ -345,7 +345,7 @@ def test_process_video_bootstraps_proficiency():
     from langmine.config import Config
 
     boot_config = Config()
-    boot_config.hsk_bootstrap_level = "3"
+    boot_config.language_settings = {"zh": {"bootstrap_level": 3}}
     boot_config.source_language = "zh"
     process_video(
         transcript_source=transcript,
@@ -357,7 +357,7 @@ def test_process_video_bootstraps_proficiency():
         config=boot_config,
     )
 
-    assert processor.bootstrap_calls == [(3, "zh")]
+    assert processor.bootstrap_calls == [({"bootstrap_level": 3}, "zh")]
 
 
 def test_process_video_skips_i0_screenshots():

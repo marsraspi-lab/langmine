@@ -218,6 +218,38 @@ export class SettingsPage {
 		await this.ankiUrlInput.fill(name);
 		await this.saveBtn.click();
 	}
+
+	// Language-specific settings section (dynamic from schema)
+
+	get langSpecificSection() {
+		return this.page.locator('.settings-section', { hasText: 'Language-Specific' });
+	}
+
+	get langSpecificHeading() {
+		return this.langSpecificSection.locator('h3');
+	}
+
+	get bootstrapLevelSelect() {
+		return this.langSpecificSection.locator('select[name="bootstrap_level"]');
+	}
+
+	get bootstrapHint() {
+		return this.langSpecificSection.locator('.hint');
+	}
+
+	async expectLangSpecificVisible(langCode = 'zh') {
+		await expect(this.langSpecificHeading).toContainText(`Language-Specific: ${langCode}`);
+		await expect(this.bootstrapLevelSelect).toBeVisible();
+		await expect(this.bootstrapHint).toContainText('pre-marked known');
+	}
+
+	async selectBootstrapLevel(level) {
+		await this.bootstrapLevelSelect.selectOption(String(level));
+	}
+
+	async expectBootstrapLevelSelected(level) {
+		await expect(this.bootstrapLevelSelect).toHaveValue(String(level));
+	}
 }
 
 // ── Reading mode (TranscriptView) ──────────────────────────────────────

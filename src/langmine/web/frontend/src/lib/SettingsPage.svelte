@@ -23,15 +23,20 @@
 		for (const [key, val] of data.entries()) {
 			updates[key] = val;
 		}
-		// Convert numeric fields
+		// Convert numeric fields (global + language-specific)
 		const numericFields = [
 			'sentence_gap_ms',
 			'audio_pad_before_ms',
 			'audio_pad_after_ms',
 			'max_cards_per_video',
-			'max_stash_cards',
-			'hsk_bootstrap_level'
+			'max_stash_cards'
 		];
+		// Add language-specific numeric fields from schema
+		for (const field of app.languageSettingsSchema) {
+			if (field.type === 'number' || field.type === 'select') {
+				numericFields.push(field.key);
+			}
+		}
 		for (const field of numericFields) {
 			if (updates[field] !== undefined) {
 				updates[field] = parseInt(updates[field], 10);
@@ -131,20 +136,37 @@
 					max="100"
 				/>
 			</label>
-			<label>
-				HSK Bootstrap Level
-				<select name="hsk_bootstrap_level" value={app.config.hsk_bootstrap_level ?? 0}>
-					<option value="0">Off</option>
-					<option value="1">HSK 1</option>
-					<option value="2">HSK 2</option>
-					<option value="3">HSK 3</option>
-					<option value="4">HSK 4</option>
-					<option value="5">HSK 5</option>
-					<option value="6">HSK 6</option>
-				</select>
-				<span class="hint">Words ≤ this level are pre-marked known during mining.</span>
-			</label>
 		</section>
+
+		{#if app.languageSettingsSchema.length > 0}
+			<section class="settings-section">
+				<h3>Language-Specific: {app.currentLanguage}</h3>
+				{#each app.languageSettingsSchema as field (field.key)}
+					<label>
+						{field.label}
+						{#if field.type === 'select'}
+							<select name={field.key}>
+								{#each field.options as opt (opt.value)}
+									<option
+										value={opt.value}
+										selected={(app.config.language_settings?.[app.currentLanguage]?.[field.key] ??
+											field.default) === opt.value}>{opt.label}</option
+									>
+								{/each}
+							</select>
+						{:else if field.type === 'number'}
+							<input
+								type="number"
+								name={field.key}
+								value={app.config.language_settings?.[app.currentLanguage]?.[field.key] ??
+									field.default}
+							/>
+						{/if}
+						{#if field.hint}<span class="hint">{field.hint}</span>{/if}
+					</label>
+				{/each}
+			</section>
+		{/if}
 
 		<section class="settings-section">
 			<h3>Network</h3>

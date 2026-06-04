@@ -106,20 +106,20 @@ class LanguageProcessor(ABC):
     def bootstrap_proficiency(
         self,
         vocab_repo: "VocabRepository",
-        max_level: int,
+        settings: dict,
         language_code: str,
     ) -> None:
         """Pre-mark words from a proficiency framework as known.
 
         Called once per video during mining. The implementation decides which
         proficiency framework to use (HSK for Chinese, JLPT for Japanese, etc.)
-        and marks words at or below max_level as known in the vocabulary.
+        and reads its configuration from the language-specific settings dict.
 
         Default: no-op. Override in language-specific services.
         Args:
             vocab_repo: Vocab repository to mark words in.
-            max_level: Maximum proficiency level to bootstrap (e.g. 3 = HSK 1-3).
-                No-op when <= 0.
+            settings: Language-specific settings dict (e.g. {"bootstrap_level": 3}).
+                The service interprets its own keys. Empty dict = use defaults.
             language_code: Language to scope the bootstrap to (e.g. 'zh').
         """
         return  # default no-op
