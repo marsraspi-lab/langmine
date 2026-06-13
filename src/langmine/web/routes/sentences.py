@@ -373,7 +373,9 @@ def update_annotation(sentence_id: int):
     annotation = _parse_annotation_json(sentence.annotation_json)
     if not isinstance(annotation, list) or index < 0 or index >= len(annotation):
         return jsonify(
-            {"error": f"Index {index} out of range (0-{len(annotation) - 1 if annotation else -1})"}
+            {
+                "error": f"Index {index} out of range (0-{len(annotation) - 1 if annotation else -1})"
+            }
         ), 400
 
     _update_annotation_entry(annotation[index], data)

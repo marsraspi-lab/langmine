@@ -117,9 +117,11 @@ def _dismiss_proper_name(persistence, word, lang):
     """Dismiss a proper-name classification, reverting to 'learning'."""
     persistence.mark_word_learning(word)
     persistence.log_event(
-        entity_type="word", entity_id=0,
+        entity_type="word",
+        entity_id=0,
         action="dismissed_proper_name",
-        old_value="proper-name", new_value="learning",
+        old_value="proper-name",
+        new_value="learning",
         language_code=lang,
     )
 
@@ -131,11 +133,13 @@ def _mark_proper_name(persistence, word, lang):
         existing.status = "proper-name"
     else:
         from langmine.domain.models import VocabWord
+
         persistence.save_vocab_word(
             VocabWord(word_simplified=word, status="proper-name", language_code=lang)
         )
     persistence.log_event(
-        entity_type="word", entity_id=0,
+        entity_type="word",
+        entity_id=0,
         action="marked_proper_name",
         old_value=existing.status if existing else "unknown",
         new_value="proper-name",
@@ -151,10 +155,14 @@ def _apply_word_status(persistence, word, lang, new_status):
         "proper-name": ("marked_proper_name", persistence.mark_word_ignored),
         "learning": ("marked_learning", persistence.mark_word_learning),
     }
-    action, handler = actions.get(new_status, ("marked_learning", persistence.mark_word_learning))
+    action, handler = actions.get(
+        new_status, ("marked_learning", persistence.mark_word_learning)
+    )
     handler(word)
     persistence.log_event(
-        entity_type="word", entity_id=0,
-        action=action, new_value=word,
+        entity_type="word",
+        entity_id=0,
+        action=action,
+        new_value=word,
         language_code=lang,
     )

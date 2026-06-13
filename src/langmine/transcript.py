@@ -175,11 +175,13 @@ def _parse_srt(path: Path) -> list[TranscriptChunk]:
             continue
 
         start_ms, duration_ms = ts_ms
-        chunks.append(TranscriptChunk(
-            text=text,
-            start_ms=float(start_ms),
-            duration_ms=float(duration_ms),
-        ))
+        chunks.append(
+            TranscriptChunk(
+                text=text,
+                start_ms=float(start_ms),
+                duration_ms=float(duration_ms),
+            )
+        )
 
     return chunks
 
@@ -206,7 +208,7 @@ def _parse_srt_timestamp(line: str, pattern: re.Pattern) -> tuple[int, int] | No
 
 def _extract_srt_text(lines: list[str], ts_idx: int) -> str:
     """Extract subtitle text from lines after the timestamp."""
-    text_lines = lines[ts_idx + 1:]
+    text_lines = lines[ts_idx + 1 :]
     return " ".join(line.strip() for line in text_lines if line.strip())
 
 
@@ -253,11 +255,13 @@ def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
             continue
 
         lang_code, lang_name = parsed
-        subtitles.append(SubtitleInfo(
-            language_code=lang_code,
-            language_name=lang_name,
-            kind=section,
-        ))
+        subtitles.append(
+            SubtitleInfo(
+                language_code=lang_code,
+                language_name=lang_name,
+                kind=section,
+            )
+        )
 
     return subtitles
 

@@ -289,7 +289,16 @@ class FakeAudioProcessor(AudioProcessor):
     def download(self, video_id, output_dir):
         return f"{output_dir}/{video_id}.mp3"
 
-    def clip(self, audio_path, start_ms, end_ms, pad_before_ms, pad_after_ms, output_dir, sentence_id):
+    def clip(
+        self,
+        audio_path,
+        start_ms,
+        end_ms,
+        pad_before_ms,
+        pad_after_ms,
+        output_dir,
+        sentence_id,
+    ):
         return "/tmp/clip.mp3"
 
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):

@@ -31,7 +31,9 @@ def export_anki():
         return jsonify({"error": "No kept sentences to export"}), 400
 
     try:
-        result = _do_anki_export(exporter, persistence, sentences, card_type, force_update)
+        result = _do_anki_export(
+            exporter, persistence, sentences, card_type, force_update
+        )
         return jsonify(result)
     except ConnectionError as e:
         return jsonify({"error": str(e)}), 503
