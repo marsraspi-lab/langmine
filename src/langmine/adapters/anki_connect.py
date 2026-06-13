@@ -102,9 +102,13 @@ class AnkiConnectAdapter(AnkiExporter):
 
         try:
             self._export_setup_deck_and_model(
-                deck_name, note_type_name,
-                css=css, front=front, back=back,
-                is_cloze=is_cloze, force_update_model=force_update_model,
+                deck_name,
+                note_type_name,
+                css=css,
+                front=front,
+                back=back,
+                is_cloze=is_cloze,
+                force_update_model=force_update_model,
             )
         except Exception as e:
             raise ConnectionError(
@@ -117,14 +121,16 @@ class AnkiConnectAdapter(AnkiExporter):
 
         # 5. Build notes
         notes = self._export_build_notes(
-            sentences, media_refs, screenshot_refs,
-            deck_name, note_type_name, is_cloze,
+            sentences,
+            media_refs,
+            screenshot_refs,
+            deck_name,
+            note_type_name,
+            is_cloze,
         )
 
         # 6-7. Deduplicate and add notes
-        note_ids, added, duplicates = self._export_deduplicate_and_add(
-            notes, errors
-        )
+        note_ids, added, duplicates = self._export_deduplicate_and_add(notes, errors)
 
         return {
             "note_ids": note_ids,
@@ -186,7 +192,9 @@ class AnkiConnectAdapter(AnkiExporter):
                 except Exception as e:
                     errors.append(f"Audio for sentence {s.id}: {e}")
             if s.screenshot_path and os.path.exists(s.screenshot_path):
-                ss_name = f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
+                ss_name = (
+                    f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
+                )
                 try:
                     self._store_media(ss_name, s.screenshot_path)
                     screenshot_refs[i] = ss_name
