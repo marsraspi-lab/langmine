@@ -92,9 +92,6 @@ class AnkiConnectAdapter(AnkiExporter):
         is_cloze = card_type == "cloze"
 
         errors: list[str] = []
-        added = 0
-        duplicates = 0
-        note_ids: list[int] = []
 
         try:
             self._export_setup_deck_and_model(
@@ -117,28 +114,10 @@ class AnkiConnectAdapter(AnkiExporter):
             deck_name, note_type_name, is_cloze,
         )
 
-        # 6. Check for duplicates
-        new_notes = notes
-        try:
-            dup_result = self._invoke("canAddNotes", {"notes": notes})
-            dupes = dup_result.get("result", [])
-            new_notes = []
-            for j, dup in enumerate(dupes):
-                if dup is None:
-                    new_notes.append(notes[j])
-                else:
-                    duplicates += 1
-        except Exception:
-            pass
-
-        # 7. Add non-duplicate notes
-        if new_notes:
-            try:
-                result = self._invoke("addNotes", {"notes": new_notes})
-                note_ids = result.get("result", [])
-                added = len(note_ids)
-            except Exception as e:
-                errors.append(f"Failed to add notes: {e}")
+        # 6-7. Deduplicate and add notes
+        note_ids, added, duplicates = self._export_deduplicate_and_add(
+            notes, errors
+        )
 
         return {
             "note_ids": note_ids,
@@ -232,6 +211,38 @@ class AnkiConnectAdapter(AnkiExporter):
             self._update_model_templates(
                 note_type_name, css=css, front=front, back=back, is_cloze=is_cloze
             )
+
+    def _export_deduplicate_and_add(
+        self,
+        notes: list[dict],
+        errors: list[str],
+    ) -> tuple[list[int], int, int]:
+        """Check duplicates, add non-duplicate notes. Returns (note_ids, added, duplicates)."""
+        duplicates = 0
+        new_notes = notes
+        try:
+            dup_result = self._invoke("canAddNotes", {"notes": notes})
+            dupes = dup_result.get("result", [])
+            new_notes = []
+            for j, dup in enumerate(dupes):
+                if dup is None:
+                    new_notes.append(notes[j])
+                else:
+                    duplicates += 1
+        except Exception:
+            pass
+
+        note_ids: list[int] = []
+        added = 0
+        if new_notes:
+            try:
+                result = self._invoke("addNotes", {"notes": new_notes})
+                note_ids = result.get("result", [])
+                added = len(note_ids)
+            except Exception as e:
+                errors.append(f"Failed to add notes: {e}")
+
+        return note_ids, added, duplicates
 
     def _invoke(self, action: str, params: dict | None = None) -> dict:
         """Call an AnkiConnect action via JSON-RPC."""
