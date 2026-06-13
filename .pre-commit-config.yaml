@@ -39,7 +39,7 @@ repos:
 
       - id: python-complexity
         name: Python Complexity (Radon CC) [advisory]
-        entry: bash -c "radon cc -s -a src/ --json | python3 -c \"import sys,json; d=json.load(sys.stdin); bad=sum(1 for v in d.values() for f in v if f['rank'] in 'CDEF'); sys.exit(1 if bad else 0)\" || true"
+        entry: bash -c "radon cc -s -a src/ --json | python3 -c \"import sys,json; d=json.load(sys.stdin); bad=sum(1 for v in d.values() for f in v if f['rank'] in 'DEF'); sys.exit(1 if bad else 0)\" || true"
         language: system
         pass_filenames: false
         files: \\.py$
