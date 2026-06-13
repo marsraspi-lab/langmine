@@ -147,52 +147,34 @@ def _parse_srt(path: Path) -> list[TranscriptChunk]:
         Second subtitle text
     """
     content = path.read_text(encoding="utf-8")
-    chunks: list[TranscriptChunk] = []
-
-    # Split on blank lines (one or more)
     blocks = re.split(r"\n\s*\n", content.strip())
     if not blocks:
-        return chunks
+        return []
 
     timestamp_re = re.compile(
-        r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*"
-        r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})"
+        r"(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s*-->\s*"
+        r"(\d{2}):(\d{2}):(\d{2})[.,](\d{3})"
     )
 
+    chunks: list[TranscriptChunk] = []
     for block in blocks:
         lines = block.strip().split("\n")
         if len(lines) < 2:
             continue
 
-        # First line is block number (may be absent in some SRT variants)
-        # Check each non-empty line for a timestamp
-        ts_line = None
-        ts_idx = None
-        for i, line in enumerate(lines):
-            if timestamp_re.search(line):
-                ts_line = line
-                ts_idx = i
-                break
-
-        if ts_line is None:
+        ts_idx = _find_timestamp_index(lines, timestamp_re)
+        if ts_idx is None:
             continue
 
-        match = timestamp_re.search(ts_line)
-        if not match:
+        ts_ms = _parse_srt_timestamp(lines[ts_idx], timestamp_re)
+        if ts_ms is None:
             continue
 
-        h1, m1, s1, ms1, h2, m2, s2, ms2 = map(int, match.groups())
-        start_ms = (h1 * 3600 + m1 * 60 + s1) * 1000 + ms1
-        end_ms = (h2 * 3600 + m2 * 60 + s2) * 1000 + ms2
-        duration_ms = max(end_ms - start_ms, 1)  # guard against zero duration
-
-        # Text is everything after the timestamp line
-        text_lines = lines[ts_idx + 1 :]
-        text = " ".join(line.strip() for line in text_lines if line.strip())
-
+        text = _extract_srt_text(lines, ts_idx)
         if not text:
             continue
 
+        start_ms, duration_ms = ts_ms
         chunks.append(
             TranscriptChunk(
                 text=text,
@@ -202,6 +184,32 @@ def _parse_srt(path: Path) -> list[TranscriptChunk]:
         )
 
     return chunks
+
+
+def _find_timestamp_index(lines: list[str], pattern: re.Pattern) -> int | None:
+    """Return the index of the first line matching the timestamp pattern."""
+    for i, line in enumerate(lines):
+        if pattern.search(line):
+            return i
+    return None
+
+
+def _parse_srt_timestamp(line: str, pattern: re.Pattern) -> tuple[int, int] | None:
+    """Parse SRT timestamp line into (start_ms, duration_ms)."""
+    match = pattern.search(line)
+    if not match:
+        return None
+    h1, m1, s1, ms1, h2, m2, s2, ms2 = map(int, match.groups())
+    start_ms = (h1 * 3600 + m1 * 60 + s1) * 1000 + ms1
+    end_ms = (h2 * 3600 + m2 * 60 + s2) * 1000 + ms2
+    duration_ms = max(end_ms - start_ms, 1)
+    return start_ms, duration_ms
+
+
+def _extract_srt_text(lines: list[str], ts_idx: int) -> str:
+    """Extract subtitle text from lines after the timestamp."""
+    text_lines = lines[ts_idx + 1 :]
+    return " ".join(line.strip() for line in text_lines if line.strip())
 
 
 def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
@@ -224,50 +232,65 @@ def _parse_list_subs_output(output: str) -> list[SubtitleInfo]:
         zh-Hans-en Chinese (Simplified) from English  vtt, srt, ttml, ...
     """
     subtitles = []
-    section = None  # "manual" or "auto"
+    section = None
 
     for line in output.splitlines():
         line = line.strip()
         if not line:
             continue
 
-        # Detect section transitions
-        if "Available automatic captions" in line or "Available auto-generated" in line:
-            section = "auto"
+        new_section = _detect_list_subs_section(line)
+        if new_section:
+            section = new_section
             continue
-        if "Available subtitles" in line:
-            section = "manual"
-            continue
-        # Skip header line
-        if "Language" in line and "Formats" in line:
+
+        if _is_list_subs_header(line):
             continue
 
         if section is None:
             continue
 
-        match = re.match(r"^(\S+)\s{2,}(.+?)\s+(vtt|srt|ttml|ass)(.*)$", line)
-        if not match:
+        parsed = _parse_subtitle_line(line)
+        if parsed is None:
             continue
 
-        lang_code = match.group(1)
-        lang_name = match.group(2).strip()
-
-        # Determine kind: section-based (reliable) overrides text-based heuristic
-        kind = section  # "manual" or "auto"
-
-        # Clean up auto-translated names: "Chinese (Simplified) from English" → "Chinese (Simplified)"
-        if " from " in lang_name:
-            lang_name = lang_name.rsplit(" from ", 1)[0]
-
+        lang_code, lang_name = parsed
         subtitles.append(
             SubtitleInfo(
                 language_code=lang_code,
                 language_name=lang_name,
-                kind=kind,
+                kind=section,
             )
         )
 
     return subtitles
+
+
+def _detect_list_subs_section(line: str) -> str | None:
+    """Detect section from listing header line. Returns 'manual', 'auto', or None."""
+    if "Available automatic captions" in line or "Available auto-generated" in line:
+        return "auto"
+    if "Available subtitles" in line:
+        return "manual"
+    return None
+
+
+def _is_list_subs_header(line: str) -> bool:
+    """Check if line is the column header row."""
+    return "Language" in line and "Formats" in line
+
+
+def _parse_subtitle_line(line: str) -> tuple[str, str] | None:
+    """Parse a subtitle listing line into (language_code, language_name)."""
+    match = re.match(r"^(\S+)\s{2,}(.+?)\s+(vtt|srt|ttml|ass)(.*)$", line)
+    if not match:
+        return None
+    lang_code = match.group(1)
+    lang_name = match.group(2).strip()
+    # Clean up auto-translated names: "Chinese (Simplified) from English" → "Chinese (Simplified)"
+    if " from " in lang_name:
+        lang_name = lang_name.rsplit(" from ", 1)[0]
+    return lang_code, lang_name
 
 
 def merge_sentences(

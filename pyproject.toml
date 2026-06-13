@@ -24,6 +24,9 @@ dev = [
     "pytest-cov",
     "ruff",
     "pre-commit",
+    "vulture",
+    "radon",
+    "coverage",
 ]
 
 [project.scripts]

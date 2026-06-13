@@ -30,16 +30,44 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: python-dead-code
+        name: Python Dead Code (Vulture) [advisory]
+        entry: bash -c "vulture src/ --min-confidence 80 || true"
+        language: system
+        pass_filenames: false
+        files: \\.py$
+
+      - id: python-complexity
+        name: Python Complexity (Radon CC) [advisory]
+        entry: bash -c "radon cc -s -a src/ --json | python3 -c \"import sys,json; d=json.load(sys.stdin); bad=sum(1 for v in d.values() for f in v if f['rank'] in 'DEF'); sys.exit(1 if bad else 0)\" || true"
+        language: system
+        pass_filenames: false
+        files: \\.py$
+
+      - id: python-maintainability
+        name: Python Maintainability (Radon MI) [advisory]
+        entry: bash -c "radon mi src/ --json | python3 -c \"import sys,json; d=json.load(sys.stdin); bad=[k for k,v in d.items() if v['rank']=='C']; sys.exit(1 if bad else 0)\" || true"
+        language: system
+        pass_filenames: false
+        files: \\.py$
+
       - id: frontend-format
         name: Frontend Formatting (Prettier)
         entry: bash -c "cd src/langmine/web/frontend && npm run format"
         language: system
         pass_filenames: false
-        files: \.(js|svelte|css|json|md)$
+        files: \\.(js|svelte|css|json|md)$
 
       - id: frontend-lint
         name: Frontend Lint (ESLint)
         entry: bash -c "cd src/langmine/web/frontend && npm run lint"
         language: system
         pass_filenames: false
-        files: \.(js|svelte)$
+        files: \\.(js|svelte)$
+
+      - id: frontend-quality
+        name: Frontend Quality Gate (Fallow)
+        entry: bash -c "git diff --cached --name-only | grep -qE '\.(js|svelte)$' && git diff --cached | npx fallow audit --diff-stdin || true"
+        language: system
+        pass_filenames: false
+        files: \\.(js|svelte)$

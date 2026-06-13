@@ -370,13 +370,7 @@ def update_annotation(sentence_id: int):
         return jsonify({"error": "Missing 'index' field"}), 400
 
     index = data["index"]
-
-    # Parse existing annotation data
-    try:
-        annotation = json.loads(sentence.annotation_json or "[]")
-    except (json.JSONDecodeError, TypeError):
-        annotation = []
-
+    annotation = _parse_annotation_json(sentence.annotation_json)
     if not isinstance(annotation, list) or index < 0 or index >= len(annotation):
         return jsonify(
             {
@@ -384,11 +378,7 @@ def update_annotation(sentence_id: int):
             }
         ), 400
 
-    entry = annotation[index]
-    for field in ("char", "pinyin", "tone", "definition"):
-        if field in data:
-            entry[field] = data[field]
-
+    _update_annotation_entry(annotation[index], data)
     sentence.annotation_json = json.dumps(annotation)
     persistence.update_sentence(sentence)
 
@@ -401,6 +391,22 @@ def update_annotation(sentence_id: int):
     )
 
     return jsonify({"ok": True, "annotation": annotation})
+
+
+def _parse_annotation_json(raw: str | None) -> list:
+    """Parse annotation JSON, returning [] on any error."""
+    try:
+        parsed = json.loads(raw or "[]")
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return parsed if isinstance(parsed, list) else []
+
+
+def _update_annotation_entry(entry: dict, data: dict) -> None:
+    """Apply allowed field updates to an annotation entry."""
+    for field in ("char", "pinyin", "tone", "definition"):
+        if field in data:
+            entry[field] = data[field]
 
 
 # === Vocab API ===
