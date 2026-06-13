@@ -148,37 +148,10 @@ class AnkiConnectAdapter(AnkiExporter):
                     pass  # Screenshot is optional
 
         # 5. Build notes
-        notes = []
-        for i, s in enumerate(sentences):
-            audio_field = f"[sound:{media_refs[i]}]" if i in media_refs else ""
-            screenshot_field = (
-                f'<img src="{screenshot_refs[i]}">' if i in screenshot_refs else ""
-            )
-            # For cloze cards, user-selected hint image takes priority
-            if is_cloze and s.cloze_image_url:
-                screenshot_field = f'<img src="{s.cloze_image_url}">'
-            # Build sentence_zh field — for cloze, wrap unknown word
-            sentence_text = s.text or ""
-            if is_cloze and s.unknown_word and s.unknown_word in sentence_text:
-                sentence_text = sentence_text.replace(
-                    s.unknown_word, f"{{{{c1::{s.unknown_word}}}}}"
-                )
-
-            notes.append(
-                {
-                    "deckName": deck_name,
-                    "modelName": note_type_name,
-                    "fields": {
-                        "sentence_zh": sentence_text,
-                        "sentence_reading": s.reading or "",
-                        "translation": s.translation or "",
-                        "unknown_word": s.unknown_word or "",
-                        "audio": audio_field,
-                        "screenshot": screenshot_field,
-                    },
-                    "tags": ["langmine"],
-                }
-            )
+        notes = self._export_build_notes(
+            sentences, media_refs, screenshot_refs,
+            deck_name, note_type_name, is_cloze,
+        )
 
         # 6. Check for duplicates
         new_notes = notes
@@ -209,6 +182,46 @@ class AnkiConnectAdapter(AnkiExporter):
             "duplicates": duplicates,
             "errors": errors,
         }
+
+    def _export_build_notes(
+        self,
+        sentences: list[Sentence],
+        media_refs: dict[int, str],
+        screenshot_refs: dict[int, str],
+        deck_name: str,
+        note_type_name: str,
+        is_cloze: bool,
+    ) -> list[dict]:
+        """Build Anki note dicts from sentences with media references."""
+        notes = []
+        for i, s in enumerate(sentences):
+            audio_field = f"[sound:{media_refs[i]}]" if i in media_refs else ""
+            screenshot_field = (
+                f'<img src="{screenshot_refs[i]}">' if i in screenshot_refs else ""
+            )
+            if is_cloze and s.cloze_image_url:
+                screenshot_field = f'<img src="{s.cloze_image_url}">'
+            sentence_text = s.text or ""
+            if is_cloze and s.unknown_word and s.unknown_word in sentence_text:
+                sentence_text = sentence_text.replace(
+                    s.unknown_word, f"{{{{c1::{s.unknown_word}}}}}"
+                )
+            notes.append(
+                {
+                    "deckName": deck_name,
+                    "modelName": note_type_name,
+                    "fields": {
+                        "sentence_zh": sentence_text,
+                        "sentence_reading": s.reading or "",
+                        "translation": s.translation or "",
+                        "unknown_word": s.unknown_word or "",
+                        "audio": audio_field,
+                        "screenshot": screenshot_field,
+                    },
+                    "tags": ["langmine"],
+                }
+            )
+        return notes
 
     def _invoke(self, action: str, params: dict | None = None) -> dict:
         """Call an AnkiConnect action via JSON-RPC."""
