@@ -125,27 +125,8 @@ class AnkiConnectAdapter(AnkiExporter):
             ) from e
 
         # 4. Store audio + screenshot media first
-        media_refs: dict[int, str] = {}
-        screenshot_refs: dict[int, str] = {}
-        for i, s in enumerate(sentences):
-            if s.audio_clip_path and os.path.exists(s.audio_clip_path):
-                filename = f"langmine_{s.id or i}_{os.path.basename(s.audio_clip_path)}"
-                try:
-                    self._store_media(filename, s.audio_clip_path)
-                    media_refs[i] = filename
-                except Exception as e:
-                    errors.append(f"Audio for sentence {s.id}: {e}")
-
-            # Upload screenshot if available
-            if s.screenshot_path and os.path.exists(s.screenshot_path):
-                ss_name = (
-                    f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
-                )
-                try:
-                    self._store_media(ss_name, s.screenshot_path)
-                    screenshot_refs[i] = ss_name
-                except Exception:
-                    pass  # Screenshot is optional
+        media_refs, screenshot_refs, media_errors = self._export_store_media(sentences)
+        errors.extend(media_errors)
 
         # 5. Build notes
         notes = self._export_build_notes(
@@ -222,6 +203,31 @@ class AnkiConnectAdapter(AnkiExporter):
                 }
             )
         return notes
+
+    def _export_store_media(
+        self,
+        sentences: list[Sentence],
+    ) -> tuple[dict[int, str], dict[int, str], list[str]]:
+        """Store audio clips and screenshots. Returns (media_refs, screenshot_refs, errors)."""
+        media_refs: dict[int, str] = {}
+        screenshot_refs: dict[int, str] = {}
+        errors: list[str] = []
+        for i, s in enumerate(sentences):
+            if s.audio_clip_path and os.path.exists(s.audio_clip_path):
+                filename = f"langmine_{s.id or i}_{os.path.basename(s.audio_clip_path)}"
+                try:
+                    self._store_media(filename, s.audio_clip_path)
+                    media_refs[i] = filename
+                except Exception as e:
+                    errors.append(f"Audio for sentence {s.id}: {e}")
+            if s.screenshot_path and os.path.exists(s.screenshot_path):
+                ss_name = f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
+                try:
+                    self._store_media(ss_name, s.screenshot_path)
+                    screenshot_refs[i] = ss_name
+                except Exception:
+                    pass  # Screenshot is optional
+        return media_refs, screenshot_refs, errors
 
     def _invoke(self, action: str, params: dict | None = None) -> dict:
         """Call an AnkiConnect action via JSON-RPC."""
