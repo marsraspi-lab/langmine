@@ -73,6 +73,7 @@ def _enrich_transcript_error(msg: str, transcript, video_id: str) -> str:
         return f"This video has subtitles ({langs}) but download failed. Try again."
     return "This video has no subtitles in any language."
 
+
 def _mine_and_log(
     *,
     transcript,
@@ -86,7 +87,7 @@ def _mine_and_log(
     progress_callback=None,
 ):
     """Run process_video, log the event, persist subtitle language. Returns (result, video)."""
-    from langmine.pipeline import MineError, process_video
+    from langmine.pipeline import process_video
 
     output_dir = config.data_dir
     os.makedirs(output_dir, exist_ok=True)
@@ -124,8 +125,6 @@ def _mine_and_log(
             except Exception:
                 pass
             persistence.save_video(video)
-
-
 
     return result, video
 
