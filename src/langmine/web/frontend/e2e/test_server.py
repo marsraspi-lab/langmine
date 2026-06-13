@@ -308,7 +308,6 @@ class FakeAudioProcessor(AudioProcessor):
 # === Create app ===
 
 import struct
-import subprocess
 import tempfile
 import zlib
 
@@ -343,28 +342,24 @@ def _make_1x1_png():
 with open(_SCREENSHOT_PATH, "wb") as f:
     f.write(_make_1x1_png())
 
-# Generate a real silent MP3 for the audio play button test fixture.
-# Uses ffmpeg (available in Docker test environment).
-_AUDIO_PATH = os.path.join(tempfile.gettempdir(), "e2e_test_audio.mp3")
-subprocess.run(
-    [
-        "ffmpeg",
-        "-f",
-        "lavfi",
-        "-i",
-        "anullsrc=r=44100:cl=mono",
-        "-t",
-        "0.5",
-        "-q:a",
-        "9",
-        "-acodec",
-        "libmp3lame",
-        "-y",
-        _AUDIO_PATH,
-    ],
-    capture_output=True,
-    check=True,
-)
+# Generate a real silent WAV for the audio play button test fixture.
+# Uses Python stdlib only (no ffmpeg dependency) — same pattern as the 1×1 PNG.
+_AUDIO_PATH = os.path.join(tempfile.gettempdir(), "e2e_test_audio.wav")
+
+
+def _make_silent_wav(path: str, duration_s: float = 0.5, sample_rate: int = 44100):
+    """Write a minimal silent mono 16-bit WAV file using stdlib wave module."""
+    import wave
+
+    num_samples = int(sample_rate * duration_s)
+    with wave.open(path, "w") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)  # 16-bit
+        wav.setframerate(sample_rate)
+        wav.writeframes(b"\x00\x00" * num_samples)
+
+
+_make_silent_wav(_AUDIO_PATH)
 
 persistence = FakePersistence()
 

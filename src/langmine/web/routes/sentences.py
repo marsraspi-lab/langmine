@@ -268,7 +268,6 @@ def serve_audio(sentence_id: int):
 
     return send_file(
         os.path.expanduser(sentence.audio_clip_path),
-        mimetype="audio/mpeg",
         as_attachment=False,
     )
 
