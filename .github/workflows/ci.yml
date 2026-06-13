@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:
@@ -36,6 +38,11 @@ jobs:
         run: |
           cd src/langmine/web/frontend
           npm run build
+
+      - name: Frontend Quality Gate (Fallow)
+        run: |
+          cd src/langmine/web/frontend
+          npx fallow audit --base origin/main
 
   # ── E2E tests on PRs only ──────────────────────────────────────────────
   e2e:

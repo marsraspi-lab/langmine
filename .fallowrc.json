@@ -1,0 +1,73 @@
+{
+  "entry": [
+    "src/langmine/web/frontend/src/main.js",
+    "src/langmine/web/frontend/e2e/app.spec.js"
+  ],
+  "ignorePatterns": [
+    "src/langmine/web/frontend/svelte.config.js",
+    "src/langmine/languages/**/anki/**"
+  ],
+  "usedClassMembers": [
+    "goto", "select*", "click*", "waitFor*", "navigate*",
+    "fill*", "toggle*", "check*", "dismiss*", "mark*",
+    "clear*", "save*", "delete*", "upload*", "add*",
+    "remove*", "type*", "press*", "search*", "submit*",
+    "expect*", "nav*",
+    "sentence*", "word*", "unknown*", "proper*", "play*",
+    "reading*", "popover*", "enter*", "non*", "toolbar",
+    "*Badge*", "*Token*", "*Num*", "*Bar*", "*Line*",
+    "*Word*", "*Close*", "*Mode*",
+    "*Btn", "*Button", "*Input", "*Item*", "*Chip",
+    "*Status", "*Card", "*Page", "*Panel", "*Form",
+    "*List", "*Field", "*Area", "*Container", "*Link",
+    "*Label", "*Text", "*Icon", "*Toggle", "*Menu",
+    "*Tab", "*Row", "*Header", "*Toast", "*Modal",
+    "*Dialog", "*Overlay", "*Badge", "title", "html"
+  ],
+  "framework": [
+    {
+      "name": "svelte",
+      "detection": {
+        "type": "fileExists",
+        "pattern": "src/langmine/web/frontend/svelte.config.js"
+      },
+      "entryPoints": [
+        "src/langmine/web/frontend/src/main.js"
+      ],
+      "entryPointRole": "runtime",
+      "configPatterns": [
+        "src/langmine/web/frontend/svelte.config.js",
+        "src/langmine/web/frontend/vite.config.js"
+      ],
+      "usedExports": [
+        {
+          "pattern": "src/langmine/web/frontend/src/**/*.svelte",
+          "exports": ["default"]
+        }
+      ],
+      "toolingDependencies": [
+        "@sveltejs/vite-plugin-svelte",
+        "vite",
+        "eslint-plugin-svelte",
+        "prettier-plugin-svelte"
+      ]
+    },
+    {
+      "name": "playwright",
+      "detection": {
+        "type": "fileExists",
+        "pattern": "src/langmine/web/frontend/playwright.config.js"
+      },
+      "entryPoints": [
+        "src/langmine/web/frontend/e2e/app.spec.js"
+      ],
+      "entryPointRole": "test",
+      "configPatterns": [
+        "src/langmine/web/frontend/playwright.config.js"
+      ],
+      "toolingDependencies": [
+        "@playwright/test"
+      ]
+    }
+  ]
+}
