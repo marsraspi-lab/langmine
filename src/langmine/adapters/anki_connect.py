@@ -48,6 +48,13 @@ _DEFAULT_CSS = (
 )
 
 
+def _cloze_wrap(text: str, unknown_word: str | None, is_cloze: bool) -> str:
+    """Wrap the unknown word in cloze deletion syntax if cloze mode is active."""
+    if not is_cloze or not unknown_word or unknown_word not in text:
+        return text
+    return text.replace(unknown_word, f"{{{{c1::{unknown_word}}}}}")
+
+
 class AnkiConnectAdapter(AnkiExporter):
     """Export sentences to Anki via AnkiConnect HTTP API."""
 
@@ -92,78 +99,65 @@ class AnkiConnectAdapter(AnkiExporter):
         is_cloze = card_type == "cloze"
 
         errors: list[str] = []
-        added = 0
-        duplicates = 0
-        note_ids: list[int] = []
 
         try:
-            # 1. Ensure deck exists (idempotent)
-            self._invoke("createDeck", {"deck": deck_name})
-
-            # 2. Ensure note type exists
-            self._create_model_if_missing(
+            self._export_setup_deck_and_model(
+                deck_name,
                 note_type_name,
                 css=css,
                 front=front,
                 back=back,
                 is_cloze=is_cloze,
+                force_update_model=force_update_model,
             )
-
-            # 3. Force-update templates if requested
-            if force_update_model:
-                self._update_model_templates(
-                    note_type_name,
-                    css=css,
-                    front=front,
-                    back=back,
-                    is_cloze=is_cloze,
-                )
-
         except Exception as e:
             raise ConnectionError(
                 f"AnkiConnect at {self._url} not reachable: {e}"
             ) from e
 
         # 4. Store audio + screenshot media first
-        media_refs: dict[int, str] = {}
-        screenshot_refs: dict[int, str] = {}
-        for i, s in enumerate(sentences):
-            if s.audio_clip_path and os.path.exists(s.audio_clip_path):
-                filename = f"langmine_{s.id or i}_{os.path.basename(s.audio_clip_path)}"
-                try:
-                    self._store_media(filename, s.audio_clip_path)
-                    media_refs[i] = filename
-                except Exception as e:
-                    errors.append(f"Audio for sentence {s.id}: {e}")
-
-            # Upload screenshot if available
-            if s.screenshot_path and os.path.exists(s.screenshot_path):
-                ss_name = (
-                    f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
-                )
-                try:
-                    self._store_media(ss_name, s.screenshot_path)
-                    screenshot_refs[i] = ss_name
-                except Exception:
-                    pass  # Screenshot is optional
+        media_refs, screenshot_refs, media_errors = self._export_store_media(sentences)
+        errors.extend(media_errors)
 
         # 5. Build notes
+        notes = self._export_build_notes(
+            sentences,
+            media_refs,
+            screenshot_refs,
+            deck_name,
+            note_type_name,
+            is_cloze,
+        )
+
+        # 6-7. Deduplicate and add notes
+        note_ids, added, duplicates = self._export_deduplicate_and_add(notes, errors)
+
+        return {
+            "note_ids": note_ids,
+            "added": added,
+            "duplicates": duplicates,
+            "errors": errors,
+        }
+
+    def _export_build_notes(
+        self,
+        sentences: list[Sentence],
+        media_refs: dict[int, str],
+        screenshot_refs: dict[int, str],
+        deck_name: str,
+        note_type_name: str,
+        is_cloze: bool,
+    ) -> list[dict]:
+        """Build Anki note dicts from sentences with media references."""
         notes = []
         for i, s in enumerate(sentences):
             audio_field = f"[sound:{media_refs[i]}]" if i in media_refs else ""
             screenshot_field = (
                 f'<img src="{screenshot_refs[i]}">' if i in screenshot_refs else ""
             )
-            # For cloze cards, user-selected hint image takes priority
             if is_cloze and s.cloze_image_url:
                 screenshot_field = f'<img src="{s.cloze_image_url}">'
-            # Build sentence_zh field — for cloze, wrap unknown word
-            sentence_text = s.text or ""
-            if is_cloze and s.unknown_word and s.unknown_word in sentence_text:
-                sentence_text = sentence_text.replace(
-                    s.unknown_word, f"{{{{c1::{s.unknown_word}}}}}"
-                )
-
+            sentence_text = _cloze_wrap(s.text or "", s.unknown_word, is_cloze)
             notes.append(
                 {
                     "deckName": deck_name,
@@ -179,8 +173,63 @@ class AnkiConnectAdapter(AnkiExporter):
                     "tags": ["langmine"],
                 }
             )
+        return notes
 
-        # 6. Check for duplicates
+    def _export_store_media(
+        self,
+        sentences: list[Sentence],
+    ) -> tuple[dict[int, str], dict[int, str], list[str]]:
+        """Store audio clips and screenshots. Returns (media_refs, screenshot_refs, errors)."""
+        media_refs: dict[int, str] = {}
+        screenshot_refs: dict[int, str] = {}
+        errors: list[str] = []
+        for i, s in enumerate(sentences):
+            if s.audio_clip_path and os.path.exists(s.audio_clip_path):
+                filename = f"langmine_{s.id or i}_{os.path.basename(s.audio_clip_path)}"
+                try:
+                    self._store_media(filename, s.audio_clip_path)
+                    media_refs[i] = filename
+                except Exception as e:
+                    errors.append(f"Audio for sentence {s.id}: {e}")
+            if s.screenshot_path and os.path.exists(s.screenshot_path):
+                ss_name = (
+                    f"langmine_ss_{s.id or i}_{os.path.basename(s.screenshot_path)}"
+                )
+                try:
+                    self._store_media(ss_name, s.screenshot_path)
+                    screenshot_refs[i] = ss_name
+                except Exception:
+                    pass  # Screenshot is optional
+        return media_refs, screenshot_refs, errors
+
+    def _export_setup_deck_and_model(
+        self,
+        deck_name: str,
+        note_type_name: str,
+        *,
+        css: str,
+        front: str,
+        back: str,
+        is_cloze: bool,
+        force_update_model: bool,
+    ):
+        """Ensure deck and note type exist; optionally force-update templates."""
+        self._invoke("createDeck", {"deck": deck_name})
+        self._create_model_if_missing(
+            note_type_name, css=css, front=front, back=back, is_cloze=is_cloze
+        )
+        if force_update_model:
+            self._update_model_templates(
+                note_type_name, css=css, front=front, back=back, is_cloze=is_cloze
+            )
+
+    def _export_deduplicate_and_add(
+        self,
+        notes: list[dict],
+        errors: list[str],
+    ) -> tuple[list[int], int, int]:
+        """Check duplicates, add non-duplicate notes. Returns (note_ids, added, duplicates)."""
+        duplicates = 0
         new_notes = notes
         try:
             dup_result = self._invoke("canAddNotes", {"notes": notes})
@@ -194,7 +243,8 @@ class AnkiConnectAdapter(AnkiExporter):
         except Exception:
             pass
 
-        # 7. Add non-duplicate notes
+        note_ids: list[int] = []
+        added = 0
         if new_notes:
             try:
                 result = self._invoke("addNotes", {"notes": new_notes})
@@ -203,12 +253,7 @@ class AnkiConnectAdapter(AnkiExporter):
             except Exception as e:
                 errors.append(f"Failed to add notes: {e}")
 
-        return {
-            "note_ids": note_ids,
-            "added": added,
-            "duplicates": duplicates,
-            "errors": errors,
-        }
+        return note_ids, added, duplicates
 
     def _invoke(self, action: str, params: dict | None = None) -> dict:
         """Call an AnkiConnect action via JSON-RPC."""
