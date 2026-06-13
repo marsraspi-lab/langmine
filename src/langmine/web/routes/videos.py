@@ -71,6 +71,7 @@ def _enrich_transcript_error(msg: str, transcript, video_id: str) -> str:
     if subs:
         langs = ", ".join(f"{s.language_name} ({s.kind})" for s in subs[:3])
         return f"This video has subtitles ({langs}) but download failed. Try again."
+    return "This video has no subtitles in any language."
 
 def _mine_and_log(
     *,
@@ -124,10 +125,88 @@ def _mine_and_log(
                 pass
             persistence.save_video(video)
 
+
+
     return result, video
 
 
-    return "This video has no subtitles in any language."
+from dataclasses import dataclass
+
+
+@dataclass
+class _MineRequest:
+    url: str
+    video_id: str
+    language: str = ""
+    target_subtitle_language: str = ""
+    transcript_source: object = None
+    is_file_upload: bool = False
+
+
+def _parse_mine_request():
+    """Parse the mine request (multipart or JSON). Returns (_MineRequest, error_response).
+
+    If error_response is not None, the caller should return it immediately.
+    """
+    from langmine.transcript import _extract_video_id
+
+    transcript = _get_transcript_source()
+    is_file_upload = False
+    data = {}
+
+    if request.content_type and "multipart" in request.content_type:
+        url = request.form.get("url", "").strip()
+        if not url:
+            return None, ({"error": "Missing 'url' field"}, 400)
+        data = request.form.to_dict()
+
+        file = request.files.get("file")
+        if file and file.filename:
+            InlineTranscriptSource = current_app.config.get(
+                "LANGMINE_INLINE_TRANSCRIPT_CLASS"
+            )
+            parse_subtitle_file = current_app.config.get("LANGMINE_PARSE_SUBTITLE_FILE")
+            if InlineTranscriptSource and parse_subtitle_file:
+                content = file.read().decode("utf-8")
+                chunks = parse_subtitle_file(content, filename=file.filename)
+                if not chunks:
+                    return None, (
+                        {"error": "No subtitle entries found in uploaded file"},
+                        400,
+                    )
+                transcript = InlineTranscriptSource(chunks)
+                is_file_upload = True
+    else:
+        data = request.get_json(silent=True) or {}
+        url = data.get("url", "").strip()
+        if not url:
+            return None, ({"error": "Missing 'url' field"}, 400)
+
+    video_id = _extract_video_id(url)
+
+    language = data.get("language", "")
+    if language and not is_file_upload and transcript is not None:
+        try:
+            subs = transcript.list_subtitles(video_id)
+            next((s for s in subs if s.language_code == language), None)
+        except Exception:
+            pass
+
+    target_subtitle_language = data.get("target_subtitle_language", "")
+    if target_subtitle_language and is_file_upload:
+        target_subtitle_language = ""
+
+    return (
+        _MineRequest(
+            url=url,
+            video_id=video_id,
+            language=language,
+            target_subtitle_language=target_subtitle_language,
+            transcript_source=transcript,
+            is_file_upload=is_file_upload,
+        ),
+        None,
+    )
 
 
 @videos_bp.route("/api/videos/mine", methods=["POST"])
@@ -140,64 +219,21 @@ def mine_video():
     persistence = _get_persistence()
     processor = _get_processor()
     audio = _get_audio_processor()
-    transcript = _get_transcript_source()
-    is_file_upload = False
 
-    # ── Parse request (must happen before streaming) ──────────────────
-    if request.content_type and "multipart" in request.content_type:
-        url = request.form.get("url", "").strip()
-        if not url:
-            return jsonify({"error": "Missing 'url' field"}), 400
-        file = request.files.get("file")
-        if file and file.filename:
-            InlineTranscriptSource = current_app.config.get(
-                "LANGMINE_INLINE_TRANSCRIPT_CLASS"
-            )
-            parse_subtitle_file = current_app.config.get("LANGMINE_PARSE_SUBTITLE_FILE")
-            if InlineTranscriptSource and parse_subtitle_file:
-                content = file.read().decode("utf-8")
-                chunks = parse_subtitle_file(content, filename=file.filename)
-                if not chunks:
-                    return jsonify(
-                        {"error": "No subtitle entries found in uploaded file"}
-                    ), 400
-                transcript = InlineTranscriptSource(chunks)
-                is_file_upload = True
-    else:
-        data = request.get_json(silent=True)
-        if not data or "url" not in data:
-            return jsonify({"error": "Missing 'url' field"}), 400
-        url = data["url"]
+    req, err = _parse_mine_request()
+    if err is not None:
+        return jsonify(err[0]), err[1]
+    transcript = req.transcript_source
+    video_id = req.video_id
+    is_file_upload = req.is_file_upload
+    language = req.language
+    target_subtitle_language = req.target_subtitle_language
 
-    from langmine.transcript import _extract_video_id
-
-    video_id = _extract_video_id(url)
-
-    # Parse optional subtitle language selection (M26)
-    language = (
-        request.form.get("language", "")
-        if request.content_type and "multipart" in request.content_type
-        else data.get("language", "")
-    )
-    if language and not is_file_upload and transcript is not None:
-        try:
-            subs = transcript.list_subtitles(video_id)
-            match = next((s for s in subs if s.language_code == language), None)
-        except Exception:
-            pass
-
-    # Parse optional target subtitle language for translation (M27)
-    target_subtitle_language = (
-        request.form.get("target_subtitle_language", "")
-        if request.content_type and "multipart" in request.content_type
-        else data.get("target_subtitle_language", "")
-    )
-    if target_subtitle_language and is_file_upload:
-        target_subtitle_language = ""  # Not applicable for file uploads
-
-    # ── Choose code path ─────────────────────────────────────────────
+    # ── Choose code path ────────────────────────────────────────────
     accept = request.headers.get("Accept", "")
     use_sse = "text/event-stream" in accept
+
+    from langmine.pipeline import MineError
 
     if not use_sse:
         # Synchronous path — backward compatible, no threading needed.
