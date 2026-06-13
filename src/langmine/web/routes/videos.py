@@ -71,6 +71,62 @@ def _enrich_transcript_error(msg: str, transcript, video_id: str) -> str:
     if subs:
         langs = ", ".join(f"{s.language_name} ({s.kind})" for s in subs[:3])
         return f"This video has subtitles ({langs}) but download failed. Try again."
+
+def _mine_and_log(
+    *,
+    transcript,
+    audio,
+    persistence,
+    processor,
+    video_id: str,
+    config,
+    subtitle_language: str = "",
+    target_subtitle_language: str = "",
+    progress_callback=None,
+):
+    """Run process_video, log the event, persist subtitle language. Returns (result, video)."""
+    from langmine.pipeline import MineError, process_video
+
+    output_dir = config.data_dir
+    os.makedirs(output_dir, exist_ok=True)
+
+    result = process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id=video_id,
+        output_dir=output_dir,
+        config=config,
+        progress_callback=progress_callback,
+        subtitle_language=subtitle_language,
+        target_subtitle_language=target_subtitle_language,
+    )
+
+    video = persistence.get_video(video_id)
+    if video and video.id:
+        persistence.log_event(
+            entity_type="video",
+            entity_id=video.id,
+            action="mined",
+            new_value=video_id,
+            language_code=config.source_language,
+        )
+        if subtitle_language:
+            video.subtitle_language = subtitle_language
+            try:
+                subs = transcript.list_subtitles(video_id)
+                match = next(
+                    (s for s in subs if s.language_code == subtitle_language), None
+                )
+                video.subtitle_kind = match.kind if match else ""
+            except Exception:
+                pass
+            persistence.save_video(video)
+
+    return result, video
+
+
     return "This video has no subtitles in any language."
 
 
@@ -147,46 +203,17 @@ def mine_video():
         # Synchronous path — backward compatible, no threading needed.
         # Used by test client and non-browser clients.
         try:
-            from langmine.pipeline import MineError, process_video
-
             config = current_app.config["LANGMINE_CONFIG"]
-            output_dir = config.data_dir
-            os.makedirs(output_dir, exist_ok=True)
-
-            result = process_video(
-                transcript_source=transcript,
-                audio_processor=audio,
+            result, video = _mine_and_log(
+                transcript=transcript,
+                audio=audio,
                 persistence=persistence,
-                language_processor=processor,
+                processor=processor,
                 video_id=video_id,
-                output_dir=output_dir,
                 config=config,
                 subtitle_language=language if not is_file_upload else "",
                 target_subtitle_language=target_subtitle_language,
             )
-
-            video = persistence.get_video(video_id)
-            if video and video.id:
-                persistence.log_event(
-                    entity_type="video",
-                    entity_id=video.id,
-                    action="mined",
-                    new_value=video_id,
-                    language_code=config.source_language,
-                )
-                # Persist subtitle language + kind (M26)
-                if language:
-                    video.subtitle_language = language
-                    try:
-                        subs = transcript.list_subtitles(video_id)
-                        match = next(
-                            (s for s in subs if s.language_code == language), None
-                        )
-                        video.subtitle_kind = match.kind if match else ""
-                    except Exception:
-                        pass
-                    persistence.save_video(video)
-
             return jsonify(_build_mine_result(video, result, video_id))
         except MineError as e:
             return jsonify({"error": str(e), "stage": e.stage}), 400
@@ -204,49 +231,22 @@ def mine_video():
         """Run mining in a thread, pushing progress to the queue."""
         with app.app_context():
             try:
-                from langmine.pipeline import MineError, process_video
-
                 config = current_app.config["LANGMINE_CONFIG"]
-                output_dir = config.data_dir
-                os.makedirs(output_dir, exist_ok=True)
 
                 def _on_progress(msg: str):
                     progress_queue.put(("progress", msg))
 
-                result = process_video(
-                    transcript_source=transcript,
-                    audio_processor=audio,
+                result, video = _mine_and_log(
+                    transcript=transcript,
+                    audio=audio,
                     persistence=persistence,
-                    language_processor=processor,
+                    processor=processor,
                     video_id=video_id,
-                    output_dir=output_dir,
                     config=config,
-                    progress_callback=_on_progress,
                     subtitle_language=language if not is_file_upload else "",
                     target_subtitle_language=target_subtitle_language,
+                    progress_callback=_on_progress,
                 )
-
-                video = persistence.get_video(video_id)
-                if video and video.id:
-                    persistence.log_event(
-                        entity_type="video",
-                        entity_id=video.id,
-                        action="mined",
-                        new_value=video_id,
-                        language_code=config.source_language,
-                    )
-                    # Persist subtitle language + kind (M26)
-                    if language:
-                        video.subtitle_language = language
-                        try:
-                            subs = transcript.list_subtitles(video_id)
-                            match = next(
-                                (s for s in subs if s.language_code == language), None
-                            )
-                            video.subtitle_kind = match.kind if match else ""
-                        except Exception:
-                            pass
-                        persistence.save_video(video)
 
                 progress_queue.put(
                     ("done", _build_mine_result(video, result, video_id))
