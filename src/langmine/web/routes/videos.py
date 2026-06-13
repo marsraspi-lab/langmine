@@ -49,6 +49,19 @@ def delete_video_route(video_id: int):
     return jsonify({"ok": True})
 
 
+def _build_mine_result(video, result: dict, video_id: str) -> dict:
+    """Build the JSON response dict for a successful mine."""
+    return {
+        "video_id": video.id if video else None,
+        "youtube_id": video_id,
+        "i1_candidates": len(result["i1_candidates"]),
+        "i0_count": result["i0_count"],
+        "stash_count": result["stash_count"],
+        "total_sentences": result["total_sentences"],
+        "i1_count": len(result["i1_candidates"]),
+    }
+
+
 @videos_bp.route("/api/videos/mine", methods=["POST"])
 def mine_video():
     """Mine a YouTube video with SSE progress streaming.
@@ -162,17 +175,7 @@ def mine_video():
                         pass
                     persistence.save_video(video)
 
-            return jsonify(
-                {
-                    "video_id": video.id if video else None,
-                    "youtube_id": video_id,
-                    "i1_candidates": len(result["i1_candidates"]),
-                    "i0_count": result["i0_count"],
-                    "stash_count": result["stash_count"],
-                    "total_sentences": result["total_sentences"],
-                    "i1_count": len(result["i1_candidates"]),
-                }
-            )
+            return jsonify(_build_mine_result(video, result, video_id))
         except MineError as e:
             return jsonify({"error": str(e), "stage": e.stage}), 400
         except ValueError as e:
@@ -234,18 +237,7 @@ def mine_video():
                         persistence.save_video(video)
 
                 progress_queue.put(
-                    (
-                        "done",
-                        {
-                            "video_id": video.id if video else None,
-                            "youtube_id": video_id,
-                            "i1_candidates": len(result["i1_candidates"]),
-                            "i0_count": result["i0_count"],
-                            "stash_count": result["stash_count"],
-                            "total_sentences": result["total_sentences"],
-                            "i1_count": len(result["i1_candidates"]),
-                        },
-                    )
+                    ("done", _build_mine_result(video, result, video_id))
                 )
             except MineError as e:
                 msg = str(e)
