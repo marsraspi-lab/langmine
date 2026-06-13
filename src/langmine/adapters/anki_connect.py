@@ -97,28 +97,11 @@ class AnkiConnectAdapter(AnkiExporter):
         note_ids: list[int] = []
 
         try:
-            # 1. Ensure deck exists (idempotent)
-            self._invoke("createDeck", {"deck": deck_name})
-
-            # 2. Ensure note type exists
-            self._create_model_if_missing(
-                note_type_name,
-                css=css,
-                front=front,
-                back=back,
-                is_cloze=is_cloze,
+            self._export_setup_deck_and_model(
+                deck_name, note_type_name,
+                css=css, front=front, back=back,
+                is_cloze=is_cloze, force_update_model=force_update_model,
             )
-
-            # 3. Force-update templates if requested
-            if force_update_model:
-                self._update_model_templates(
-                    note_type_name,
-                    css=css,
-                    front=front,
-                    back=back,
-                    is_cloze=is_cloze,
-                )
-
         except Exception as e:
             raise ConnectionError(
                 f"AnkiConnect at {self._url} not reachable: {e}"
@@ -228,6 +211,27 @@ class AnkiConnectAdapter(AnkiExporter):
                 except Exception:
                     pass  # Screenshot is optional
         return media_refs, screenshot_refs, errors
+
+    def _export_setup_deck_and_model(
+        self,
+        deck_name: str,
+        note_type_name: str,
+        *,
+        css: str,
+        front: str,
+        back: str,
+        is_cloze: bool,
+        force_update_model: bool,
+    ):
+        """Ensure deck and note type exist; optionally force-update templates."""
+        self._invoke("createDeck", {"deck": deck_name})
+        self._create_model_if_missing(
+            note_type_name, css=css, front=front, back=back, is_cloze=is_cloze
+        )
+        if force_update_model:
+            self._update_model_templates(
+                note_type_name, css=css, front=front, back=back, is_cloze=is_cloze
+            )
 
     def _invoke(self, action: str, params: dict | None = None) -> dict:
         """Call an AnkiConnect action via JSON-RPC."""
