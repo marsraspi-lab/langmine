@@ -48,6 +48,13 @@ _DEFAULT_CSS = (
 )
 
 
+def _cloze_wrap(text: str, unknown_word: str | None, is_cloze: bool) -> str:
+    """Wrap the unknown word in cloze deletion syntax if cloze mode is active."""
+    if not is_cloze or not unknown_word or unknown_word not in text:
+        return text
+    return text.replace(unknown_word, f"{{{{c1::{unknown_word}}}}}")
+
+
 class AnkiConnectAdapter(AnkiExporter):
     """Export sentences to Anki via AnkiConnect HTTP API."""
 
@@ -144,11 +151,7 @@ class AnkiConnectAdapter(AnkiExporter):
             )
             if is_cloze and s.cloze_image_url:
                 screenshot_field = f'<img src="{s.cloze_image_url}">'
-            sentence_text = s.text or ""
-            if is_cloze and s.unknown_word and s.unknown_word in sentence_text:
-                sentence_text = sentence_text.replace(
-                    s.unknown_word, f"{{{{c1::{s.unknown_word}}}}}"
-                )
+            sentence_text = _cloze_wrap(s.text or "", s.unknown_word, is_cloze)
             notes.append(
                 {
                     "deckName": deck_name,
