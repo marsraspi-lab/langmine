@@ -342,6 +342,25 @@ def _make_1x1_png():
 with open(_SCREENSHOT_PATH, "wb") as f:
     f.write(_make_1x1_png())
 
+# Generate a real silent WAV for the audio play button test fixture.
+# Uses Python stdlib only (no ffmpeg dependency) — same pattern as the 1×1 PNG.
+_AUDIO_PATH = os.path.join(tempfile.gettempdir(), "e2e_test_audio.wav")
+
+
+def _make_silent_wav(path: str, duration_s: float = 0.5, sample_rate: int = 44100):
+    """Write a minimal silent mono 16-bit WAV file using stdlib wave module."""
+    import wave
+
+    num_samples = int(sample_rate * duration_s)
+    with wave.open(path, "w") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)  # 16-bit
+        wav.setframerate(sample_rate)
+        wav.writeframes(b"\x00\x00" * num_samples)
+
+
+_make_silent_wav(_AUDIO_PATH)
+
 persistence = FakePersistence()
 
 # Pre-populate with a video and sentences
@@ -419,6 +438,19 @@ sentences = [
         unknown_word="皇帝",
         unknown_word_rank=3500,
         status="i1",
+    ),
+    # Sentence with audio clip for play button E2E test
+    Sentence(
+        video_id=video.id,
+        start_ms=22000,
+        end_ms=24000,
+        text="你好 世界",
+        text_segmented="你好 / 世界",
+        reading="nǐ hǎo shì jiè",
+        annotation_json="[]",
+        translation="Hallo Welt",
+        audio_clip_path=_AUDIO_PATH,
+        status="kept",
     ),
 ]
 for s in sentences:

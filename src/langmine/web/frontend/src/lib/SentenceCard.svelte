@@ -173,6 +173,19 @@
 		SHOW_DELETE_SCREENSHOT_CONFIRM = false;
 		ondeletescreenshot(sentence.id);
 	}
+
+	// Audio play button
+	let playing = $state(false);
+	let audioEl = $state(null);
+
+	function toggleAudio() {
+		if (!audioEl) return;
+		if (playing) {
+			audioEl.pause();
+		} else {
+			audioEl.play();
+		}
+	}
 </script>
 
 <svelte:window onclick={onWindowClick} />
@@ -197,9 +210,20 @@
 				{sentence.text}
 			{/if}
 		</span>
-		<span class="status-badge {sentence.status}"
-			>{STATUS_LABELS[sentence.status] || sentence.status}</span
-		>
+		<div class="card-header-right">
+			{#if sentence.has_audio}
+				<button
+					class="play-btn"
+					onclick={toggleAudio}
+					title={playing ? 'Pause' : 'Play'}
+				>
+					{playing ? '⏸' : '▶'}
+				</button>
+			{/if}
+			<span class="status-badge {sentence.status}"
+				>{STATUS_LABELS[sentence.status] || sentence.status}</span
+			>
+		</div>
 	</div>
 
 	{#if editingField === 'reading' || sentence.reading}
@@ -353,7 +377,13 @@
 
 	{#if sentence.has_audio}
 		<div class="audio-player">
-			<audio controls src="/api/sentences/{sentence.id}/audio"></audio>
+			<audio
+				bind:this={audioEl}
+				src="/api/sentences/{sentence.id}/audio"
+				onended={() => playing = false}
+				onpause={() => playing = false}
+				onplay={() => playing = true}
+			></audio>
 		</div>
 	{/if}
 
@@ -413,6 +443,26 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 2px 6px;
+	}
+	.card-header-right {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex-shrink: 0;
+	}
+	.play-btn {
+		background: none;
+		border: 1px solid var(--border);
+		border-radius: 4px;
+		color: var(--text);
+		font-size: 0.9rem;
+		cursor: pointer;
+		padding: 2px 6px;
+		line-height: 1;
+		transition: background 0.15s;
+	}
+	.play-btn:hover {
+		background: rgba(255, 255, 255, 0.1);
 	}
 
 	/* --- Word tokens --- */
@@ -621,11 +671,9 @@
 		opacity: 0.6;
 	}
 	.audio-player {
-		margin: 12px 0;
-	}
-	.audio-player audio {
-		width: 100%;
-		height: 32px;
+		margin: 0;
+		height: 0;
+		overflow: hidden;
 	}
 	.screenshot-thumb {
 		margin: 12px 0;
