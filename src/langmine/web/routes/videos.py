@@ -62,6 +62,18 @@ def _build_mine_result(video, result: dict, video_id: str) -> dict:
     }
 
 
+def _enrich_transcript_error(msg: str, transcript, video_id: str) -> str:
+    """Enrich a transcript-stage error with available subtitle info."""
+    try:
+        subs = transcript.list_subtitles(video_id)
+    except Exception:
+        subs = []
+    if subs:
+        langs = ", ".join(f"{s.language_name} ({s.kind})" for s in subs[:3])
+        return f"This video has subtitles ({langs}) but download failed. Try again."
+    return "This video has no subtitles in any language."
+
+
 @videos_bp.route("/api/videos/mine", methods=["POST"])
 def mine_video():
     """Mine a YouTube video with SSE progress streaming.
@@ -243,19 +255,7 @@ def mine_video():
                 msg = str(e)
                 stage = e.stage
                 if stage == "transcript":
-                    # Enrich with subtitle info if available
-                    try:
-                        subs = transcript.list_subtitles(video_id)
-                    except Exception:
-                        subs = []
-                    if subs:
-                        langs = ", ".join(
-                            f"{s.language_name} ({s.kind})" for s in subs[:3]
-                        )
-                        msg = f"This video has subtitles ({langs}) but download failed. Try again."
-                    else:
-                        msg = "This video has no subtitles in any language."
-                    stage = "transcript"
+                    msg = _enrich_transcript_error(msg, transcript, video_id)
                 progress_queue.put(("error", {"message": msg, "stage": stage}))
             except ValueError as e:
                 progress_queue.put(("error", {"message": str(e), "stage": "unknown"}))
