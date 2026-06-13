@@ -117,7 +117,6 @@ class CcCedictAdapter(Dictionary):
     def _load(self) -> dict[str, dict]:
         """Parse the CC-CEDICT file into a lookup dict. Called lazily."""
         entries: dict[str, dict] = {}
-
         if not os.path.exists(self._dict_path):
             return entries
 
@@ -127,30 +126,13 @@ class CcCedictAdapter(Dictionary):
                 if not line or line.startswith("#"):
                     continue
 
-                # Format: Traditional Simplified [pinyin] /def1/def2/.../
-                match = re.match(r"^(\S+)\s+(\S+)\s+\[(.+?)\]\s+/(.+)/$", line)
-                if not match:
+                parsed = _parse_cedict_line(line)
+                if parsed is None:
                     continue
 
-                traditional, simplified, pinyin, defs_str = match.groups()
-                definitions = defs_str.split("/")
-
-                # Separate German and English definitions
-                de_defs = [d for d in definitions if self._is_german(d)]
-                en_defs = [d for d in definitions if not self._is_german(d)]
-
-                entry = {
-                    "pinyin": pinyin,
-                    "definition_de": "; ".join(de_defs) if de_defs else "",
-                    "definition_en": "; ".join(en_defs),
-                }
-
-                # Index by simplified form (preferred for lookups)
-                if simplified not in entries:
-                    entries[simplified] = entry
-                # Also index by traditional
-                if traditional != simplified:
-                    entries[traditional] = entry
+                traditional, simplified, pinyin, definitions = parsed
+                entry = _make_cedict_entry(pinyin, definitions, self._is_german)
+                _index_cedict_entry(entries, traditional, simplified, entry)
 
         return entries
 
@@ -169,3 +151,42 @@ class CcCedictAdapter(Dictionary):
         if self._entries is None:
             self._entries = self._load()
         return self._entries.get(word)
+
+
+# ── CC-CEDICT parsing helpers ─────────────────────────────────────────
+
+
+def _parse_cedict_line(line: str) -> tuple[str, str, str, list[str]] | None:
+    """Parse a CC-CEDICT line into (traditional, simplified, pinyin, definitions).
+
+    Format: Traditional Simplified [pinyin] /def1/def2/.../
+    """
+    match = re.match(r"^(\S+)\s+(\S+)\s+\[(.+?)\]\s+/(.+)/$", line)
+    if not match:
+        return None
+    traditional, simplified, pinyin, defs_str = match.groups()
+    definitions = defs_str.split("/")
+    return traditional, simplified, pinyin, definitions
+
+
+def _make_cedict_entry(
+    pinyin: str, definitions: list[str], is_german: callable
+) -> dict:
+    """Build a dictionary entry from pinyin and definitions."""
+    de_defs = [d for d in definitions if is_german(d)]
+    en_defs = [d for d in definitions if not is_german(d)]
+    return {
+        "pinyin": pinyin,
+        "definition_de": "; ".join(de_defs) if de_defs else "",
+        "definition_en": "; ".join(en_defs),
+    }
+
+
+def _index_cedict_entry(
+    entries: dict[str, dict], traditional: str, simplified: str, entry: dict
+) -> None:
+    """Index a dictionary entry by simplified and traditional forms."""
+    if simplified not in entries:
+        entries[simplified] = entry
+    if traditional != simplified:
+        entries[traditional] = entry
