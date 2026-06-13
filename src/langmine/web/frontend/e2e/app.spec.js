@@ -474,8 +474,8 @@ test.describe('LangMine SPA', () => {
 		await main.selectFirstVideo();
 		await reading.enterReadingMode();
 		await reading.expectLoaded();
-		await reading.expectSentenceCount(55);
-		await reading.expectToolbarInfo('55 sentences');
+		await reading.expectSentenceCount(56);
+		await reading.expectToolbarInfo('56 sentences');
 	});
 
 	test('reading mode shows word highlighting', async () => {
@@ -832,5 +832,42 @@ test.describe('LangMine SPA', () => {
 		const badges = subtitles.videoBadges;
 		// At least one badge should be visible (from the newly mined video or the seed)
 		await expect(badges.first()).toBeVisible({ timeout: 5000 });
+	});
+
+	// ── Audio play button ─────────────────────────────────────────────
+
+	test('play button appears on sentences with audio', async () => {
+		await main.goto();
+		await main.selectFirstVideo();
+		await curation.clickFilter('All');
+		await curation.expectCardsLoaded();
+
+		// The "你好 世界" sentence has audio — find its card
+		const audioCard = curation.cards.filter({ hasText: 'Hallo Welt' });
+		await expect(audioCard).toBeVisible();
+
+		// Play button should exist on this card
+		const playBtn = audioCard.locator('.play-btn');
+		await expect(playBtn).toBeVisible();
+		await expect(playBtn).toContainText('▶');
+	});
+
+	test('play button toggles to pause on click', async () => {
+		await main.goto();
+		await main.selectFirstVideo();
+		await curation.clickFilter('All');
+		await curation.expectCardsLoaded();
+
+		const audioCard = curation.cards.filter({ hasText: 'Hallo Welt' });
+		const playBtn = audioCard.locator('.play-btn');
+		await expect(playBtn).toBeVisible();
+
+		// Click play
+		await playBtn.click();
+		await expect(playBtn).toContainText('⏸');
+
+		// Click again to pause
+		await playBtn.click();
+		await expect(playBtn).toContainText('▶');
 	});
 });

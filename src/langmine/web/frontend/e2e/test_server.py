@@ -308,6 +308,7 @@ class FakeAudioProcessor(AudioProcessor):
 # === Create app ===
 
 import struct
+import subprocess
 import tempfile
 import zlib
 
@@ -341,6 +342,24 @@ def _make_1x1_png():
 
 with open(_SCREENSHOT_PATH, "wb") as f:
     f.write(_make_1x1_png())
+
+# Generate a real silent MP3 for the audio play button test fixture.
+# Uses ffmpeg (available in Docker test environment).
+_AUDIO_PATH = os.path.join(tempfile.gettempdir(), "e2e_test_audio.mp3")
+subprocess.run(
+    [
+        "ffmpeg",
+        "-f", "lavfi",
+        "-i", "anullsrc=r=44100:cl=mono",
+        "-t", "0.5",
+        "-q:a", "9",
+        "-acodec", "libmp3lame",
+        "-y",
+        _AUDIO_PATH,
+    ],
+    capture_output=True,
+    check=True,
+)
 
 persistence = FakePersistence()
 
@@ -419,6 +438,19 @@ sentences = [
         unknown_word="皇帝",
         unknown_word_rank=3500,
         status="i1",
+    ),
+    # Sentence with audio clip for play button E2E test
+    Sentence(
+        video_id=video.id,
+        start_ms=22000,
+        end_ms=24000,
+        text="你好 世界",
+        text_segmented="你好 / 世界",
+        reading="nǐ hǎo shì jiè",
+        annotation_json="[]",
+        translation="Hallo Welt",
+        audio_clip_path=_AUDIO_PATH,
+        status="kept",
     ),
 ]
 for s in sentences:
