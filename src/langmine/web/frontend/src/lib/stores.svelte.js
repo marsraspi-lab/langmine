@@ -151,6 +151,39 @@ export async function mineVideo(url, file = null, language = '', targetLanguage 
 	}
 }
 
+export async function remineVideo(videoId) {
+	app.mining = true;
+	app.mineStatus = '⏳ Re-mining...';
+	try {
+		let data;
+		for await (const event of api.remineVideo(videoId)) {
+			if (event.error) {
+				throw new Error(event.error.message || event.error);
+			} else if (event.status) {
+				app.mineStatus = `⏳ ${event.status}`;
+			} else {
+				data = event;
+			}
+		}
+		if (!data) {
+			app.mineStatus = '❌ No result';
+			return null;
+		}
+		app.mineStatus = `✅ ${data.total_sentences} sentences, ${data.i1_count} i+1`;
+		await loadVideos();
+		if (app.selectedVideoId === videoId) {
+			await loadSentences(videoId, app.currentFilter);
+		}
+		return data;
+	} catch (err) {
+		console.error('[remine]', err);
+		app.mineStatus = `❌ ${err.message}`;
+		return null;
+	} finally {
+		app.mining = false;
+	}
+}
+
 export async function deleteScreenshot(id) {
 	try {
 		await api.deleteScreenshot(id);
