@@ -5,6 +5,7 @@ This means you can swap YouTube for Netflix, yt-dlp for local audio files,
 or SQLite for JSON files without changing this code.
 """
 
+import json
 import os
 
 from langmine.domain.classifier import SentenceClassifier
@@ -59,10 +60,24 @@ def process_video(
     max_cards = config.max_cards_per_video
     gap_ms = config.sentence_gap_ms
 
-    # 1. Fetch and merge transcript
+    # 1. Fetch transcript — cache raw chunks before merging
     _progress("Fetching transcript…")
-    merged = _fetch_and_merge_transcript(
-        transcript_source, video_id, subtitle_language, gap_ms
+    try:
+        raw_chunks = transcript_source.fetch(video_id, language=subtitle_language)
+    except Exception as e:
+        raise MineError(str(e), "transcript") from e
+    merged = merge_sentences(raw_chunks, gap_ms=gap_ms)
+    if not merged:
+        raise MineError("No sentences could be extracted from the video.", "transcript")
+    raw_json = json.dumps(
+        [
+            {
+                "text": c.text,
+                "start_ms": c.start_ms,
+                "duration_ms": c.duration_ms,
+            }
+            for c in raw_chunks
+        ]
     )
 
     # 2. Save video metadata
@@ -70,6 +85,7 @@ def process_video(
         youtube_id=video_id,
         title=video_id,  # Title fetched later (M3/M7)
         language_code=config.source_language,
+        transcript_json=raw_json,
     )
     persistence.save_video(video)
 
@@ -127,23 +143,6 @@ def process_video(
 
     # 6. Build summary
     return _build_summary(sentences, video_id)
-
-
-def _fetch_and_merge_transcript(
-    transcript_source: TranscriptSource,
-    video_id: str,
-    subtitle_language: str,
-    gap_ms: int,
-) -> list:
-    try:
-        chunks = transcript_source.fetch(video_id, language=subtitle_language)
-    except Exception as e:
-        raise MineError(str(e), "transcript") from e
-
-    merged = merge_sentences(chunks, gap_ms=gap_ms)
-    if not merged:
-        raise MineError("No sentences could be extracted from the video.", "transcript")
-    return merged
 
 
 def _classify_and_bootstrap(

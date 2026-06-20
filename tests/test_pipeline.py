@@ -1,5 +1,7 @@
 """Tests for process_video() — full video mining with classification."""
 
+import json
+
 import pytest
 
 from langmine.config import Config
@@ -443,7 +445,7 @@ def test_process_video_downloads_audio_and_clips_sentences():
     persistence = FakePersistence(known_words={"已知"})
     processor = FakeChineseProcessor()
 
-    result = process_video(
+    process_video(
         transcript_source=transcript,
         audio_processor=audio,
         persistence=persistence,
@@ -462,10 +464,36 @@ def test_process_video_downloads_audio_and_clips_sentences():
 
     # All persisted sentences should have audio_clip_path set
     for s in persistence.sentences:
-        assert s.audio_clip_path, (
-            f"Sentence {s.id} ({s.text}) missing audio_clip_path"
-        )
+        assert s.audio_clip_path, f"Sentence {s.id} ({s.text}) missing audio_clip_path"
 
     # Verify clips match sentence timing
-    assert audio.clips[0][0:2] == (0, 1000)   # first sentence start/end ms
+    assert audio.clips[0][0:2] == (0, 1000)  # first sentence start/end ms
     assert audio.clips[1][0:2] == (2000, 3000)  # second sentence start/end ms
+
+
+def test_process_video_caches_transcript_json():
+    """process_video should store raw transcript chunks as JSON on the video."""
+    transcript = FakeTranscript(["已知", "未知 单词"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"已知"})
+    processor = FakeChineseProcessor()
+
+    process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_cache",
+        output_dir="/tmp/test",
+        config=_TEST_CONFIG,
+    )
+
+    video = persistence.get_video("test_cache")
+    assert video.transcript_json, "transcript_json should not be empty"
+
+    chunks = json.loads(video.transcript_json)
+    assert len(chunks) == 2
+    assert chunks[0]["text"] == "已知"
+    assert chunks[0]["start_ms"] == 0
+    assert chunks[1]["text"] == "未知 单词"
+    assert chunks[1]["start_ms"] == 2000
