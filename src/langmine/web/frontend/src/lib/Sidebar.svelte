@@ -1,5 +1,5 @@
 <script>
-	import { app, selectVideo, mineVideo, exportAnki, deleteVideo } from './stores.svelte.js';
+	import { app, selectVideo, mineVideo, exportAnki, deleteVideo, remineVideo } from './stores.svelte.js';
 	import { previewVideo, fetchSubtitleInfo } from './api.js';
 	import PreviewPanel from './PreviewPanel.svelte';
 
@@ -282,6 +282,15 @@
 						</div>
 					</button>
 					<button
+						class="remine-video-btn"
+						onclick={(e) => {
+							e.stopPropagation();
+							remineVideo(video.id);
+						}}
+						disabled={app.mining}
+						title="Re-mine from cache">🔄</button
+					>
+					<button
 						class="delete-video-btn"
 						onclick={(e) => {
 							e.stopPropagation();
@@ -532,6 +541,30 @@
 	.delete-video-btn:hover {
 		opacity: 1 !important;
 		color: var(--accent);
+	}
+	.remine-video-btn {
+		flex-shrink: 0;
+		width: 36px;
+		border: none;
+		background: none;
+		color: var(--text-secondary);
+		cursor: pointer;
+		font-size: 0.85rem;
+		opacity: 0;
+		transition:
+			opacity 0.15s,
+			color 0.15s;
+	}
+	.video-row:hover .remine-video-btn {
+		opacity: 0.6;
+	}
+	.remine-video-btn:hover:not(:disabled) {
+		opacity: 1 !important;
+		color: var(--accent-green);
+	}
+	.remine-video-btn:disabled {
+		opacity: 0.3;
+		cursor: not-allowed;
 	}
 	.video-title {
 		font-size: 0.85rem;
