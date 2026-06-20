@@ -429,6 +429,7 @@ class SQLitePersistence(Persistence):
         )
 
     def _row_to_sentence(self, row) -> Sentence:
+        row = dict(row)
         return Sentence(
             id=row["id"],
             video_id=row["video_id"],

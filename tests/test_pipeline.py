@@ -78,20 +78,24 @@ class FakeTranscript(TranscriptSource):
 class FakeAudio(AudioProcessor):
     def __init__(self):
         self.captured_frames = []
+        self.clips = []
+        self.downloads = []
 
     def download(self, video_id: str, output_dir: str) -> str:
-        return f"{output_dir}/test.mp3"
+        self.downloads.append((video_id, output_dir))
+        return f"{output_dir}/{video_id}.mp3"
 
     def clip(
         self,
         audio_path,
         start_ms,
         end_ms,
-        pad_before,
-        pad_after,
+        pad_before_ms,
+        pad_after_ms,
         output_dir,
         sentence_id,
     ):
+        self.clips.append((start_ms, end_ms, sentence_id))
         return f"{output_dir}/sentence_{sentence_id}.mp3"
 
     def capture_frame(self, video_id, timestamp_ms, output_dir, sentence_id):
@@ -430,3 +434,38 @@ def test_process_video_handles_stage_errors():
 
     assert excinfo.value.stage == "transcript"
     assert "Fetch failed" in str(excinfo.value)
+
+
+def test_process_video_downloads_audio_and_clips_sentences():
+    """process_video should download full audio, then clip each sentence."""
+    transcript = FakeTranscript(["已知", "未知 单词"])
+    audio = FakeAudio()
+    persistence = FakePersistence(known_words={"已知"})
+    processor = FakeChineseProcessor()
+
+    result = process_video(
+        transcript_source=transcript,
+        audio_processor=audio,
+        persistence=persistence,
+        language_processor=processor,
+        video_id="test_audio",
+        output_dir="/tmp/test",
+        config=_TEST_CONFIG,
+    )
+
+    # Audio should be downloaded once for the video
+    assert len(audio.downloads) == 1
+    assert audio.downloads[0][0] == "test_audio"
+
+    # All sentences should get audio clips (not just i1)
+    assert len(audio.clips) == 2
+
+    # All persisted sentences should have audio_clip_path set
+    for s in persistence.sentences:
+        assert s.audio_clip_path, (
+            f"Sentence {s.id} ({s.text}) missing audio_clip_path"
+        )
+
+    # Verify clips match sentence timing
+    assert audio.clips[0][0:2] == (0, 1000)   # first sentence start/end ms
+    assert audio.clips[1][0:2] == (2000, 3000)  # second sentence start/end ms

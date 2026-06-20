@@ -5,6 +5,8 @@ This means you can swap YouTube for Netflix, yt-dlp for local audio files,
 or SQLite for JSON files without changing this code.
 """
 
+import os
+
 from langmine.domain.classifier import SentenceClassifier
 from langmine.domain.models import Sentence, Video
 from langmine.domain.ports import (
@@ -71,6 +73,14 @@ def process_video(
     )
     persistence.save_video(video)
 
+    # 2.5 Download full audio for clipping
+    _progress("Downloading audio…")
+    try:
+        video.audio_path = audio_processor.download(video_id, output_dir)
+        persistence.save_video(video)
+    except Exception:
+        _progress("Audio download skipped (not available)")
+
     # 3. Classify and bootstrap
     _progress("Classifying sentences…")
     classifier = SentenceClassifier(language_processor, persistence)
@@ -98,10 +108,18 @@ def process_video(
                 f"falling back to MT."
             )
 
-    # 4. Enrich and capture screenshots
+    # 4. Enrich, capture screenshots, and clip audio
     _progress("Enriching with translations…")
     _enrich_and_capture_screenshots(
-        classifier, audio_processor, sentences, video_id, output_dir, _progress
+        classifier,
+        audio_processor,
+        sentences,
+        video_id,
+        output_dir,
+        video.audio_path,
+        config.audio_pad_before_ms,
+        config.audio_pad_after_ms,
+        _progress,
     )
 
     # 5. Persist and log
@@ -163,6 +181,9 @@ def _enrich_and_capture_screenshots(
     sentences: list[Sentence],
     video_id: str,
     output_dir: str,
+    audio_path: str,
+    pad_before_ms: int,
+    pad_after_ms: int,
     progress_fn,
 ) -> None:
     try:
@@ -171,33 +192,51 @@ def _enrich_and_capture_screenshots(
         raise MineError(str(e), "enrichment") from e
 
     screenshot_dir = f"{output_dir}/screenshots"
+    clip_dir = f"{output_dir}/clips"
     total_screenshots = sum(
         1 for s in sentences if s.screenshot_enabled and s.status != "i0"
     )
     captured = 0
 
     for i, s in enumerate(sentences):
-        if not s.screenshot_enabled or s.status == "i0":
-            continue
+        sentence_id = str(i + 1).zfill(4)
 
-        try:
-            s.screenshot_path = (
-                audio_processor.capture_frame(
-                    video_id=video_id,
-                    timestamp_ms=s.start_ms,
-                    output_dir=screenshot_dir,
-                    sentence_id=str(i + 1).zfill(4),
+        # Screenshot (skip i0)
+        if s.screenshot_enabled and s.status != "i0":
+            try:
+                s.screenshot_path = (
+                    audio_processor.capture_frame(
+                        video_id=video_id,
+                        timestamp_ms=s.start_ms,
+                        output_dir=screenshot_dir,
+                        sentence_id=sentence_id,
+                    )
+                    or ""
                 )
-                or ""
-            )
-            if s.screenshot_path:
-                captured += 1
-                progress_fn(f"Screenshot saved: {s.screenshot_path}")
-            else:
-                progress_fn(f"Screenshot skipped for sentence {i + 1}")
-        except Exception as e:
-            progress_fn(f"Screenshot failed for sentence {i + 1}: {e}")
-            s.screenshot_path = ""
+                if s.screenshot_path:
+                    captured += 1
+                    progress_fn(f"Screenshot saved: {s.screenshot_path}")
+                else:
+                    progress_fn(f"Screenshot skipped for sentence {i + 1}")
+            except Exception as e:
+                progress_fn(f"Screenshot failed for sentence {i + 1}: {e}")
+                s.screenshot_path = ""
+
+        # Audio clip (all sentences, best effort)
+        if audio_path:
+            try:
+                os.makedirs(clip_dir, exist_ok=True)
+                s.audio_clip_path = audio_processor.clip(
+                    audio_path=audio_path,
+                    start_ms=s.start_ms,
+                    end_ms=s.end_ms,
+                    pad_before_ms=pad_before_ms,
+                    pad_after_ms=pad_after_ms,
+                    output_dir=clip_dir,
+                    sentence_id=sentence_id,
+                )
+            except Exception:
+                pass  # best effort — audio clipping may not be available
 
     if total_screenshots > 0:
         progress_fn(f"Screenshots: {captured}/{total_screenshots} captured")
