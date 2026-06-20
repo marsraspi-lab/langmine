@@ -552,3 +552,140 @@ def reclassify_sentences(video_id: int):
             ],
         }
     )
+
+
+@videos_bp.route("/api/videos/<int:video_id>/remine", methods=["POST"])
+def remine_video(video_id: int):
+    """Re-mine a video from cached transcript and audio.
+
+    Re-runs the full pipeline using cached data — no YouTube download.
+    Streams progress via SSE (text/event-stream).
+    """
+    persistence = _get_persistence()
+    processor = _get_processor()
+    audio = _get_audio_processor()
+
+    # Find video by int id (get_video only accepts youtube_id string)
+    videos = persistence.list_videos()
+    video = next((v for v in videos if v.id == video_id), None)
+    if not video or not video.transcript_json:
+        return jsonify({"error": "No cached transcript found for this video"}), 400
+
+    # Parse cached transcript
+    import json as _json
+
+    from langmine.domain.ports import TranscriptChunk
+
+    raw = _json.loads(video.transcript_json)
+    chunks = [
+        TranscriptChunk(
+            text=c["text"], start_ms=c["start_ms"], duration_ms=c["duration_ms"]
+        )
+        for c in raw
+    ]
+    CachedTranscriptSource = current_app.config.get("LANGMINE_CACHED_TRANSCRIPT_CLASS")
+    transcript = CachedTranscriptSource(chunks)
+
+    # ── Choose code path ────────────────────────────────────────────
+    accept = request.headers.get("Accept", "")
+    use_sse = "text/event-stream" in accept
+
+    from langmine.pipeline import MineError
+
+    if not use_sse:
+        # Synchronous path — used by test client and non-browser clients.
+        try:
+            config = current_app.config["LANGMINE_CONFIG"]
+
+            # Mark old sentences as deleted
+            lang = _get_language_code()
+            old_sentences = persistence.get_sentences_by_video(
+                video.id, language_code=lang
+            )
+            for s in old_sentences:
+                s.status = "deleted"
+                persistence.update_sentence(s)
+
+            result, updated_video = _mine_and_log(
+                transcript=transcript,
+                audio=audio,
+                persistence=persistence,
+                processor=processor,
+                video_id=video.youtube_id,
+                config=config,
+            )
+            return jsonify(_build_mine_result(updated_video, result, video.youtube_id))
+        except MineError as e:
+            return jsonify({"error": str(e), "stage": e.stage}), 400
+        except Exception as e:
+            return jsonify({"error": f"Re-mine failed: {e}"}), 500
+
+    # SSE streaming path — live progress for the browser
+    progress_queue: queue.Queue = queue.Queue()
+
+    def _do_remine(app):
+        """Run re-mine in a thread, pushing progress to the queue."""
+        with app.app_context():
+            try:
+                config = current_app.config["LANGMINE_CONFIG"]
+
+                def _on_progress(msg: str):
+                    progress_queue.put(("progress", msg))
+
+                # Mark old sentences as deleted
+                p = _get_persistence()
+                lang = _get_language_code()
+                old_sentences = p.get_sentences_by_video(video.id, language_code=lang)
+                for s in old_sentences:
+                    s.status = "deleted"
+                    p.update_sentence(s)
+
+                result, updated_video = _mine_and_log(
+                    transcript=transcript,
+                    audio=audio,
+                    persistence=p,
+                    processor=processor,
+                    video_id=video.youtube_id,
+                    config=config,
+                    progress_callback=_on_progress,
+                )
+
+                progress_queue.put(
+                    (
+                        "done",
+                        _build_mine_result(updated_video, result, video.youtube_id),
+                    )
+                )
+            except MineError as e:
+                progress_queue.put(("error", {"error": str(e), "stage": e.stage}))
+            except Exception as e:
+                progress_queue.put(("error", {"error": f"Re-mine failed: {e}"}))
+
+    app = current_app._get_current_object()
+    thread = threading.Thread(target=_do_remine, args=(app,), daemon=True)
+    thread.start()
+
+    def generate():
+        while True:
+            try:
+                msg_type, payload = progress_queue.get(timeout=600)
+                if msg_type == "done":
+                    yield f"data: {_json.dumps(payload)}\n\n"
+                    break
+                elif msg_type == "error":
+                    yield f"data: {_json.dumps(payload)}\n\n"
+                    break
+                else:
+                    yield f"data: {_json.dumps({'status': payload})}\n\n"
+            except queue.Empty:
+                break
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

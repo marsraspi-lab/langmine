@@ -123,14 +123,29 @@ class FakePersistence(Persistence):
     # Videos
     def save_video(self, video: Video) -> None:
         if video.id is None:
-            video.id = self._next_video_id
-            self._next_video_id += 1
-            self._videos.append(video)
+            # INSERT OR REPLACE semantics — match by youtube_id
+            existing = next(
+                (v for v in self._videos if v.youtube_id == video.youtube_id), None
+            )
+            if existing:
+                video.id = existing.id
+                for i, v in enumerate(self._videos):
+                    if v.id == video.id:
+                        self._videos[i] = video
+                        break
+            else:
+                video.id = self._next_video_id
+                self._next_video_id += 1
+                self._videos.append(video)
         else:
             for i, v in enumerate(self._videos):
                 if v.id == video.id:
                     self._videos[i] = video
-                    break
+                    return
+            # Pre-set id not found — append and advance counter
+            self._videos.append(video)
+            if video.id >= self._next_video_id:
+                self._next_video_id = video.id + 1
 
     def get_video(self, youtube_id: str) -> Video | None:
         for v in self._videos:
@@ -1202,3 +1217,59 @@ class TestMergeWithPrevious:
         all_s = persistence.get_sentences_by_video(1)
         s_a = next(s for s in all_s if s.id == ids[0])
         assert s_a.audio_clip_path.endswith(".mp3")
+
+
+class TestRemineVideo:
+    """POST /api/videos/<id>/remine"""
+
+    def test_remine_replaces_sentences(self, client):
+        """POST /api/videos/<id>/remine should re-mine and replace sentences."""
+        persistence = client.application.config["LANGMINE_PERSISTENCE"]
+
+        from langmine.domain.models import Video
+
+        video = Video(
+            id=1,
+            youtube_id="test_remine",
+            title="Test Remine Video",
+            language_code="zh",
+            transcript_json=json.dumps(
+                [
+                    {"text": "你好", "start_ms": 0, "duration_ms": 1000},
+                    {"text": "世界", "start_ms": 2000, "duration_ms": 1000},
+                ]
+            ),
+        )
+        persistence.save_video(video)
+
+        resp = client.post("/api/videos/1/remine")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["total_sentences"] == 2
+        assert data["youtube_id"] == "test_remine"
+
+        sentences = persistence.get_sentences_by_video(1)
+        assert len(sentences) == 2
+        texts = {s.text for s in sentences}
+        assert "你好" in texts
+        assert "世界" in texts
+
+    def test_remine_no_cached_transcript_returns_400(self, client):
+        """Re-mine without cached transcript should return 400."""
+        persistence = client.application.config["LANGMINE_PERSISTENCE"]
+
+        from langmine.domain.models import Video
+
+        video = Video(
+            id=2,
+            youtube_id="test_no_cache",
+            title="No Cache Video",
+            language_code="zh",
+            transcript_json="",
+        )
+        persistence.save_video(video)
+
+        resp = client.post("/api/videos/2/remine")
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert "No cached transcript" in data["error"]

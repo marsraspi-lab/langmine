@@ -11,6 +11,7 @@ import os
 
 from flask import Flask
 
+from langmine.adapters.cached_transcript import CachedTranscriptSource
 from langmine.adapters.inline_transcript import InlineTranscriptSource
 from langmine.domain.ports import (
     AnkiExporter,
@@ -66,6 +67,9 @@ def create_app(
     # Allow routes to create InlineTranscriptSource without importing adapters
     app.config["LANGMINE_INLINE_TRANSCRIPT_CLASS"] = InlineTranscriptSource
     app.config["LANGMINE_PARSE_SUBTITLE_FILE"] = parse_subtitle_file
+
+    # Allow routes to create CachedTranscriptSource without importing adapters
+    app.config["LANGMINE_CACHED_TRANSCRIPT_CLASS"] = CachedTranscriptSource
 
     # Register routes
     from langmine.web.routes import register_routes
