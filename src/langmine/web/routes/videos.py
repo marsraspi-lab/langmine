@@ -657,9 +657,13 @@ def remine_video(video_id: int):
                     )
                 )
             except MineError as e:
-                progress_queue.put(("error", {"error": str(e), "stage": e.stage}))
+                progress_queue.put(
+                    ("error", {"message": str(e), "stage": e.stage})
+                )
             except Exception as e:
-                progress_queue.put(("error", {"error": f"Re-mine failed: {e}"}))
+                progress_queue.put(
+                    ("error", {"message": f"Re-mine failed: {e}"})
+                )
 
     app = current_app._get_current_object()
     thread = threading.Thread(target=_do_remine, args=(app,), daemon=True)
@@ -668,24 +672,25 @@ def remine_video(video_id: int):
     def generate():
         while True:
             try:
-                msg_type, payload = progress_queue.get(timeout=600)
-                if msg_type == "done":
-                    yield f"data: {_json.dumps(payload)}\n\n"
-                    break
-                elif msg_type == "error":
-                    yield f"data: {_json.dumps(payload)}\n\n"
-                    break
-                else:
-                    yield f"data: {_json.dumps({'status': payload})}\n\n"
+                msg_type, payload = progress_queue.get(timeout=0.2)
             except queue.Empty:
-                break
+                yield ": keepalive\n\n"
+                continue
+
+            if msg_type == "progress":
+                yield f"data: {_json.dumps({'status': payload})}\n\n"
+            elif msg_type == "done":
+                yield f"data: {_json.dumps(payload)}\n\n"
+                return
+            elif msg_type == "error":
+                yield f"data: {_json.dumps({'error': payload})}\n\n"
+                return
 
     return Response(
-        generate(),
+        stream_with_context(generate()),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
     )
