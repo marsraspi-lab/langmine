@@ -495,5 +495,7 @@ def test_process_video_caches_transcript_json():
     assert len(chunks) == 2
     assert chunks[0]["text"] == "已知"
     assert chunks[0]["start_ms"] == 0
+    assert chunks[0]["duration_ms"] == 1000
     assert chunks[1]["text"] == "未知 单词"
     assert chunks[1]["start_ms"] == 2000
+    assert chunks[1]["duration_ms"] == 1000
