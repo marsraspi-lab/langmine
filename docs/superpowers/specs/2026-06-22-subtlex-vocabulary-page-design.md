@@ -144,7 +144,9 @@ Response (each word is a self-contained object with definitions and sentences):
 }
 ```
 
-**`counts` field:** Computed once per request via `get_vocab_stats()` (already on `VocabRepository` port) for classified words, plus arithmetic for `unknown` (total_subtlex_words - known - learning - ignored - proper_name). `all` equals the total SUBTLEX word count. One extra DB query (<1ms). The frontend uses this to render the filter tab badges without additional API calls.
+**`counts` field:** Computed once per request from `get_vocab_stats()` (already on `VocabRepository` port). `all` = total SUBTLEX word count from `FrequencySource.count_words()`. `unknown` = `all - known - learning - ignored - proper_name`. One extra DB query (<1ms). The frontend uses this to render the filter tab badges without additional API calls.
+
+**`get_vocab_stats()` fix:** The production `SQLitePersistence.get_vocab_stats()` only returns `{known, learning, total}` — missing `ignored` and `proper_name`. Extend it to also count those two statuses so the `counts` field is correct. (The `FakePersistence` already returns `ignored` but not `proper_name` — add that too for test consistency.)
 
 **Batch lookups (all through ports):**
 - **Vocab status:** `Persistence` port — `SELECT word_simplified, status FROM vocab WHERE word_simplified IN (...)` — words not in DB get `status: "unknown"`
@@ -195,7 +197,17 @@ ON CONFLICT(word_simplified) DO UPDATE SET
 
 This writes ONLY the status column, never overwriting `reading`, `definition_de`, `hsk_level`, or `frequency_rank`. All three functions in `vocab.py` (`_apply_word_status`, `_mark_proper_name`, `_dismiss_proper_name`) call this single port method. The response returns the full word object so the frontend can update its cache.
 
-**Note:** The schema needs a `UNIQUE` constraint on `word_simplified` for `ON CONFLICT` to work. If one doesn't exist, add it (the adapter already treats `word_simplified` as the logical key).
+**Note:** The schema needs a `UNIQUE` constraint on `vocab.word_simplified` for `ON CONFLICT` to work. If one doesn't exist, add it with a migration that deduplicates first:
+
+```sql
+-- Dedup: keep the row with the lowest id per word_simplified
+DELETE FROM vocab WHERE id NOT IN (
+    SELECT MIN(id) FROM vocab GROUP BY word_simplified
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_vocab_word ON vocab(word_simplified);
+```
+
+Without deduplication, any existing duplicate rows will crash the migration with a duplicate-key error.
 
 ## Frontend Design
 
@@ -271,7 +283,9 @@ Anchored popover, positioned absolutely relative to the clicked row or list cont
 - **Reads word data from client-side page cache** (no network request — instant open)
 - Close on: X button, click outside, Escape key
 - Reclassification calls `markWordStatus(word, status)` from store (optimistic SvelteSet update + PATCH to API)
-- On reclassification success, the cached word's status is updated in place so the row dot reflects the change
+- On reclassification success:
+  - If `word.status` still matches the current `statusFilter`, update it in place (dot changes color)
+  - If `word.status` no longer matches the current `statusFilter`, splice the word out of the visible list and decrement the affected count badges (e.g., marking a word "known" while viewing the "Unknown" tab removes it from view and adjusts "Unknown 97,494" → "Unknown 97,493")
 - If the user navigates to a different page, the cache is replaced with the new page's data
 
 **States:**
@@ -297,7 +311,7 @@ No changes. Existing `markWordStatus(word, status)` handles:
 
 1. **Port methods:** Add `list_words()` to `FrequencySource`; add `get_sentences_by_words()` to `SentenceRepository`; add `update_vocab_status()` to `VocabRepository`
 2. **Adapter implementations:** Implement new port methods in `SubtlexChAdapter`, `JiebaFrequencyAdapter`, and `SQLitePersistence`
-3. **Schema:** Add `UNIQUE` constraint on `vocab.word_simplified` (needed for `ON CONFLICT` upsert); verify `sentences.unknown_word` index
+3. **Schema:** Deduplicate `vocab` table, then add `UNIQUE` constraint on `vocab.word_simplified` (needed for `ON CONFLICT` upsert); verify `sentences.unknown_word` index; extend `get_vocab_stats()` to return `ignored` and `proper_name` counts
 4. **Wiring:** Add `frequency_source` and `dictionary` params to `create_app()`, wire in `create_production_app()`, add accessors in `_helpers.py`, update test `client()` helpers
 5. **PATCH fix:** Rewrite `_apply_word_status`, `_mark_proper_name`, `_dismiss_proper_name` to use `update_vocab_status()`
 6. **API:** New `GET /api/vocab/subtlex` endpoint with `counts` field and port-based batch lookups
