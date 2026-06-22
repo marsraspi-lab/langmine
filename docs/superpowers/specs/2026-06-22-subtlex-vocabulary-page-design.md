@@ -16,20 +16,19 @@ The current VocabPage only shows words that exist in the `vocab` SQLite table �
 ### Data Flow
 
 ```
-SUBTLEX file (99K words, GB18030)
+FrequencySource port (list_words)              Dictionary port (lookup)
+        │                                               │
+        ▼                                               ▼
+SubtlexChAdapter                           CC-CEDICT adapter
+(language-specific adapter)                (language-specific adapter)
+        │                                               │
+        ▼                                               ▼
+GET /api/vocab/subtlex  ───── new endpoint, accesses ports via current_app.config
         │
-        ▼
-SubtlexChAdapter._ordered_words: list[str]   ← ranked 1..99124 (already in memory)
-        │
-        ├── list_words(offset, limit, status_filter, search)
-        │
-        ▼
-GET /api/vocab/subtlex  ────────────────────── new endpoint
-        │
-        ├── slice: 100 words from ranked list
-        ├── batch query vocab table for status
-        ├── batch query CC-CEDICT for reading + definitions (de/en)
-        ├── batch query sentences table (unknown_word IN (...), LIMIT 5 per word)
+        ├── list slice from FrequencySource port
+        ├── batch vocab status from Persistence port
+        ├── batch reading + definitions from Dictionary port
+        ├── batch sentences from Persistence port (unknown_word IN (...), LIMIT 5)
         ├── merge: each word gets status, definitions, sentences
         └── return: { words: [...], total, page, per_page }
 
@@ -39,7 +38,7 @@ Client cache:
         ├── popover reads word data from cache (no API call)
         └── reclassification: PATCH /api/vocab/<word> (existing endpoint)
 
-PATCH /api/vocab/<word>  ───────────────────── existing endpoint (no changes needed)
+PATCH /api/vocab/<word>  ── existing endpoint (no changes needed)
         │
         ├── upserts vocab row (creates if absent)
         └── returns updated word
@@ -54,11 +53,27 @@ PATCH /api/vocab/<word>  ──────────────────�
 | **Port** | `domain/ports.py` | Add `list_words()` to `FrequencySource` ABC |
 | **Adapter** | `languages/chinese/frequency.py` | Add `_ordered_words` list, `list_words()`, `count_words()` methods |
 | **Adapter** | `languages/chinese/jieba_frequency.py` | Add `list_words()` and `count_words()` stubs (port compliance) |
-| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint returning full word detail |
+| **Wiring** | `web/app.py` | Inject `FrequencySource` and `Dictionary` into Flask app config |
+| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint, accesses ports via `current_app.config` |
 | **Frontend** | `lib/VocabPage.svelte` | Rewrite: SUBTLEX data source, page cache, page-based pagination |
 | **Frontend** | `lib/WordPopover.svelte` | New: anchored word detail popover (reads from cache) |
 | **Frontend** | `lib/api.js` | Add `fetchSubtlexVocab()` |
 | **Frontend** | `lib/stores.svelte.js` | No changes needed (`markWordStatus` already exists) |
+
+### Port Abstraction
+
+The endpoint works through domain ports — zero language-specific knowledge:
+
+```
+current_app.config["LANGMINE_FREQUENCY_SOURCE"]  → FrequencySource port
+current_app.config["LANGMINE_DICTIONARY"]        → Dictionary port
+current_app.config["LANGMINE_PERSISTENCE"]       → Persistence port (already wired)
+```
+
+- `list_words()` is called on the `FrequencySource` port — works with SUBTLEX-CH, jieba, or any future language's frequency list.
+- `lookup(word)` is called on the `Dictionary` port for reading + definitions — works with CC-CEDICT or any future dictionary adapter.
+- `hsk_level` is already an optional field on `VocabWord` — other languages leave it `null`.
+- Adding a new language means providing `FrequencySource` + `Dictionary` adapters. No endpoint changes.
 
 ### Performance
 
@@ -116,10 +131,10 @@ Response (each word is a self-contained object with definitions and sentences):
 }
 ```
 
-**Batch lookups (single query each):**
-- **Vocab status:** `SELECT word_simplified, status FROM vocab WHERE word_simplified IN (...100 words...)` — words not in DB get `status: "unknown"`
-- **CC-CEDICT:** in-memory dict lookup for `reading`, `definition_de`, `definition_en` on all 100 words — ~1ms
-- **Sentences:** `SELECT * FROM sentences WHERE unknown_word IN (...100 words...)` — group by `unknown_word` in Python, cap at 5 per word. Words with no mined sentences get an empty array.
+**Batch lookups (all through ports):**
+- **Vocab status:** `Persistence` port — `SELECT word_simplified, status FROM vocab WHERE word_simplified IN (...)` — words not in DB get `status: "unknown"`
+- **Dictionary:** `Dictionary` port — `lookup(word)` for all 100 words (in-memory adapter, ~1ms)
+- **Sentences:** `Persistence` port — `SELECT * FROM sentences WHERE unknown_word IN (...)` — group by `unknown_word` in Python, cap at 5 per word. Words with no mined sentences get an empty array.
 
 **Filtering logic:**
 - `status=null` (all): slice the ranked list at `(page-1)*per_page`, batch-query vocab for those 100 words
@@ -128,10 +143,10 @@ Response (each word is a self-contained object with definitions and sentences):
 - `search`: scan the full list for substring matches, paginate the matched subset
 
 **Reading (pinyin):**
-- `word.reading` — from CC-CEDICT dictionary, includes tone marks (mǎ, mà, de)
+- `word.reading` — from `Dictionary` port, includes tone marks (mǎ, mà, de)
 - `sentences[].reading` — already stored on Sentence model from NLP enrichment, includes tone marks
 
-**German/English preference:** Dictionary returns `definition_de` when available (auto-detected in CC-CEDICT entries). `definition_en` is always populated as fallback.
+**German/English preference:** `Dictionary` port returns `definition_de` when available. `definition_en` is always populated as fallback. For Chinese, the CC-CEDICT adapter auto-detects German entries; other language adapters follow the same contract.
 
 ### `PATCH /api/vocab/<word>` (Existing, No Changes)
 
