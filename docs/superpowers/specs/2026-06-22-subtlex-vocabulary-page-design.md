@@ -38,9 +38,9 @@ Client cache:
         ├── popover reads word data from cache (no API call)
         └── reclassification: PATCH /api/vocab/<word> (existing endpoint)
 
-PATCH /api/vocab/<word>  ── existing endpoint (fixed to upsert)
+PATCH /api/vocab/<word>  ── existing endpoint (fixed)
         │
-        ├── calls save_vocab_word() (upserts: INSERT if new, UPDATE if exists)
+        ├── calls update_vocab_status() port method (upserts: INSERT if new, UPDATE status only if exists)
         └── returns updated word
 ```
 
@@ -51,13 +51,16 @@ PATCH /api/vocab/<word>  ── existing endpoint (fixed to upsert)
 | Layer | File | Change |
 |-------|------|--------|
 | **Port** | `domain/ports.py` | Add `list_words()` to `FrequencySource` ABC |
+| **Port** | `domain/ports.py` | Add `get_sentences_by_words(words, max_per_word)` to `SentenceRepository` ABC |
+| **Port** | `domain/ports.py` | Add `update_vocab_status(word_simplified, status, language_code)` to `VocabRepository` ABC |
 | **Adapter** | `languages/chinese/frequency.py` | Add `_ordered_words` list, `list_words()`, `count_words()` methods |
 | **Adapter** | `languages/chinese/jieba_frequency.py` | Add `list_words()` and `count_words()` stubs (port compliance) |
+| **Adapter** | `adapters/sqlite_persistence.py` | Implement new port methods: `get_sentences_by_words` (ROW_NUMBER query), `update_vocab_status` (upsert: INSERT if new, UPDATE status only if exists) |
 | **Wiring** | `web/app.py:create_app()` | Add `frequency_source` and `dictionary` optional params, store in `app.config` |
 | **Wiring** | `web/app.py:create_production_app()` | Call `create_language_adapters()` before processor, pass to both `create_language_processor()` and `create_app()` |
 | **Wiring** | `web/routes/_helpers.py` | Add `_get_frequency_source()` and `_get_dictionary()` (matching existing `_get_persistence()` pattern) |
-| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint; fix `_apply_word_status` to upsert new words |
-| **API** | `web/routes/vocab.py` | Update all test `client()` helpers to pass the new optional params |
+| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint; fix `_apply_word_status` + `_mark_proper_name` + `_dismiss_proper_name` |
+| **Test** | `tests/` | Update all test `client()` helpers to pass the new optional params |
 | **Frontend** | `lib/VocabPage.svelte` | Rewrite: SUBTLEX data source, page cache, page-based pagination |
 | **Frontend** | `lib/WordPopover.svelte` | New: anchored word detail popover (reads from cache) |
 | **Frontend** | `lib/api.js` | Add `fetchSubtlexVocab()` |
@@ -130,24 +133,33 @@ Response (each word is a self-contained object with definitions and sentences):
   ],
   "total": 99124,
   "page": 1,
-  "per_page": 100
+  "per_page": 100,
+  "counts": {
+    "all": 99124,
+    "known": 1234,
+    "learning": 340,
+    "ignored": 56,
+    "unknown": 97494
+  }
 }
 ```
+
+**`counts` field:** Computed once per request via `get_vocab_stats()` (already on `VocabRepository` port) for classified words, plus arithmetic for `unknown` (total_subtlex_words - known - learning - ignored - proper_name). `all` equals the total SUBTLEX word count. One extra DB query (<1ms). The frontend uses this to render the filter tab badges without additional API calls.
 
 **Batch lookups (all through ports):**
 - **Vocab status:** `Persistence` port — `SELECT word_simplified, status FROM vocab WHERE word_simplified IN (...)` — words not in DB get `status: "unknown"`
 - **Dictionary:** `Dictionary` port — `lookup(word)` for all 100 words (in-memory adapter, ~1ms)
-- **Sentences:** `Persistence` port — SQL-level per-word cap using `ROW_NUMBER()` to avoid transferring thousands of rows for common words like 的:
+- **Sentences:** `SentenceRepository` port — new `get_sentences_by_words(words: list[str], max_per_word: int) -> dict[str, list[Sentence]]` method. The SQLite implementation uses `ROW_NUMBER()` to cap at the SQL level (not in Python), guaranteeing at most `len(words) × max_per_word` rows regardless of word popularity:
 
 ```sql
 SELECT * FROM (
     SELECT *, row_number() OVER (PARTITION BY unknown_word ORDER BY id DESC) AS rn
     FROM sentences
     WHERE unknown_word IN (?, ?, ...)
-) WHERE rn <= 5
+) WHERE rn <= ?
 ```
 
-This guarantees at most 500 rows returned (100 words × 5). Group by `unknown_word` in Python. Words with no mined sentences get an empty array. **Prerequisite:** the `unknown_word` column must be indexed — verify the index exists or add one.
+Words with no mined sentences get an empty list. **Prerequisite:** the `unknown_word` column must be indexed — verify the index exists or add one.
 
 **Filtering logic:**
 - `status=null` (all): slice the ranked list at `(page-1)*per_page`, batch-query vocab for those 100 words
@@ -163,9 +175,27 @@ This guarantees at most 500 rows returned (100 words × 5). Group by `unknown_wo
 
 ### `PATCH /api/vocab/<word>` (Existing — Requires Fix)
 
-Used for reclassification. The current handler calls `mark_word_known/learning/ignored` which do a bare `UPDATE` — if the word doesn't exist in the vocab table (typical for SUBTLEX-only words), the UPDATE hits zero rows and the user's action is silently lost.
+Used for reclassification. Three bugs to fix:
 
-**Required fix:** Change `_apply_word_status` in `vocab.py` to call `save_vocab_word()` instead of the `mark_word_*` methods. `save_vocab_word` already has correct upsert logic: UPDATE if the row exists, INSERT if it doesn't. The response should return the full word object so the frontend can update its cache.
+**Bug 1 — `_apply_word_status` drops new words:** Calls `mark_word_known/learning/ignored` which do a bare `UPDATE`. If the word doesn't exist in the vocab table (typical for SUBTLEX-only words), the UPDATE hits zero rows and the user's action is silently lost.
+
+**Bug 2 — `_mark_proper_name` doesn't persist existing-words:** When the word already exists in DB, it mutates `existing.status` on the Python object but never calls any persistence method. The change is lost.
+
+**Bug 3 — `_dismiss_proper_name` drops new words:** Calls `mark_word_learning()` — bare UPDATE, same silent-loss as Bug 1.
+
+**Fix:** Add `update_vocab_status(word_simplified, status, language_code)` to the `VocabRepository` port. The SQLite implementation upserts:
+
+```sql
+INSERT INTO vocab (word_simplified, status, language_code, created_at, updated_at)
+VALUES (?, ?, ?, datetime('now'), datetime('now'))
+ON CONFLICT(word_simplified) DO UPDATE SET
+    status = excluded.status,
+    updated_at = excluded.updated_at
+```
+
+This writes ONLY the status column, never overwriting `reading`, `definition_de`, `hsk_level`, or `frequency_rank`. All three functions in `vocab.py` (`_apply_word_status`, `_mark_proper_name`, `_dismiss_proper_name`) call this single port method. The response returns the full word object so the frontend can update its cache.
+
+**Note:** The schema needs a `UNIQUE` constraint on `word_simplified` for `ON CONFLICT` to work. If one doesn't exist, add it (the adapter already treats `word_simplified` as the logical key).
 
 ## Frontend Design
 
@@ -265,12 +295,13 @@ No changes. Existing `markWordStatus(word, status)` handles:
 
 ## Implementation Order
 
-1. **Port + Adapters:** Add `list_words()` to `FrequencySource` and both adapters
-2. **Wiring:** Add `frequency_source` and `dictionary` params to `create_app()`, wire in `create_production_app()`, add accessors in `_helpers.py`, update test `client()` helpers
-3. **PATCH fix:** Change `_apply_word_status` to use `save_vocab_word()` for upsert semantics
-4. **Index:** Verify `sentences.unknown_word` has an index; add one if missing
-5. **API:** New `GET /api/vocab/subtlex` endpoint with `ROW_NUMBER()` sentence query
-6. **api.js:** Add `fetchSubtlexVocab()`
-7. **WordPopover.svelte:** New component (reads from client cache)
-8. **VocabPage.svelte:** Rewrite with SUBTLEX data, page cache, pagination, popover integration
-9. **Tests:** Backend tests for new endpoint + frontend Playwright tests
+1. **Port methods:** Add `list_words()` to `FrequencySource`; add `get_sentences_by_words()` to `SentenceRepository`; add `update_vocab_status()` to `VocabRepository`
+2. **Adapter implementations:** Implement new port methods in `SubtlexChAdapter`, `JiebaFrequencyAdapter`, and `SQLitePersistence`
+3. **Schema:** Add `UNIQUE` constraint on `vocab.word_simplified` (needed for `ON CONFLICT` upsert); verify `sentences.unknown_word` index
+4. **Wiring:** Add `frequency_source` and `dictionary` params to `create_app()`, wire in `create_production_app()`, add accessors in `_helpers.py`, update test `client()` helpers
+5. **PATCH fix:** Rewrite `_apply_word_status`, `_mark_proper_name`, `_dismiss_proper_name` to use `update_vocab_status()`
+6. **API:** New `GET /api/vocab/subtlex` endpoint with `counts` field and port-based batch lookups
+7. **api.js:** Add `fetchSubtlexVocab()`
+8. **WordPopover.svelte:** New component (reads from client cache)
+9. **VocabPage.svelte:** Rewrite with SUBTLEX data, page cache, pagination, popover integration
+10. **Tests:** Backend tests for new port methods + endpoint + frontend Playwright tests
