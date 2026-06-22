@@ -27,18 +27,25 @@ SubtlexChAdapter._ordered_words: list[str]   ← ranked 1..99124 (already in mem
 GET /api/vocab/subtlex  ────────────────────── new endpoint
         │
         ├── slice: 100 words from ranked list
-        ├── batch query vocab table for status + sentence counts
-        ├── batch query CC-CEDICT for reading (pinyin)
-        ├── merge: each word gets status (unknown if not in DB)
+        ├── batch query vocab table for status
+        ├── batch query CC-CEDICT for reading + definitions (de/en)
+        ├── batch query sentences table (unknown_word IN (...), LIMIT 5 per word)
+        ├── merge: each word gets status, definitions, sentences
         └── return: { words: [...], total, page, per_page }
 
-GET /api/vocab/<word>  ─────────────────────── existing endpoint, enhanced
+Client cache:
         │
-        ├── dictionary lookup (CC-CEDICT) if no stored definition
-        ├── sentence query (LIMIT 5)
-        ├── sentences nested inside word object
-        └── return: { word: {..., sentences: [...]} }
+        ├── current page of 100 words cached in component state
+        ├── popover reads word data from cache (no API call)
+        └── reclassification: PATCH /api/vocab/<word> (existing endpoint)
+
+PATCH /api/vocab/<word>  ───────────────────── existing endpoint (no changes needed)
+        │
+        ├── upserts vocab row (creates if absent)
+        └── returns updated word
 ```
+
+**No per-word detail endpoint is needed for this feature.** The list endpoint returns everything the popover needs. `GET /api/vocab/<word>` remains unchanged for other consumers.
 
 ### Changes by Layer
 
@@ -47,10 +54,9 @@ GET /api/vocab/<word>  ───────────────────
 | **Port** | `domain/ports.py` | Add `list_words()` to `FrequencySource` ABC |
 | **Adapter** | `languages/chinese/frequency.py` | Add `_ordered_words` list, `list_words()`, `count_words()` methods |
 | **Adapter** | `languages/chinese/jieba_frequency.py` | Add `list_words()` and `count_words()` stubs (port compliance) |
-| **Dictionary** | `languages/chinese/dictionary.py` | Add `get_reading(word)` helper for pinyin-only lookup |
-| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex`; enhance `GET /api/vocab/<word>` |
-| **Frontend** | `lib/VocabPage.svelte` | Rewrite: SUBTLEX data source, page-based pagination |
-| **Frontend** | `lib/WordPopover.svelte` | New: anchored word detail popover |
+| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint returning full word detail |
+| **Frontend** | `lib/VocabPage.svelte` | Rewrite: SUBTLEX data source, page cache, page-based pagination |
+| **Frontend** | `lib/WordPopover.svelte` | New: anchored word detail popover (reads from cache) |
 | **Frontend** | `lib/api.js` | Add `fetchSubtlexVocab()` |
 | **Frontend** | `lib/stores.svelte.js` | No changes needed (`markWordStatus` already exists) |
 
@@ -58,13 +64,16 @@ GET /api/vocab/<word>  ───────────────────
 
 - SUBTLEX already loaded at startup (`SubtlexChAdapter.__init__`, ~200ms, one-time)
 - `_ordered_words: list[str]` adds ~1MB memory (99K × ~10 bytes avg per word)
-- **Per-page request:** 1 list slice + 1 batch SQL query + 1 batch dictionary lookup = **<10ms**
-- **Popup detail:** 1 dictionary lookup + 1 sentence query (LIMIT 5) = **<5ms**
+- **Page request:** 1 list slice + 1 batch vocab query + 1 batch dictionary lookup + 1 batch sentence query = **<15ms**
 - **Filtered views** (status=known etc.): single scan of 99K in-memory list = **~15ms**
+- **Popup open:** instant (reads from client-side cache, no network request)
+- **Reclassification:** PATCH /api/vocab/<word> = **<5ms**, optimistic UI update in the meantime
 
 ## API Design
 
 ### `GET /api/vocab/subtlex` (New)
+
+Returns a full page of SUBTLEX words with all detail needed for display and popover — no per-word endpoint calls needed.
 
 Query params:
 
@@ -75,20 +84,30 @@ Query params:
 | `status` | `null` (all) | `known`, `learning`, `ignored`, `unknown` |
 | `search` | `""` | substring match on `word_simplified` |
 
-Response:
+Response (each word is a self-contained object with definitions and sentences):
 
 ```json
 {
   "words": [
     {
-      "word_simplified": "的",
-      "word_traditional": "",
-      "reading": "de",
-      "frequency_rank": 1,
+      "word_simplified": "吗",
+      "word_traditional": "嗎",
+      "reading": "ma",
+      "definition_de": "Fragepartikel",
+      "definition_en": "question particle",
+      "frequency_rank": 42,
       "frequency_badge": "🔥",
       "hsk_level": 1,
-      "status": "known",
-      "sentence_count": 42
+      "status": "learning",
+      "sentence_count": 15,
+      "sentences": [
+        {
+          "id": 1,
+          "text": "你吃饭了吗",
+          "reading": "nǐ chīfàn le ma",
+          "translation": "Have you eaten?"
+        }
+      ]
     }
   ],
   "total": 99124,
@@ -97,57 +116,26 @@ Response:
 }
 ```
 
+**Batch lookups (single query each):**
+- **Vocab status:** `SELECT word_simplified, status FROM vocab WHERE word_simplified IN (...100 words...)` — words not in DB get `status: "unknown"`
+- **CC-CEDICT:** in-memory dict lookup for `reading`, `definition_de`, `definition_en` on all 100 words — ~1ms
+- **Sentences:** `SELECT * FROM sentences WHERE unknown_word IN (...100 words...)` — group by `unknown_word` in Python, cap at 5 per word. Words with no mined sentences get an empty array.
+
 **Filtering logic:**
 - `status=null` (all): slice the ranked list at `(page-1)*per_page`, batch-query vocab for those 100 words
 - `status=known|learning|ignored`: get the set of words with that status from DB, filter the full SUBTLEX list to only those words, paginate the filtered result
 - `status=unknown`: get all classified words from DB (status IN ('known','learning','ignored','proper-name')), filter SUBTLEX to words NOT in that set, paginate
 - `search`: scan the full list for substring matches, paginate the matched subset
 
-**Reclassification of unknown words:** When the user marks a SUBTLEX word as known/learning/ignored via the popover, the word may not yet exist in the `vocab` table. The `PATCH /api/vocab/<word>` endpoint must upsert: create the vocab row if absent, update status if present. The existing `save_vocab_word` already uses upsert semantics — ensure the PATCH handler uses it, not a plain UPDATE.
-
-**Definitions are NOT included in list view** (expensive to look up 100 at a time). Only `reading` (pinyin) is batch-looked up from CC-CEDICT.
-
-### `GET /api/vocab/<word>` (Enhanced)
-
-Existing endpoint with two enhancements:
-
-1. **Dictionary fallback:** If stored `definition_de` is empty, look up CC-CEDICT and return both `definition_de` and `definition_en`. Result is NOT persisted back to DB.
-2. **Sentences nested:** `sentences` array is moved inside the `word` object.
-3. **Sentences capped:** LIMIT 5.
-
-Response:
-
-```json
-{
-  "word": {
-    "word_simplified": "吗",
-    "word_traditional": "嗎",
-    "reading": "ma",
-    "definition_de": "Fragepartikel",
-    "definition_en": "question particle",
-    "frequency_rank": 42,
-    "frequency_badge": "🔥",
-    "hsk_level": 1,
-    "status": "learning",
-    "sentence_count": 15,
-    "sentences": [
-      {
-        "id": 1,
-        "text": "你吃饭了吗",
-        "reading": "nǐ chīfàn le ma",
-        "translation": "Have you eaten?"
-      }
-    ]
-  }
-}
-```
-
 **Reading (pinyin):**
 - `word.reading` — from CC-CEDICT dictionary, includes tone marks (mǎ, mà, de)
 - `sentences[].reading` — already stored on Sentence model from NLP enrichment, includes tone marks
-- Word reading is batch-looked up for list view; sentences always had reading
 
 **German/English preference:** Dictionary returns `definition_de` when available (auto-detected in CC-CEDICT entries). `definition_en` is always populated as fallback.
+
+### `PATCH /api/vocab/<word>` (Existing, No Changes)
+
+Used for reclassification. Must upsert: create the vocab row if absent, update status if present. The existing `save_vocab_word` already uses upsert semantics — verify the PATCH handler uses it, not a plain UPDATE.
 
 ## Frontend Design
 
@@ -220,15 +208,17 @@ Anchored popover, positioned absolutely relative to the clicked row or list cont
 
 **Behavior:**
 - Opens on word row click, positioned near the clicked row
-- Fetches `GET /api/vocab/<word>` on open
+- **Reads word data from client-side page cache** (no network request — instant open)
 - Close on: X button, click outside, Escape key
-- Reclassification calls `markWordStatus(word, status)` from store (optimistic update, API persist)
-- Reclassification immediately updates the word's status dot in the list behind the popover
+- Reclassification calls `markWordStatus(word, status)` from store (optimistic SvelteSet update + PATCH to API)
+- On reclassification success, the cached word's status is updated in place so the row dot reflects the change
+- If the user navigates to a different page, the cache is replaced with the new page's data
 
 **States:**
-- Loading: spinner inside popover
-- Error: inline error message with retry
+- Word found in cache: instant render, all data shown
+- Word not in cache (edge case): close popover and re-fetch the page
 - Empty sentences: "No example sentences yet" message
+- Reclassification error: toast notification (handled by store)
 
 ### api.js Addition
 
@@ -246,8 +236,8 @@ No changes. Existing `markWordStatus(word, status)` handles:
 ## Implementation Order
 
 1. **Port + Adapters:** Add `list_words()` to `FrequencySource` and both adapters
-2. **API:** New `/api/vocab/subtlex` endpoint + enhance `GET /api/vocab/<word>`
+2. **API:** New `GET /api/vocab/subtlex` endpoint returning full word detail with sentences
 3. **api.js:** Add `fetchSubtlexVocab()`
-4. **WordPopover.svelte:** New component
-5. **VocabPage.svelte:** Rewrite with SUBTLEX data, pagination, popover integration
+4. **WordPopover.svelte:** New component (reads from client cache)
+5. **VocabPage.svelte:** Rewrite with SUBTLEX data, page cache, pagination, popover integration
 6. **Tests:** Backend tests for new endpoint + frontend Playwright tests
