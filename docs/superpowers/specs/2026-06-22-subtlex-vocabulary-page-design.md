@@ -28,7 +28,7 @@ GET /api/vocab/subtlex  ───── new endpoint, accesses ports via current
         ├── list slice from FrequencySource port
         ├── batch vocab status from Persistence port
         ├── batch reading + definitions from Dictionary port
-        ├── batch sentences from Persistence port (unknown_word IN (...), LIMIT 5)
+        ├── batch sentences from Persistence port (ROW_NUMBER() OVER unknown_word, rn ≤ 5)
         ├── merge: each word gets status, definitions, sentences
         └── return: { words: [...], total, page, per_page }
 
@@ -38,9 +38,9 @@ Client cache:
         ├── popover reads word data from cache (no API call)
         └── reclassification: PATCH /api/vocab/<word> (existing endpoint)
 
-PATCH /api/vocab/<word>  ── existing endpoint (no changes needed)
+PATCH /api/vocab/<word>  ── existing endpoint (fixed to upsert)
         │
-        ├── upserts vocab row (creates if absent)
+        ├── calls save_vocab_word() (upserts: INSERT if new, UPDATE if exists)
         └── returns updated word
 ```
 
@@ -53,8 +53,11 @@ PATCH /api/vocab/<word>  ── existing endpoint (no changes needed)
 | **Port** | `domain/ports.py` | Add `list_words()` to `FrequencySource` ABC |
 | **Adapter** | `languages/chinese/frequency.py` | Add `_ordered_words` list, `list_words()`, `count_words()` methods |
 | **Adapter** | `languages/chinese/jieba_frequency.py` | Add `list_words()` and `count_words()` stubs (port compliance) |
-| **Wiring** | `web/app.py` | Inject `FrequencySource` and `Dictionary` into Flask app config |
-| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint, accesses ports via `current_app.config` |
+| **Wiring** | `web/app.py:create_app()` | Add `frequency_source` and `dictionary` optional params, store in `app.config` |
+| **Wiring** | `web/app.py:create_production_app()` | Call `create_language_adapters()` before processor, pass to both `create_language_processor()` and `create_app()` |
+| **Wiring** | `web/routes/_helpers.py` | Add `_get_frequency_source()` and `_get_dictionary()` (matching existing `_get_persistence()` pattern) |
+| **API** | `web/routes/vocab.py` | New `GET /api/vocab/subtlex` endpoint; fix `_apply_word_status` to upsert new words |
+| **API** | `web/routes/vocab.py` | Update all test `client()` helpers to pass the new optional params |
 | **Frontend** | `lib/VocabPage.svelte` | Rewrite: SUBTLEX data source, page cache, page-based pagination |
 | **Frontend** | `lib/WordPopover.svelte` | New: anchored word detail popover (reads from cache) |
 | **Frontend** | `lib/api.js` | Add `fetchSubtlexVocab()` |
@@ -79,7 +82,7 @@ current_app.config["LANGMINE_PERSISTENCE"]       → Persistence port (already w
 
 - SUBTLEX already loaded at startup (`SubtlexChAdapter.__init__`, ~200ms, one-time)
 - `_ordered_words: list[str]` adds ~1MB memory (99K × ~10 bytes avg per word)
-- **Page request:** 1 list slice + 1 batch vocab query + 1 batch dictionary lookup + 1 batch sentence query = **<15ms**
+- **Page request:** 1 list slice + 1 batch vocab query + 1 batch dictionary lookup + 1 batch sentence query (≤500 rows guaranteed by `ROW_NUMBER()`) = **<15ms**
 - **Filtered views** (status=known etc.): single scan of 99K in-memory list = **~15ms**
 - **Popup open:** instant (reads from client-side cache, no network request)
 - **Reclassification:** PATCH /api/vocab/<word> = **<5ms**, optimistic UI update in the meantime
@@ -134,7 +137,17 @@ Response (each word is a self-contained object with definitions and sentences):
 **Batch lookups (all through ports):**
 - **Vocab status:** `Persistence` port — `SELECT word_simplified, status FROM vocab WHERE word_simplified IN (...)` — words not in DB get `status: "unknown"`
 - **Dictionary:** `Dictionary` port — `lookup(word)` for all 100 words (in-memory adapter, ~1ms)
-- **Sentences:** `Persistence` port — `SELECT * FROM sentences WHERE unknown_word IN (...)` — group by `unknown_word` in Python, cap at 5 per word. Words with no mined sentences get an empty array.
+- **Sentences:** `Persistence` port — SQL-level per-word cap using `ROW_NUMBER()` to avoid transferring thousands of rows for common words like 的:
+
+```sql
+SELECT * FROM (
+    SELECT *, row_number() OVER (PARTITION BY unknown_word ORDER BY id DESC) AS rn
+    FROM sentences
+    WHERE unknown_word IN (?, ?, ...)
+) WHERE rn <= 5
+```
+
+This guarantees at most 500 rows returned (100 words × 5). Group by `unknown_word` in Python. Words with no mined sentences get an empty array. **Prerequisite:** the `unknown_word` column must be indexed — verify the index exists or add one.
 
 **Filtering logic:**
 - `status=null` (all): slice the ranked list at `(page-1)*per_page`, batch-query vocab for those 100 words
@@ -148,9 +161,11 @@ Response (each word is a self-contained object with definitions and sentences):
 
 **German/English preference:** `Dictionary` port returns `definition_de` when available. `definition_en` is always populated as fallback. For Chinese, the CC-CEDICT adapter auto-detects German entries; other language adapters follow the same contract.
 
-### `PATCH /api/vocab/<word>` (Existing, No Changes)
+### `PATCH /api/vocab/<word>` (Existing — Requires Fix)
 
-Used for reclassification. Must upsert: create the vocab row if absent, update status if present. The existing `save_vocab_word` already uses upsert semantics — verify the PATCH handler uses it, not a plain UPDATE.
+Used for reclassification. The current handler calls `mark_word_known/learning/ignored` which do a bare `UPDATE` — if the word doesn't exist in the vocab table (typical for SUBTLEX-only words), the UPDATE hits zero rows and the user's action is silently lost.
+
+**Required fix:** Change `_apply_word_status` in `vocab.py` to call `save_vocab_word()` instead of the `mark_word_*` methods. `save_vocab_word` already has correct upsert logic: UPDATE if the row exists, INSERT if it doesn't. The response should return the full word object so the frontend can update its cache.
 
 ## Frontend Design
 
@@ -251,8 +266,11 @@ No changes. Existing `markWordStatus(word, status)` handles:
 ## Implementation Order
 
 1. **Port + Adapters:** Add `list_words()` to `FrequencySource` and both adapters
-2. **API:** New `GET /api/vocab/subtlex` endpoint returning full word detail with sentences
-3. **api.js:** Add `fetchSubtlexVocab()`
-4. **WordPopover.svelte:** New component (reads from client cache)
-5. **VocabPage.svelte:** Rewrite with SUBTLEX data, page cache, pagination, popover integration
-6. **Tests:** Backend tests for new endpoint + frontend Playwright tests
+2. **Wiring:** Add `frequency_source` and `dictionary` params to `create_app()`, wire in `create_production_app()`, add accessors in `_helpers.py`, update test `client()` helpers
+3. **PATCH fix:** Change `_apply_word_status` to use `save_vocab_word()` for upsert semantics
+4. **Index:** Verify `sentences.unknown_word` has an index; add one if missing
+5. **API:** New `GET /api/vocab/subtlex` endpoint with `ROW_NUMBER()` sentence query
+6. **api.js:** Add `fetchSubtlexVocab()`
+7. **WordPopover.svelte:** New component (reads from client cache)
+8. **VocabPage.svelte:** Rewrite with SUBTLEX data, page cache, pagination, popover integration
+9. **Tests:** Backend tests for new endpoint + frontend Playwright tests
