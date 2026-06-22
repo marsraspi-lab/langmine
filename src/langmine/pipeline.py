@@ -118,6 +118,19 @@ def process_video(
                     f"Aligned {sum(1 for s in sentences if s.translation)} "
                     f"translations from {target_subtitle_language} subtitles."
                 )
+                # Cache target transcript for re-mining
+                video.target_transcript_json = json.dumps(
+                    [
+                        {
+                            "text": c.text,
+                            "start_ms": c.start_ms,
+                            "duration_ms": c.duration_ms,
+                        }
+                        for c in target_chunks
+                    ]
+                )
+                video.target_subtitle_language = target_subtitle_language
+                persistence.save_video(video)
         except Exception:
             _progress(
                 f"Target subtitle '{target_subtitle_language}' unavailable, "

@@ -162,15 +162,7 @@
 		ondelete(sentence.id);
 	}
 
-	let SHOW_DELETE_SCREENSHOT_CONFIRM = $state(false);
-	function confirmDeleteScreenshot() {
-		SHOW_DELETE_SCREENSHOT_CONFIRM = true;
-	}
-	function cancelDeleteScreenshotConfirm() {
-		SHOW_DELETE_SCREENSHOT_CONFIRM = false;
-	}
 	function doDeleteScreenshot() {
-		SHOW_DELETE_SCREENSHOT_CONFIRM = false;
 		ondeletescreenshot(sentence.id);
 	}
 
@@ -395,14 +387,9 @@
 				onerror={(e) => console.error('[screenshot] Not found:', e.target.src)}
 			/>
 			<div class="screenshot-actions">
-				{#if SHOW_DELETE_SCREENSHOT_CONFIRM}
-					<button class="btn-delete-screenshot" onclick={doDeleteScreenshot}> ⚠️ Confirm </button>
-					<button class="btn-cancel" onclick={cancelDeleteScreenshotConfirm}> Cancel </button>
-				{:else}
-					<button class="btn-delete-screenshot" onclick={confirmDeleteScreenshot}>
-						🗑 Delete Screenshot
-					</button>
-				{/if}
+				<button class="btn-delete-screenshot" onclick={doDeleteScreenshot}>
+					🗑 Delete Screenshot
+				</button>
 			</div>
 		</div>
 	{/if}

@@ -70,8 +70,8 @@ def test_get_reading_returns_pinyin():
 
     reading = svc.get_reading("你好")
     assert len(reading) > 0
-    # pypinyin returns space-separated pinyin
-    assert "ni" in reading.lower() or "hao" in reading.lower()
+    # pypinyin returns space-separated pinyin with tone marks (e.g., "nǐ hǎo")
+    assert "nǐ" in reading or "hǎo" in reading
 
 
 def test_is_non_word_filters_particles():

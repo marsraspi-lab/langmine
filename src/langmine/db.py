@@ -8,7 +8,7 @@ SQLitePersistence (the Persistence port adapter), not directly by domain code.
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -26,7 +26,10 @@ CREATE TABLE IF NOT EXISTS videos (
     processed_at TEXT DEFAULT (datetime('now')),
     language_code TEXT NOT NULL DEFAULT 'zh',
     subtitle_language TEXT NOT NULL DEFAULT '',
-    subtitle_kind TEXT NOT NULL DEFAULT ''
+    subtitle_kind TEXT NOT NULL DEFAULT '',
+    target_subtitle_language TEXT NOT NULL DEFAULT '',
+    target_subtitle_kind TEXT NOT NULL DEFAULT '',
+    target_transcript_json TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS sentences (
@@ -195,6 +198,21 @@ class Database:
                 )
             except sqlite3.OperationalError:
                 pass  # Column already renamed or doesn't exist
+
+        if current < 8:
+            # v7 → v8: added target_subtitle_language, target_subtitle_kind,
+            # and target_transcript_json on videos
+            for col in [
+                "target_subtitle_language",
+                "target_subtitle_kind",
+                "target_transcript_json",
+            ]:
+                try:
+                    self._conn.execute(
+                        f"ALTER TABLE videos ADD COLUMN {col} TEXT NOT NULL DEFAULT ''"
+                    )
+                except sqlite3.OperationalError:
+                    pass  # Column may already exist from CREATE TABLE
 
         self._conn.execute(
             "UPDATE schema_version SET version = ? WHERE version < ?",

@@ -69,7 +69,9 @@ class ChineseLanguageService(LanguageProcessor):
 
     def get_reading(self, text: str) -> str:
         """Generate pinyin using pypinyin (pure in-memory)."""
-        return " ".join(pypinyin.lazy_pinyin(text))
+        from pypinyin import Style
+
+        return " ".join(item[0] for item in pypinyin.pinyin(text, style=Style.TONE))
 
     def is_non_word(self, token: str) -> bool:
         """True if token should be excluded from i+1 counting.

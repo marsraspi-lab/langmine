@@ -125,6 +125,9 @@ def clip_audio(
     padded_id = str(sentence_id).zfill(4)
     output_path = output_dir / f"sentence_{padded_id}.mp3"
 
+    if output_path.exists():
+        return str(output_path)
+
     result = subprocess.run(
         [
             _FFMPEG,

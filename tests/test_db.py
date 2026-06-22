@@ -160,8 +160,8 @@ def test_migration_v5_to_v6_renames_pinyin_to_reading():
         ).fetchone()
         assert vocab["reading"] == "ce4 shi4"
 
-        # Version bumped to 7 (v6→v7 renamed translation_de→translation)
+        # Version bumped to 8 (v7→v8 added target_subtitle_* on videos)
         ver = db.conn.execute("SELECT version FROM schema_version").fetchone()[
             "version"
         ]
-        assert ver == 7
+        assert ver == 8

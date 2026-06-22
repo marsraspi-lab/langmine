@@ -124,6 +124,19 @@ def _mine_and_log(
                 video.subtitle_kind = match.kind if match else ""
             except Exception:
                 pass
+
+        if target_subtitle_language:
+            try:
+                subs = transcript.list_subtitles(video_id)
+                match = next(
+                    (s for s in subs if s.language_code == target_subtitle_language),
+                    None,
+                )
+                video.target_subtitle_kind = match.kind if match else ""
+            except Exception:
+                pass
+
+        if subtitle_language or target_subtitle_language:
             persistence.save_video(video)
 
     return result, video
@@ -571,7 +584,7 @@ def remine_video(video_id: int):
     if not video or not video.transcript_json:
         return jsonify({"error": "No cached transcript found for this video"}), 400
 
-    # Parse cached transcript
+    # Parse cached source transcript
     import json as _json
 
     from langmine.domain.ports import TranscriptChunk
@@ -583,8 +596,32 @@ def remine_video(video_id: int):
         )
         for c in raw
     ]
+
+    # Parse cached target transcript (translation subtitles) if present
+    target_chunks = None
+    if video.target_transcript_json:
+        try:
+            raw_target = _json.loads(video.target_transcript_json)
+            target_chunks = [
+                TranscriptChunk(
+                    text=c["text"],
+                    start_ms=c["start_ms"],
+                    duration_ms=c["duration_ms"],
+                )
+                for c in raw_target
+            ]
+        except Exception:
+            pass
+
     CachedTranscriptSource = current_app.config.get("LANGMINE_CACHED_TRANSCRIPT_CLASS")
-    transcript = CachedTranscriptSource(chunks)
+    transcript = CachedTranscriptSource(
+        chunks,
+        source_language=video.subtitle_language,
+        source_kind=video.subtitle_kind,
+        target_chunks=target_chunks,
+        target_language=video.target_subtitle_language,
+        target_kind=video.target_subtitle_kind,
+    )
 
     # ── Choose code path ────────────────────────────────────────────
     accept = request.headers.get("Accept", "")
@@ -613,6 +650,8 @@ def remine_video(video_id: int):
                 processor=processor,
                 video_id=video.youtube_id,
                 config=config,
+                subtitle_language=video.subtitle_language,
+                target_subtitle_language=video.target_subtitle_language,
             )
             return jsonify(_build_mine_result(updated_video, result, video.youtube_id))
         except MineError as e:
@@ -648,6 +687,8 @@ def remine_video(video_id: int):
                     video_id=video.youtube_id,
                     config=config,
                     progress_callback=_on_progress,
+                    subtitle_language=video.subtitle_language,
+                    target_subtitle_language=video.target_subtitle_language,
                 )
 
                 progress_queue.put(
@@ -657,13 +698,9 @@ def remine_video(video_id: int):
                     )
                 )
             except MineError as e:
-                progress_queue.put(
-                    ("error", {"message": str(e), "stage": e.stage})
-                )
+                progress_queue.put(("error", {"message": str(e), "stage": e.stage}))
             except Exception as e:
-                progress_queue.put(
-                    ("error", {"message": f"Re-mine failed: {e}"})
-                )
+                progress_queue.put(("error", {"message": f"Re-mine failed: {e}"}))
 
     app = current_app._get_current_object()
     thread = threading.Thread(target=_do_remine, args=(app,), daemon=True)

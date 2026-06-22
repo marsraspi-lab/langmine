@@ -49,6 +49,9 @@ class Video:
     language_code: str = ""  # "zh", "es", "ko", etc.
     subtitle_language: str = ""  # e.g. "zh-Hans" — chosen subtitle track
     subtitle_kind: str = ""  # "manual", "auto", or ""
+    target_subtitle_language: str = ""  # e.g. "de" — translation subtitle track
+    target_subtitle_kind: str = ""  # "manual", "auto", or ""
+    target_transcript_json: str = ""  # raw JSON of target transcript chunks
 
     # Set by persistence layer
     id: int | None = None

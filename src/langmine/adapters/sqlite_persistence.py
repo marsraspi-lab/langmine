@@ -36,7 +36,9 @@ class SQLitePersistence(Persistence):
             self.conn.execute(
                 """UPDATE videos SET title=?, channel=?, duration_sec=?,
                    transcript_json=?, audio_path=?,
-                   subtitle_language=?, subtitle_kind=?
+                   subtitle_language=?, subtitle_kind=?,
+                   target_subtitle_language=?, target_subtitle_kind=?,
+                   target_transcript_json=?
                    WHERE id=?""",
                 (
                     video.title,
@@ -46,6 +48,9 @@ class SQLitePersistence(Persistence):
                     video.audio_path,
                     video.subtitle_language,
                     video.subtitle_kind,
+                    video.target_subtitle_language,
+                    video.target_subtitle_kind,
+                    video.target_transcript_json,
                     video.id,
                 ),
             )
@@ -54,8 +59,10 @@ class SQLitePersistence(Persistence):
                 """INSERT OR REPLACE INTO videos
                    (youtube_id, title, channel, duration_sec,
                     transcript_json, audio_path, language_code,
-                    subtitle_language, subtitle_kind)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    subtitle_language, subtitle_kind,
+                    target_subtitle_language, target_subtitle_kind,
+                    target_transcript_json)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     video.youtube_id,
                     video.title,
@@ -66,6 +73,9 @@ class SQLitePersistence(Persistence):
                     video.language_code,
                     video.subtitle_language,
                     video.subtitle_kind,
+                    video.target_subtitle_language,
+                    video.target_subtitle_kind,
+                    video.target_transcript_json,
                 ),
             )
             video.id = cursor.lastrowid
@@ -426,6 +436,9 @@ class SQLitePersistence(Persistence):
             language_code=row["language_code"] or "",
             subtitle_language=row["subtitle_language"] or "",
             subtitle_kind=row["subtitle_kind"] or "",
+            target_subtitle_language=row["target_subtitle_language"] or "",
+            target_subtitle_kind=row["target_subtitle_kind"] or "",
+            target_transcript_json=row["target_transcript_json"] or "",
         )
 
     def _row_to_sentence(self, row) -> Sentence:
