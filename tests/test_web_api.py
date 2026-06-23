@@ -394,6 +394,45 @@ class FakeAudioProcessor(AudioProcessor):
         return f"{output_dir}/frame_{sentence_id}.jpg"
 
 
+class FakeFrequencySource:
+    """Fake frequency source with 150 SUBTLEX-like words."""
+
+    def get_frequency(self, word):
+        ranks = {"的": 1, "我": 2, "你": 3}
+        return ranks.get(word)
+
+    def list_words(self, offset=0, limit=100):
+        base_words = ["的", "我", "你", "是", "了"]
+        result = []
+        for i in range(150):
+            word = base_words[i % 5]
+            rank = i + 1
+            result.append((word, rank))
+        return result[offset : offset + limit]
+
+    def count_words(self):
+        return 150
+
+
+class FakeDictionary:
+    """Fake dictionary with minimal entries."""
+
+    def lookup(self, word):
+        entries = {
+            "的": {
+                "pinyin": "de",
+                "definition_de": "Partikel",
+                "definition_en": "particle",
+            },
+            "我": {
+                "pinyin": "wǒ",
+                "definition_de": "ich",
+                "definition_en": "I",
+            },
+        }
+        return entries.get(word)
+
+
 # === Fixtures ===
 
 
@@ -435,8 +474,8 @@ def client(persistence, processor, transcript, audio, tmp_path):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
-        frequency_source=None,
-        dictionary=None,
+        frequency_source=FakeFrequencySource(),
+        dictionary=FakeDictionary(),
         config=config,
     )
     app.config["TESTING"] = True
@@ -1353,3 +1392,69 @@ class TestRemineVideo:
         assert resp.status_code == 400
         data = resp.get_json()
         assert "No cached transcript" in data["error"]
+
+
+class TestSubtlexVocab:
+    """GET /api/vocab/subtlex"""
+
+    def test_subtlex_endpoint_returns_first_page(self, client):
+        """First page returns 100 words starting from rank 1."""
+        resp = client.get("/api/vocab/subtlex?page=1&per_page=100")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data["words"]) == 100
+        assert data["words"][0]["word_simplified"] == "的"
+        assert data["words"][0]["frequency_rank"] == 1
+        assert data["words"][0]["status"] == "unknown"
+        assert "sentences" in data["words"][0]
+        assert "counts" in data
+
+    def test_subtlex_endpoint_pagination(self, client):
+        """Page 2 returns words starting from rank 101."""
+        resp = client.get("/api/vocab/subtlex?page=2&per_page=100")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["page"] == 2
+        assert data["words"][0]["frequency_rank"] == 101
+
+    def test_subtlex_endpoint_respects_per_page(self, client):
+        """per_page param should be respected."""
+        resp = client.get("/api/vocab/subtlex?per_page=50")
+        assert resp.status_code == 200
+        assert len(resp.get_json()["words"]) == 50
+
+    def test_subtlex_endpoint_rejects_invalid_status(self, client):
+        """Invalid status should return 400."""
+        resp = client.get("/api/vocab/subtlex?status=invalid")
+        assert resp.status_code == 400
+
+    def test_subtlex_endpoint_rejects_invalid_page(self, client):
+        """Page 0 should return 400."""
+        resp = client.get("/api/vocab/subtlex?page=0")
+        assert resp.status_code == 400
+
+    def test_subtlex_endpoint_filters_by_status(self, client):
+        """Known filter should include words marked as known."""
+        client.patch("/api/vocab/%E7%9A%84", json={"status": "known"})
+        resp = client.get("/api/vocab/subtlex?status=known&per_page=100")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert any(w["word_simplified"] == "的" for w in data["words"])
+
+    def test_subtlex_endpoint_unknown_filter_excludes_classified(self, client):
+        """Unknown filter should exclude words marked as known."""
+        client.patch("/api/vocab/%E7%9A%84", json={"status": "known"})
+        resp = client.get("/api/vocab/subtlex?status=unknown&per_page=100")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        words_in_page = {w["word_simplified"] for w in data["words"]}
+        assert "的" not in words_in_page
+
+    def test_subtlex_endpoint_counts_match(self, client):
+        """Counts field should have correct stats."""
+        client.patch("/api/vocab/%E7%9A%84", json={"status": "known"})
+        resp = client.get("/api/vocab/subtlex?per_page=5")
+        data = resp.get_json()
+        counts = data["counts"]
+        assert counts["known"] >= 1
+        assert counts["all"] > 0
