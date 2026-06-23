@@ -366,6 +366,17 @@ class FrequencySource(ABC):
         Returns None if unknown.
         """
 
+    @abstractmethod
+    def list_words(self, offset: int = 0, limit: int = 100) -> list[tuple[str, int]]:
+        """Return a slice of words ordered by frequency rank.
+        Returns list of (word_simplified, frequency_rank) tuples.
+        offset=0 returns the most frequent words first.
+        """
+
+    @abstractmethod
+    def count_words(self) -> int:
+        """Return total number of words in the frequency list."""
+
 
 class AnkiExporter(ABC):
     """Port for exporting sentences as Anki flashcards.

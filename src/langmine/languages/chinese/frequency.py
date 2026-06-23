@@ -31,6 +31,7 @@ class SubtlexChAdapter(FrequencySource):
         """
         self._data_path = Path(data_path) if data_path else _DATA_PATH
         self._rank: dict[str, int] = {}
+        self._ordered_words: list[str] = []
         self._load()
 
     def _load(self):
@@ -64,6 +65,7 @@ class SubtlexChAdapter(FrequencySource):
 
         # Assign ranks: rank 1 = most common
         self._rank = {word: i + 1 for i, (word, _) in enumerate(entries)}
+        self._ordered_words = [word for word, _ in entries]
 
     def get_frequency(self, word: str) -> int | None:
         """Return frequency rank (1 = most common, lower = more frequent).
@@ -71,6 +73,13 @@ class SubtlexChAdapter(FrequencySource):
         Returns None if the word is not in SUBTLEX-CH.
         """
         return self._rank.get(word)
+
+    def list_words(self, offset: int = 0, limit: int = 100) -> list[tuple[str, int]]:
+        end = min(offset + limit, len(self._ordered_words))
+        return [(word, self._rank[word]) for word in self._ordered_words[offset:end]]
+
+    def count_words(self) -> int:
+        return len(self._ordered_words)
 
     @property
     def total_entries(self) -> int:

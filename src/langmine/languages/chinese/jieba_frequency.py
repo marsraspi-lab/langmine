@@ -57,6 +57,13 @@ class JiebaFrequencyAdapter(FrequencySource):
         """
         return self._rank.get(word)
 
+    def list_words(self, offset: int = 0, limit: int = 100) -> list[tuple[str, int]]:
+        end = min(offset + limit, len(self._rank))
+        return sorted(self._rank.items(), key=lambda x: x[1])[offset:end]
+
+    def count_words(self) -> int:
+        return len(self._rank)
+
     def get_tier(self, rank: int) -> str:
         """Return the tier label for a given rank."""
         return frequency_tier(rank)
