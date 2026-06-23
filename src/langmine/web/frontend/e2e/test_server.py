@@ -220,6 +220,18 @@ class FakePersistence(Persistence):
                 word_simplified=word_simplified, status="ignored"
             )
 
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        if word_simplified in self._vocab:
+            self._vocab[word_simplified].status = status
+        else:
+            from langmine.domain.models import VocabWord
+
+            self._vocab[word_simplified] = VocabWord(
+                word_simplified=word_simplified,
+                status=status,
+                language_code=language_code or "zh",
+            )
+
     def save_vocab_word(self, w):
         self._vocab[w.word_simplified] = w
 

@@ -41,6 +41,9 @@ class FakePersistence:
     def save_vocab_word(self, w: VocabWord) -> None:
         self._vocab.append(w)
 
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        pass
+
 
 def make_processor() -> ChineseLanguageService:
     return ChineseLanguageService(

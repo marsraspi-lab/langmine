@@ -76,6 +76,9 @@ class FakePersistence:
     def get_known_words(self):
         return self._known | self._ignored
 
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        pass
+
 
 # === Tests: Ruby generation ===
 
@@ -363,6 +366,9 @@ class FakeRbPersistence(Persistence):
 
     def mark_word_ignored(self, word_simplified: str) -> None:
         self._ignored.add(word_simplified)
+
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        pass
 
     def log_event(
         self,

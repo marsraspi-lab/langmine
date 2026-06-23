@@ -271,6 +271,16 @@ class VocabRepository(ABC):
     @abstractmethod
     def mark_word_ignored(self, word_simplified: str) -> None: ...
     @abstractmethod
+    def update_vocab_status(
+        self, word_simplified: str, status: str, language_code: str = ""
+    ) -> None:
+        """Upsert a word's status: INSERT if new, UPDATE only status if exists.
+        Never overwrites reading, definition, hsk_level, or frequency_rank
+        on existing rows.
+        """
+        ...
+
+    @abstractmethod
     def get_vocab_stats(self, language_code: str = "") -> dict: ...
     @abstractmethod
     def list_vocab(

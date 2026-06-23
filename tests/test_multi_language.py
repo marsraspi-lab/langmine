@@ -115,6 +115,16 @@ class TestLanguageIsolation:
                         word_simplified=word_simplified, status="ignored"
                     )
 
+            def update_vocab_status(self, word_simplified, status, language_code=""):
+                if word_simplified in self._vocab:
+                    self._vocab[word_simplified].status = status
+                else:
+                    self._vocab[word_simplified] = VocabWord(
+                        word_simplified=word_simplified,
+                        status=status,
+                        language_code=language_code or "zh",
+                    )
+
             def log_event(
                 self,
                 entity_type: str,
@@ -224,6 +234,9 @@ class TestLanguageIsolation:
                 return {w: [] for w in words}
 
             def mark_word_ignored(self, word_simplified: str) -> None:
+                pass
+
+            def update_vocab_status(self, word_simplified, status, language_code=""):
                 pass
 
             def log_event(

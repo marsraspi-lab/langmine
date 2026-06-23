@@ -156,6 +156,16 @@ class InMemoryPersistence(Persistence):
                 word_simplified=word_simplified, status="ignored"
             )
 
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        if word_simplified in self.vocab:
+            self.vocab[word_simplified].status = status
+        else:
+            self.vocab[word_simplified] = VocabWord(
+                word_simplified=word_simplified,
+                status=status,
+                language_code=language_code or "zh",
+            )
+
     def get_vocab_stats(self) -> dict:
         known = sum(1 for v in self.vocab.values() if v.status == "known")
         learning = sum(1 for v in self.vocab.values() if v.status == "learning")

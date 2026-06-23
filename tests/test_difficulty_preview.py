@@ -130,6 +130,19 @@ class FakePersistence(Persistence):
                 VocabWord(word_simplified=word_simplified, status="ignored")
             )
 
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        existing = self.get_vocab_word(word_simplified)
+        if existing:
+            existing.status = status
+        else:
+            self._vocab.append(
+                VocabWord(
+                    word_simplified=word_simplified,
+                    status=status,
+                    language_code=language_code or "zh",
+                )
+            )
+
     def get_vocab_stats(self, language_code: str = ""):
         return {"known": 0, "learning": 0, "total": 0}
 

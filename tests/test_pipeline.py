@@ -192,6 +192,9 @@ class FakePersistence(Persistence):
     def mark_word_ignored(self, word_simplified: str) -> None:
         self._ignored.add(word_simplified)
 
+    def update_vocab_status(self, word_simplified, status, language_code=""):
+        pass
+
     def log_event(
         self,
         entity_type: str,

@@ -332,6 +332,26 @@ class SQLitePersistence(Persistence):
         )
         self.conn.commit()
 
+    def update_vocab_status(
+        self, word_simplified: str, status: str, language_code: str = ""
+    ) -> None:
+        now = datetime.now(UTC).isoformat()
+        lang = language_code or "zh"
+        existing = self.get_vocab_word(word_simplified)
+        if existing:
+            self.conn.execute(
+                "UPDATE vocab SET status = ?, updated_at = ? WHERE word_simplified = ?",
+                (status, now, word_simplified),
+            )
+        else:
+            self.conn.execute(
+                """INSERT INTO vocab (word_simplified, status, language_code,
+                   created_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (word_simplified, status, lang, now, now),
+            )
+        self.conn.commit()
+
     def get_vocab_stats(self, language_code: str = "") -> dict:
         suffix, params = self._lang_filter(language_code)
         known = self.conn.execute(
