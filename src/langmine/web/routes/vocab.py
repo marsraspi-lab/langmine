@@ -108,6 +108,7 @@ def list_subtlex_vocab():
         reading = dict_entry.get("pinyin", "") if dict_entry else ""
         definition_de = dict_entry.get("definition_de", "") if dict_entry else ""
         definition_en = dict_entry.get("definition_en", "") if dict_entry else ""
+        readings = dict_entry.get("readings", []) if dict_entry else []
         hsk_level = None
         try:
             from langmine.language_factory import get_proficiency_level
@@ -128,6 +129,7 @@ def list_subtlex_vocab():
                 "hsk_level": hsk_level,
                 "status": status,
                 "sentence_count": len(raw),
+                "readings": readings,
                 "sentences": [
                     {
                         "id": s.id,

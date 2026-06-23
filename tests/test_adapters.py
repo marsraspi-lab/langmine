@@ -73,8 +73,8 @@ class TestCcCedictAdapter:
         assert "definition_en" in result
         assert "definition_de" in result
         assert "pinyin" in result
-        # "你好" should have pinyin
-        assert "ni" in result["pinyin"].lower()
+        # "你好" should have pinyin with tone marks
+        assert "nǐ" in result["pinyin"] or "ni" in result["pinyin"].lower()
 
     def test_lookup_unknown_word_returns_none(self):
         """Should return None for non-existent words."""
@@ -108,7 +108,16 @@ class TestCcCedictAdapter:
                     "definition_en",
                     "definition_de",
                     "pinyin",
+                    "readings",
                 }
+                # Each reading must have the sub-keys
+                for r in result["readings"]:
+                    assert set(r.keys()) == {
+                        "pinyin",
+                        "pinyin_numbered",
+                        "definition_de",
+                        "definition_en",
+                    }
 
 
 # === JiebaFrequencyAdapter ===
