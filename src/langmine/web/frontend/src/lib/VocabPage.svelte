@@ -1,6 +1,7 @@
 <script>
 	import { fetchSubtlexVocab } from './api.js';
 	import WordPopover from './WordPopover.svelte';
+	import Pinyin from './Pinyin.svelte';
 	import { app } from './stores.svelte.js';
 
 	let words = $state([]);
@@ -169,7 +170,7 @@
 				<button class="word-row" onclick={() => openPopover(word)}>
 					<span class="col-rank">{word.frequency_rank}</span>
 					<span class="col-word">{word.word_simplified}</span>
-					<span class="col-reading">{word.reading}</span>
+					<span class="col-reading"><Pinyin text={word.reading} /></span>
 					<span class="col-freq">{word.frequency_badge}#{word.frequency_rank}</span>
 					<span class="col-status {statusClass(word.status)}">● {word.status}</span>
 				</button>

@@ -1,9 +1,12 @@
 <script>
 	import { markWordStatus } from './stores.svelte.js';
+	import Pinyin from './Pinyin.svelte';
 
 	let { word, onclose } = $props();
 
 	function handleStatusChange(newStatus) {
+		// Optimistic UI: update status immediately in the cached word object
+		word.status = newStatus;
 		markWordStatus(word.word_simplified, newStatus);
 		if (onclose) onclose();
 	}
@@ -44,7 +47,7 @@
 	<div class="word-header">
 		<span class="word-text">{word.word_simplified}</span>
 		{#if word.reading}
-			<span class="word-reading">{word.reading}</span>
+			<span class="word-reading"><Pinyin text={word.reading} /></span>
 		{/if}
 	</div>
 
@@ -65,6 +68,21 @@
 			<div class="def">EN: {word.definition_en}</div>
 		{/if}
 	</div>
+
+	<!-- All readings with definitions -->
+	{#if word.readings?.length > 1}
+		<div class="all-readings">
+			<div class="readings-title">Readings:</div>
+			{#each word.readings as r (r.pinyin)}
+				<div class="reading-item">
+					<span class="reading-pinyin"><Pinyin text={r.pinyin} /></span>
+					{#if r.definition_en}
+						<span class="reading-def">{r.definition_en}</span>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
 
 	<div class="word-status">
 		Status: <span style="color: {statusColor}">● {statusLabel}</span>
@@ -170,6 +188,31 @@
 		font-size: 14px;
 		color: var(--text-muted, #bbb);
 		line-height: 1.5;
+	}
+	.all-readings {
+		margin-bottom: 12px;
+		padding: 10px 12px;
+		background: var(--bg-accent, #252535);
+		border-radius: 6px;
+	}
+	.readings-title {
+		font-size: 12px;
+		color: var(--text-muted, #888);
+		margin-bottom: 6px;
+		text-transform: uppercase;
+	}
+	.reading-item {
+		margin-bottom: 4px;
+		line-height: 1.5;
+	}
+	.reading-pinyin {
+		font-size: 15px;
+		font-weight: 500;
+		margin-right: 6px;
+	}
+	.reading-def {
+		font-size: 13px;
+		color: var(--text-muted, #aaa);
 	}
 	.word-status {
 		font-size: 14px;
