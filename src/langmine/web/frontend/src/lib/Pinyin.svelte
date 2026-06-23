@@ -82,7 +82,7 @@
 		{#if idx > 0}
 
 		{/if}
-		<span class="tone-{TONE_CLASS[getTone(syl)]}">{syl}</span>
+		<span class={TONE_CLASS[getTone(syl)]}>{syl}</span>
 	{/each}
 {/if}
 
