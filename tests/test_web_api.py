@@ -186,6 +186,15 @@ class FakePersistence(Persistence):
     ) -> list[Sentence]:
         return [s for s in self._sentences if s.status == status]
 
+    def get_sentences_by_words(
+        self, words: list[str], max_per_word: int = 5
+    ) -> dict[str, list[Sentence]]:
+        result = {w: [] for w in words}
+        for s in self._sentences:
+            if s.unknown_word in result and len(result[s.unknown_word]) < max_per_word:
+                result[s.unknown_word].append(s)
+        return result
+
     # Vocab
     def save_vocab_word(self, word: VocabWord) -> None:
         self._vocab.append(word)

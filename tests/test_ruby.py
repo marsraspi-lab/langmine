@@ -354,6 +354,13 @@ class FakeRbPersistence(Persistence):
     def get_sentences_by_word(self, w):
         return []
 
+    def get_sentences_by_words(self, words, max_per_word=5):
+        result = {w: [] for w in words}
+        for s in self._sentences:
+            if s.unknown_word in result and len(result[s.unknown_word]) < max_per_word:
+                result[s.unknown_word].append(s)
+        return result
+
     def mark_word_ignored(self, word_simplified: str) -> None:
         self._ignored.add(word_simplified)
 

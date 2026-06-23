@@ -104,6 +104,9 @@ class TestLanguageIsolation:
             def get_sentences_by_word(self, word):
                 return []
 
+            def get_sentences_by_words(self, words, max_per_word=5):
+                return {w: [] for w in words}
+
             def mark_word_ignored(self, word_simplified: str) -> None:
                 if word_simplified in self._vocab:
                     self._vocab[word_simplified].status = "ignored"
@@ -216,6 +219,9 @@ class TestLanguageIsolation:
 
             def get_sentences_by_word(self, word):
                 return []
+
+            def get_sentences_by_words(self, words, max_per_word=5):
+                return {w: [] for w in words}
 
             def mark_word_ignored(self, word_simplified: str) -> None:
                 pass

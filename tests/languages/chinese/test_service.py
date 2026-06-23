@@ -41,6 +41,12 @@ class FakeFrequency(FrequencySource):
     def get_frequency(self, word: str) -> int | None:
         return self._ranks.get(word)
 
+    def list_words(self, offset: int = 0, limit: int = 100) -> list[tuple[str, int]]:
+        return []
+
+    def count_words(self) -> int:
+        return 0
+
 
 # === Tests ===
 

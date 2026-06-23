@@ -400,6 +400,31 @@ class SQLitePersistence(Persistence):
         ).fetchall()
         return [self._row_to_sentence(r) for r in rows]
 
+    def get_sentences_by_words(
+        self, words: list[str], max_per_word: int = 5
+    ) -> dict[str, list[Sentence]]:
+        if not words:
+            return {}
+        placeholders = ", ".join(["?"] * len(words))
+        query = f"""
+            SELECT * FROM (
+                SELECT *,
+                    row_number() OVER (
+                        PARTITION BY unknown_word ORDER BY id DESC
+                    ) AS rn
+                FROM sentences
+                WHERE unknown_word IN ({placeholders})
+            ) WHERE rn <= ?
+        """
+        rows = self.conn.execute(query, (*words, max_per_word)).fetchall()
+        result: dict[str, list[Sentence]] = {w: [] for w in words}
+        for row in rows:
+            s = self._row_to_sentence(row)
+            w = s.unknown_word
+            if w and w in result:
+                result[w].append(s)
+        return result
+
     # === Events ===
 
     def log_event(

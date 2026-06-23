@@ -19,6 +19,12 @@ class FakeFrequency(FrequencySource):
     def get_frequency(self, word: str) -> int | None:
         return None
 
+    def list_words(self, offset: int = 0, limit: int = 100) -> list[tuple[str, int]]:
+        return []
+
+    def count_words(self) -> int:
+        return 0
+
 
 class FakePersistence:
     """Minimal fake for bootstrap_proficiency tests."""

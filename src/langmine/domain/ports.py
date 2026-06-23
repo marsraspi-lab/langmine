@@ -240,6 +240,16 @@ class SentenceRepository(ABC):
         """
         ...
 
+    @abstractmethod
+    def get_sentences_by_words(
+        self, words: list[str], max_per_word: int = 5
+    ) -> dict[str, list[Sentence]]:
+        """Return sentences for multiple words, capped per word.
+
+        Words with no sentences return empty lists.
+        """
+        ...
+
 
 class VocabRepository(ABC):
     """Port for vocabulary-level queries and mutations.

@@ -186,6 +186,15 @@ class InMemoryPersistence(Persistence):
             if s.unknown_word == word or word in s.text
         ]
 
+    def get_sentences_by_words(
+        self, words: list[str], max_per_word: int = 5
+    ) -> dict[str, list[Sentence]]:
+        result = {w: [] for w in words}
+        for s in self.sentences.values():
+            if s.unknown_word in result and len(result[s.unknown_word]) < max_per_word:
+                result[s.unknown_word].append(s)
+        return result
+
     def log_event(
         self,
         entity_type: str,
