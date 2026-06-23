@@ -166,6 +166,14 @@ export async function updateVocabWord(word, status) {
 	return res.json();
 }
 
+export async function fetchSubtlexVocab(page = 1, perPage = 100, status = null, search = null) {
+    const params = new URLSearchParams({ page, per_page: perPage });
+    if (status) params.set('status', status);
+    if (search) params.set('search', search);
+    const res = await fetch(`/api/vocab/subtlex?${params}`);
+    return res.json();
+}
+
 export async function dismissProperName(word) {
 	const res = await fetch(`/api/vocab/${encodeURIComponent(word)}`, {
 		method: 'PATCH',
