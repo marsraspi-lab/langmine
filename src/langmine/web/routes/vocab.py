@@ -93,12 +93,14 @@ def update_vocab_word(word: str):
     # Handle "dismiss proper name" action
     if data.get("proper_name") is False:
         _dismiss_proper_name(persistence, word, lang)
-        return jsonify({"word": word, "status": "learning", "ok": True})
+        word_obj = persistence.get_vocab_word(word)
+        return jsonify({"word": _vocab_to_dict(word_obj, persistence), "ok": True})
 
     # Handle "mark as proper name" action
     if data.get("proper_name") is True:
         _mark_proper_name(persistence, word, lang)
-        return jsonify({"word": word, "status": "proper-name", "ok": True})
+        word_obj = persistence.get_vocab_word(word)
+        return jsonify({"word": _vocab_to_dict(word_obj, persistence), "ok": True})
 
     if "status" not in data:
         return jsonify({"error": "Missing 'status' field"}), 400
@@ -110,12 +112,13 @@ def update_vocab_word(word: str):
         ), 400
 
     _apply_word_status(persistence, word, lang, new_status)
-    return jsonify({"word": word, "status": new_status, "ok": True})
+    word_obj = persistence.get_vocab_word(word)
+    return jsonify({"word": _vocab_to_dict(word_obj, persistence), "ok": True})
 
 
 def _dismiss_proper_name(persistence, word, lang):
-    """Dismiss a proper-name classification, reverting to 'learning'."""
-    persistence.mark_word_learning(word)
+    """Dismiss a proper-name classification."""
+    persistence.update_vocab_status(word, "learning", lang)
     persistence.log_event(
         entity_type="word",
         entity_id=0,
@@ -129,14 +132,7 @@ def _dismiss_proper_name(persistence, word, lang):
 def _mark_proper_name(persistence, word, lang):
     """Mark a word as a proper name."""
     existing = persistence.get_vocab_word(word)
-    if existing:
-        existing.status = "proper-name"
-    else:
-        from langmine.domain.models import VocabWord
-
-        persistence.save_vocab_word(
-            VocabWord(word_simplified=word, status="proper-name", language_code=lang)
-        )
+    persistence.update_vocab_status(word, "proper-name", lang)
     persistence.log_event(
         entity_type="word",
         entity_id=0,
@@ -148,21 +144,12 @@ def _mark_proper_name(persistence, word, lang):
 
 
 def _apply_word_status(persistence, word, lang, new_status):
-    """Apply a word status change and log the event."""
-    actions = {
-        "known": ("marked_known", persistence.mark_word_known),
-        "ignored": ("marked_ignored", persistence.mark_word_ignored),
-        "proper-name": ("marked_proper_name", persistence.mark_word_ignored),
-        "learning": ("marked_learning", persistence.mark_word_learning),
-    }
-    action, handler = actions.get(
-        new_status, ("marked_learning", persistence.mark_word_learning)
-    )
-    handler(word)
+    """Apply a word status change, upserting the word if needed."""
+    persistence.update_vocab_status(word, new_status, lang)
     persistence.log_event(
         entity_type="word",
         entity_id=0,
-        action=action,
+        action=f"marked_{new_status}",
         new_value=word,
         language_code=lang,
     )

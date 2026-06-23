@@ -880,12 +880,40 @@ class TestDismissProperName:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["ok"] is True
-        assert data["status"] == "learning"
+        assert data["word"]["status"] == "learning"
+        assert data["word"]["word"] == "曹操"
 
         # Verify word is now marked learning in persistence
         word = persistence.get_vocab_word("曹操")
         assert word is not None
         assert word.status == "learning"
+
+
+class TestPatchVocab:
+    """PATCH /api/vocab/<word> — upsert and return full word object."""
+
+    def test_patch_vocab_upserts_new_word(self, client):
+        """Marking a word not in vocab should create it."""
+        resp = client.patch("/api/vocab/%E6%B5%8B%E8%AF%95", json={"status": "known"})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["ok"] is True
+        assert data["word"]["word"] == "测试"
+        assert data["word"]["status"] == "known"
+
+    def test_patch_vocab_preserves_fields(self, client):
+        """Updating status should not null out other fields."""
+        # First create
+        resp = client.patch("/api/vocab/%E7%9A%84", json={"status": "known"})
+        assert resp.status_code == 200
+        assert resp.get_json()["word"]["status"] == "known"
+
+        # Then update
+        resp = client.patch("/api/vocab/%E7%9A%84", json={"status": "learning"})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["word"]["status"] == "learning"
+        assert data["word"]["word"] == "的"
 
 
 class TestReclassifySentences:
