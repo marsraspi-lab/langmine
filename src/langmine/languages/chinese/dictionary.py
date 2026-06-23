@@ -217,15 +217,20 @@ def _index_cedict_reading(
 def _merge_readings(readings: list[dict]) -> dict:
     """Merge multiple readings into a single enriched entry.
 
-    The first reading is treated as primary (most common).
-    Returns a dict with pinyin, definition_de, definition_en,
-    and a readings list of all pronunciation variants.
+    Readings are sorted by definition count (descending) so the reading
+    with the most senses becomes primary — this is a good heuristic for
+    picking the most common pronunciation (e.g. shuō over shuì for 说).
     """
-    primary = readings[0]
+    # Sort by number of English definitions (more senses = more common reading)
+    def _sense_count(r):
+        return len(r["definition_en"].split(";")) if r["definition_en"] else 0
+
+    sorted_readings = sorted(readings, key=_sense_count, reverse=True)
+    primary = sorted_readings[0]
     all_readings = []
     seen_pinyin = set()
 
-    for r in readings:
+    for r in sorted_readings:
         p = r["pinyin"]
         if p not in seen_pinyin:
             seen_pinyin.add(p)
