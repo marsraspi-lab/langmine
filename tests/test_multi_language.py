@@ -88,7 +88,45 @@ class TestLanguageIsolation:
                 pass
 
             def get_vocab_stats(self, language_code=None):
-                return {"known": 0, "learning": 0, "total": 0}
+                known = sum(1 for w in self._vocab.values() if w.status == "known")
+                learning = sum(
+                    1 for w in self._vocab.values() if w.status == "learning"
+                )
+                ignored = sum(1 for w in self._vocab.values() if w.status == "ignored")
+                proper_name = sum(
+                    1 for w in self._vocab.values() if w.status == "proper-name"
+                )
+                return {
+                    "known": known,
+                    "learning": learning,
+                    "ignored": ignored,
+                    "proper_name": proper_name,
+                    "total": len(self._vocab),
+                }
+
+            def get_vocab_statuses(self, words, language_code=None):
+                result = {}
+                for w in words:
+                    vw = self._vocab.get(w)
+                    if vw:
+                        result[w] = vw.status
+                return result
+
+            def get_words_by_status(self, status, language_code=None):
+                return {
+                    w
+                    for w, v in self._vocab.items()
+                    if v.status == status
+                    and (language_code is None or v.language_code == language_code)
+                }
+
+            def get_classified_words(self, language_code=None):
+                return {
+                    w
+                    for w, v in self._vocab.items()
+                    if v.status in ("known", "learning", "ignored", "proper-name")
+                    and (language_code is None or v.language_code == language_code)
+                }
 
             def list_vocab(
                 self,
@@ -225,7 +263,45 @@ class TestLanguageIsolation:
                 pass
 
             def get_vocab_stats(self, language_code=None):
-                return {"known": 0, "learning": 0, "total": 0}
+                known = sum(1 for w in self._vocab.values() if w.status == "known")
+                learning = sum(
+                    1 for w in self._vocab.values() if w.status == "learning"
+                )
+                ignored = sum(1 for w in self._vocab.values() if w.status == "ignored")
+                proper_name = sum(
+                    1 for w in self._vocab.values() if w.status == "proper-name"
+                )
+                return {
+                    "known": known,
+                    "learning": learning,
+                    "ignored": ignored,
+                    "proper_name": proper_name,
+                    "total": len(self._vocab),
+                }
+
+            def get_vocab_statuses(self, words, language_code=None):
+                result = {}
+                for w in words:
+                    vw = self._vocab.get(w)
+                    if vw:
+                        result[w] = vw.status
+                return result
+
+            def get_words_by_status(self, status, language_code=None):
+                return {
+                    w
+                    for w, v in self._vocab.items()
+                    if v.status == status
+                    and (language_code is None or v.language_code == language_code)
+                }
+
+            def get_classified_words(self, language_code=None):
+                return {
+                    w
+                    for w, v in self._vocab.items()
+                    if v.status in ("known", "learning", "ignored", "proper-name")
+                    and (language_code is None or v.language_code == language_code)
+                }
 
             def get_sentences_by_word(self, word):
                 return []

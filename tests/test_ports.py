@@ -169,7 +169,15 @@ class InMemoryPersistence(Persistence):
     def get_vocab_stats(self) -> dict:
         known = sum(1 for v in self.vocab.values() if v.status == "known")
         learning = sum(1 for v in self.vocab.values() if v.status == "learning")
-        return {"known": known, "learning": learning, "total": len(self.vocab)}
+        ignored = sum(1 for v in self.vocab.values() if v.status == "ignored")
+        proper_name = sum(1 for v in self.vocab.values() if v.status == "proper-name")
+        return {
+            "known": known,
+            "learning": learning,
+            "ignored": ignored,
+            "proper_name": proper_name,
+            "total": len(self.vocab),
+        }
 
     def list_vocab(
         self, page=1, per_page=200, status=None, search=None, sort="frequency"
@@ -188,6 +196,30 @@ class InMemoryPersistence(Persistence):
         total = len(words)
         start = (page - 1) * per_page
         return words[start : start + per_page], total
+
+    def get_vocab_statuses(self, words, language_code=""):
+        result = {}
+        for w in words:
+            vw = self.vocab.get(w)
+            if vw:
+                result[w] = vw.status
+        return result
+
+    def get_words_by_status(self, status, language_code=""):
+        return {
+            w
+            for w, v in self.vocab.items()
+            if v.status == status
+            and (not language_code or v.language_code == language_code)
+        }
+
+    def get_classified_words(self, language_code=""):
+        return {
+            w
+            for w, v in self.vocab.items()
+            if v.status in ("known", "learning", "ignored", "proper-name")
+            and (not language_code or v.language_code == language_code)
+        }
 
     def get_sentences_by_word(self, word: str) -> list[Sentence]:
         return [

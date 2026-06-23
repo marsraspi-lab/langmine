@@ -8,7 +8,7 @@ SQLitePersistence (the Persistence port adapter), not directly by domain code.
 import sqlite3
 from pathlib import Path
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -213,6 +213,28 @@ class Database:
                     )
                 except sqlite3.OperationalError:
                     pass  # Column may already exist from CREATE TABLE
+
+        if current < 9:
+            # v8 → v9: dedup vocab rows and add unique + covering indexes
+            self.conn.execute(
+                "DELETE FROM vocab WHERE id NOT IN"
+                " (SELECT MIN(id) FROM vocab GROUP BY word_simplified)"
+            )
+            try:
+                self.conn.execute(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_vocab_word"
+                    " ON vocab(word_simplified)"
+                )
+            except sqlite3.OperationalError:
+                pass
+            try:
+                self.conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_sentences_unknown_word"
+                    " ON sentences(unknown_word)"
+                )
+            except sqlite3.OperationalError:
+                pass
+            self.conn.commit()
 
         self._conn.execute(
             "UPDATE schema_version SET version = ? WHERE version < ?",

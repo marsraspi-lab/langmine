@@ -307,6 +307,27 @@ class VocabRepository(ABC):
         """
         ...
 
+    @abstractmethod
+    def get_vocab_statuses(
+        self, words: list[str], language_code: str = ""
+    ) -> dict[str, str]:
+        """Batch-lookup status for a list of words.
+        Returns dict mapping word_simplified -> status.
+        Words not in the table are absent from the dict.
+        """
+        ...
+
+    @abstractmethod
+    def get_words_by_status(self, status: str, language_code: str = "") -> set[str]:
+        """Return all word_simplified with a given status."""
+        ...
+
+    @abstractmethod
+    def get_classified_words(self, language_code: str = "") -> set[str]:
+        """Return all word_simplified with any classified status
+        (known, learning, ignored, proper-name)."""
+        ...
+
 
 class EventStore(ABC):
     """Port for append-only event logging.

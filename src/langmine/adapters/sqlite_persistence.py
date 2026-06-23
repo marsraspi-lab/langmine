@@ -360,10 +360,23 @@ class SQLitePersistence(Persistence):
         learning = self.conn.execute(
             f"SELECT COUNT(*) FROM vocab WHERE status = 'learning'{suffix}", params
         ).fetchone()[0]
+        ignored = self.conn.execute(
+            f"SELECT COUNT(*) FROM vocab WHERE status = 'ignored'{suffix}", params
+        ).fetchone()[0]
+        proper_name = self.conn.execute(
+            f"SELECT COUNT(*) FROM vocab WHERE status = 'proper-name'{suffix}",
+            params,
+        ).fetchone()[0]
         total = self.conn.execute(
             f"SELECT COUNT(*) FROM vocab WHERE 1=1{suffix}", params
         ).fetchone()[0]
-        return {"known": known, "learning": learning, "total": total}
+        return {
+            "known": known,
+            "learning": learning,
+            "ignored": ignored,
+            "proper_name": proper_name,
+            "total": total,
+        }
 
     def list_vocab(
         self,
@@ -410,6 +423,41 @@ class SQLitePersistence(Persistence):
         ).fetchall()
 
         return [self._row_to_vocab(r) for r in rows], total
+
+    # === Batch Vocab ===
+
+    def get_vocab_statuses(
+        self, words: list[str], language_code: str = ""
+    ) -> dict[str, str]:
+        if not words:
+            return {}
+        placeholders = ", ".join(["?"] * len(words))
+        suffix, params = self._lang_filter(language_code)
+        rows = self.conn.execute(
+            f"SELECT word_simplified, status FROM vocab"
+            f" WHERE word_simplified IN ({placeholders}){suffix}",
+            words + params,
+        ).fetchall()
+        return {row["word_simplified"]: row["status"] for row in rows}
+
+    def get_words_by_status(self, status: str, language_code: str = "") -> set[str]:
+        suffix, params = self._lang_filter(language_code)
+        rows = self.conn.execute(
+            f"SELECT word_simplified FROM vocab WHERE status = ?{suffix}",
+            (status, *params),
+        ).fetchall()
+        return {row["word_simplified"] for row in rows}
+
+    def get_classified_words(self, language_code: str = "") -> set[str]:
+        suffix, params = self._lang_filter(language_code)
+        rows = self.conn.execute(
+            f"SELECT word_simplified FROM vocab"
+            f" WHERE status IN ('known','learning','ignored','proper-name'){suffix}",
+            params,
+        ).fetchall()
+        return {row["word_simplified"] for row in rows}
+
+    # === Sentences ===
 
     def get_sentences_by_word(self, word: str) -> list[Sentence]:
         rows = self.conn.execute(

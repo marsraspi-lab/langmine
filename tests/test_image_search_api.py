@@ -121,7 +121,41 @@ class FakePersistence(Persistence):
             self._vocab.append(VocabWord(word_simplified=w, status="learning"))
 
     def get_vocab_stats(self, language_code: str = ""):
-        return {"known": 0, "learning": 0, "total": 0}
+        known = sum(1 for w in self._vocab if w.status == "known")
+        learning = sum(1 for w in self._vocab if w.status == "learning")
+        ignored = sum(1 for w in self._vocab if w.status == "ignored")
+        proper_name = sum(1 for w in self._vocab if w.status == "proper-name")
+        return {
+            "known": known,
+            "learning": learning,
+            "ignored": ignored,
+            "proper_name": proper_name,
+            "total": len(self._vocab),
+        }
+
+    def get_vocab_statuses(self, words, language_code=""):
+        result = {}
+        for w in words:
+            vw = self.get_vocab_word(w)
+            if vw:
+                result[w] = vw.status
+        return result
+
+    def get_words_by_status(self, status, language_code=""):
+        return {
+            w.word_simplified
+            for w in self._vocab
+            if w.status == status
+            and (not language_code or w.language_code == language_code)
+        }
+
+    def get_classified_words(self, language_code=""):
+        return {
+            w.word_simplified
+            for w in self._vocab
+            if w.status in ("known", "learning", "ignored", "proper-name")
+            and (not language_code or w.language_code == language_code)
+        }
 
     def list_vocab(
         self,

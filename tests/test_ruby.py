@@ -79,6 +79,34 @@ class FakePersistence:
     def update_vocab_status(self, word_simplified, status, language_code=""):
         pass
 
+    def get_vocab_statuses(self, words, language_code=""):
+        result = {}
+        for w in words:
+            if w in self._known:
+                result[w] = "known"
+            elif w in self._ignored:
+                result[w] = "ignored"
+        return result
+
+    def get_words_by_status(self, status, language_code=""):
+        if status == "known":
+            return set(self._known)
+        if status == "ignored":
+            return set(self._ignored)
+        return set()
+
+    def get_classified_words(self, language_code=""):
+        return set(self._known) | set(self._ignored)
+
+    def get_vocab_stats(self):
+        return {
+            "known": len(self._known),
+            "learning": 0,
+            "ignored": len(self._ignored),
+            "proper_name": 0,
+            "total": len(self._known) + len(self._ignored),
+        }
+
 
 # === Tests: Ruby generation ===
 
@@ -349,7 +377,16 @@ class FakeRbPersistence(Persistence):
         pass
 
     def get_vocab_stats(self):
-        return {"known": 0, "learning": 0, "total": 0}
+        return {"known": 0, "learning": 0, "ignored": 0, "proper_name": 0, "total": 0}
+
+    def get_vocab_statuses(self, words, language_code=""):
+        return {}
+
+    def get_words_by_status(self, status, language_code=""):
+        return set()
+
+    def get_classified_words(self, language_code=""):
+        return set()
 
     def list_vocab(self, **kw):
         return [], 0
