@@ -43,6 +43,16 @@ def _get_processor() -> LanguageProcessor | None:
     return current_app.config.get("LANGMINE_LANGUAGE_PROCESSOR")
 
 
+def _get_frequency_source():
+    """Get the frequency source port from app config."""
+    return current_app.config.get("LANGMINE_FREQUENCY_SOURCE")
+
+
+def _get_dictionary():
+    """Get the dictionary port from app config."""
+    return current_app.config.get("LANGMINE_DICTIONARY")
+
+
 def _get_transcript_source() -> TranscriptSource | None:
     """Get the transcript source port from app config."""
     return current_app.config.get("LANGMINE_TRANSCRIPT_SOURCE")

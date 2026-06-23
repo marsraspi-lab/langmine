@@ -16,6 +16,8 @@ from langmine.adapters.inline_transcript import InlineTranscriptSource
 from langmine.domain.ports import (
     AnkiExporter,
     AudioProcessor,
+    Dictionary,
+    FrequencySource,
     ImageSearch,
     LanguageProcessor,
     Persistence,
@@ -32,6 +34,8 @@ def create_app(
     audio_processor: AudioProcessor | None = None,
     anki_exporter: AnkiExporter | None = None,
     image_searcher: ImageSearch | None = None,
+    frequency_source: FrequencySource | None = None,
+    dictionary: Dictionary | None = None,
     config=None,
     config_dir: str | None = None,
 ) -> Flask:
@@ -60,6 +64,8 @@ def create_app(
     app.config["LANGMINE_AUDIO_PROCESSOR"] = audio_processor
     app.config["LANGMINE_ANKI_EXPORTER"] = anki_exporter
     app.config["LANGMINE_IMAGE_SEARCHER"] = image_searcher
+    app.config["LANGMINE_FREQUENCY_SOURCE"] = frequency_source
+    app.config["LANGMINE_DICTIONARY"] = dictionary
 
     app.config["LANGMINE_CONFIG"] = config
     app.config["LANGMINE_CONFIG_DIR"] = config_dir
@@ -146,5 +152,7 @@ def create_production_app() -> Flask:
         )
         if config.google_api_key
         else None,
+        frequency_source=frequency,
+        dictionary=dictionary,
         config=config,
     )

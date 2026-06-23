@@ -435,6 +435,8 @@ def client(persistence, processor, transcript, audio, tmp_path):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        frequency_source=None,
+        dictionary=None,
         config=config,
     )
     app.config["TESTING"] = True
@@ -520,6 +522,8 @@ def client_with_anki(client, persistence, processor, transcript, audio, tmp_path
         transcript_source=transcript,
         audio_processor=audio,
         anki_exporter=mock_exporter,
+        frequency_source=None,
+        dictionary=None,
         config=config,
     )
     app.config["TESTING"] = True

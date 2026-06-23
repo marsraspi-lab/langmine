@@ -275,6 +275,8 @@ def client(persistence, processor, transcript, audio):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        frequency_source=None,
+        dictionary=None,
         config=Config(),
     )
     app.config["TESTING"] = True
@@ -433,6 +435,8 @@ class TestProperNameInTranscript:
             language_processor=ProperNameProcessor(),
             transcript_source=FakeTranscriptSource(),
             audio_processor=FakeAudioProcessor(),
+            frequency_source=None,
+            dictionary=None,
             config=Config(),
         )
         app.config["TESTING"] = True

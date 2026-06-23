@@ -251,6 +251,8 @@ def client(persistence):
         language_processor=FakeLanguageProcessor(),
         transcript_source=FakeTranscriptSource(),
         audio_processor=FakeAudioProcessor(),
+        frequency_source=None,
+        dictionary=None,
         config=Config(),
     )
     app.config["TESTING"] = True
@@ -324,6 +326,8 @@ class TestImageSearchAPI:
             transcript_source=FakeTranscriptSource(),
             audio_processor=FakeAudioProcessor(),
             image_searcher=fake_searcher,
+            frequency_source=None,
+            dictionary=None,
             config=Config(),
         )
         app.config["TESTING"] = True

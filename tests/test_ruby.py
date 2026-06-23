@@ -455,6 +455,8 @@ def rb_client(rb_persistence):
         language_processor=FakeRbProcessor(),
         transcript_source=FakeRbTranscript(),
         audio_processor=FakeRbAudio(),
+        frequency_source=None,
+        dictionary=None,
         config=Config(),
     )
     app.config["TESTING"] = True

@@ -300,6 +300,8 @@ def client(processor, persistence, transcript, audio):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        frequency_source=None,
+        dictionary=None,
         config=Config(),
     )
     app.config["TESTING"] = True
@@ -389,6 +391,8 @@ class TestDifficultyPreview:
             language_processor=processor,
             transcript_source=FailingTranscriptSource(),
             audio_processor=audio,
+            frequency_source=None,
+            dictionary=None,
             config=Config(),
         )
         app.config["TESTING"] = True

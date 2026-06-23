@@ -42,6 +42,8 @@ def client(persistence, processor, transcript, audio):
         language_processor=processor,
         transcript_source=transcript,
         audio_processor=audio,
+        frequency_source=None,
+        dictionary=None,
         config=Config(),
     )
     app.config["TESTING"] = True

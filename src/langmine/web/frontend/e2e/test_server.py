@@ -615,6 +615,8 @@ app = create_app(
     audio_processor=FakeAudioProcessor(),
     anki_exporter=FakeAnkiExporter(),
     image_searcher=FakeImageSearch(),
+    frequency_source=None,
+    dictionary=None,
     config=Config(),
     config_dir=temp_config_dir,
 )
