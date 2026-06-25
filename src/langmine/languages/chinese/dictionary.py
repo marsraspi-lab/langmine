@@ -154,10 +154,7 @@ class CcCedictAdapter(Dictionary):
                 _index_cedict_reading(entries, traditional, simplified, reading)
 
         # Convert list-based entries to the enriched dict format
-        return {
-            word: _merge_readings(readings)
-            for word, readings in entries.items()
-        }
+        return {word: _merge_readings(readings) for word, readings in entries.items()}
 
     def _is_german(self, definition: str) -> bool:
         """Heuristic: check if a definition string contains German words."""
@@ -221,6 +218,7 @@ def _merge_readings(readings: list[dict]) -> dict:
     with the most senses becomes primary — this is a good heuristic for
     picking the most common pronunciation (e.g. shuō over shuì for 说).
     """
+
     # Sort by number of English definitions (more senses = more common reading)
     def _sense_count(r):
         return len(r["definition_en"].split(";")) if r["definition_en"] else 0
@@ -284,7 +282,9 @@ def _numbered_to_diacritic(syllable: str) -> str:
                 if vowels:
                     last_vowel = vowels[-1]
                     idx = base.rfind(last_vowel)
-                    marked = _TONE_MARKS.get(last_vowel.lower(), {}).get(tone, last_vowel)
+                    marked = _TONE_MARKS.get(last_vowel.lower(), {}).get(
+                        tone, last_vowel
+                    )
                     if last_vowel.isupper():
                         marked = marked.upper()
                     result.append(base[:idx] + marked + base[idx + 1 :])
@@ -301,7 +301,7 @@ def _pypinyin_fallback(word: str) -> dict | None:
     if not re.search(r"[一-鿿]", word):
         return None
     try:
-        from pypinyin import pinyin, Style
+        from pypinyin import Style, pinyin
     except ImportError:
         return None
     py = pinyin(word, style=Style.TONE)
