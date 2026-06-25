@@ -204,11 +204,7 @@
 		</span>
 		<div class="card-header-right">
 			{#if sentence.has_audio}
-				<button
-					class="play-btn"
-					onclick={toggleAudio}
-					title={playing ? 'Pause' : 'Play'}
-				>
+				<button class="play-btn" onclick={toggleAudio} title={playing ? 'Pause' : 'Play'}>
 					{playing ? '⏸' : '▶'}
 				</button>
 			{/if}
@@ -372,9 +368,9 @@
 			<audio
 				bind:this={audioEl}
 				src="/api/sentences/{sentence.id}/audio"
-				onended={() => playing = false}
-				onpause={() => playing = false}
-				onplay={() => playing = true}
+				onended={() => (playing = false)}
+				onpause={() => (playing = false)}
+				onplay={() => (playing = true)}
 			></audio>
 		</div>
 	{/if}

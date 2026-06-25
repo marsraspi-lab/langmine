@@ -1,5 +1,12 @@
 <script>
-	import { app, selectVideo, mineVideo, exportAnki, deleteVideo, remineVideo } from './stores.svelte.js';
+	import {
+		app,
+		selectVideo,
+		mineVideo,
+		exportAnki,
+		deleteVideo,
+		remineVideo
+	} from './stores.svelte.js';
 	import { previewVideo, fetchSubtitleInfo } from './api.js';
 	import PreviewPanel from './PreviewPanel.svelte';
 
